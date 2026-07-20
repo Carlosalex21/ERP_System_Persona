@@ -1,0 +1,6152 @@
+openapi: 3.0.3
+info:
+  title: ERP SaaS API Documentación
+  version: 1.0.0
+  description: Gestión de Inventario, Facturación y RRHH.
+paths:
+  /api/v1/auth/management/:
+    get:
+      operationId: auth_management_list
+      description: |-
+        Permite a los administradores del tenant gestionar a sus empleados
+        (invitar, ver, activar/desactivar, asignar rol).
+      tags:
+      - auth
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UserManaged'
+          description: ''
+    post:
+      operationId: auth_management_create
+      description: |-
+        Permite a los administradores del tenant gestionar a sus empleados
+        (invitar, ver, activar/desactivar, asignar rol).
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserManagedRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/UserManagedRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UserManagedRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserManaged'
+          description: ''
+  /api/v1/auth/management/{id}/:
+    get:
+      operationId: auth_management_retrieve
+      description: |-
+        Permite a los administradores del tenant gestionar a sus empleados
+        (invitar, ver, activar/desactivar, asignar rol).
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Perfil de Usuario.
+        required: true
+      tags:
+      - auth
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserManaged'
+          description: ''
+    put:
+      operationId: auth_management_update
+      description: |-
+        Permite a los administradores del tenant gestionar a sus empleados
+        (invitar, ver, activar/desactivar, asignar rol).
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Perfil de Usuario.
+        required: true
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserManagedRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/UserManagedRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UserManagedRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserManaged'
+          description: ''
+    patch:
+      operationId: auth_management_partial_update
+      description: |-
+        Permite a los administradores del tenant gestionar a sus empleados
+        (invitar, ver, activar/desactivar, asignar rol).
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Perfil de Usuario.
+        required: true
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedUserManagedRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedUserManagedRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedUserManagedRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserManaged'
+          description: ''
+    delete:
+      operationId: auth_management_destroy
+      description: |-
+        Permite a los administradores del tenant gestionar a sus empleados
+        (invitar, ver, activar/desactivar, asignar rol).
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Perfil de Usuario.
+        required: true
+      tags:
+      - auth
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/auth/me/:
+    get:
+      operationId: auth_me_retrieve
+      description: Vista para obtener los datos del usuario actualmente autenticado.
+      tags:
+      - auth
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserMe'
+          description: ''
+  /api/v1/auth/token/:
+    post:
+      operationId: auth_token_create
+      description: |-
+        Takes a set of user credentials and returns an access and refresh JSON web
+        token pair to prove the authentication of those credentials.
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MyTokenObtainPairRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MyTokenObtainPairRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MyTokenObtainPairRequest'
+        required: true
+      security:
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/v1/clientes/:
+    get:
+      operationId: clientes_list
+      description: Vista para listar todos los clientes o crear un nuevo cliente.
+      tags:
+      - clientes
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Cliente'
+          description: ''
+    post:
+      operationId: clientes_create
+      description: Vista para listar todos los clientes o crear un nuevo cliente.
+      tags:
+      - clientes
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClienteRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ClienteRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ClienteRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cliente'
+          description: ''
+  /api/v1/clientes/{id}/:
+    get:
+      operationId: clientes_retrieve
+      description: Vista para ver, actualizar o eliminar un cliente específico por
+        su ID.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - clientes
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cliente'
+          description: ''
+    put:
+      operationId: clientes_update
+      description: Vista para ver, actualizar o eliminar un cliente específico por
+        su ID.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - clientes
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClienteRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ClienteRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ClienteRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cliente'
+          description: ''
+    patch:
+      operationId: clientes_partial_update
+      description: Vista para ver, actualizar o eliminar un cliente específico por
+        su ID.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - clientes
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedClienteRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedClienteRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedClienteRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cliente'
+          description: ''
+    delete:
+      operationId: clientes_destroy
+      description: Vista para ver, actualizar o eliminar un cliente específico por
+        su ID.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - clientes
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/configuracion/empresa/:
+    get:
+      operationId: configuracion_empresa_retrieve
+      description: |-
+        Vista para ver y actualizar la configuración de la empresa del tenant actual.
+        Siempre opera sobre el objeto con pk=1.
+      tags:
+      - configuracion
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfiguracionEmpresa'
+          description: ''
+    put:
+      operationId: configuracion_empresa_update
+      description: |-
+        Vista para ver y actualizar la configuración de la empresa del tenant actual.
+        Siempre opera sobre el objeto con pk=1.
+      tags:
+      - configuracion
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfiguracionEmpresaRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ConfiguracionEmpresaRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ConfiguracionEmpresaRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfiguracionEmpresa'
+          description: ''
+    patch:
+      operationId: configuracion_empresa_partial_update
+      description: |-
+        Vista para ver y actualizar la configuración de la empresa del tenant actual.
+        Siempre opera sobre el objeto con pk=1.
+      tags:
+      - configuracion
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedConfiguracionEmpresaRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedConfiguracionEmpresaRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedConfiguracionEmpresaRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfiguracionEmpresa'
+          description: ''
+  /api/v1/configuracion/iva/:
+    get:
+      operationId: configuracion_iva_list
+      description: Administra las configuraciones de IVA.
+      tags:
+      - configuracion
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Iva'
+          description: ''
+    post:
+      operationId: configuracion_iva_create
+      description: Administra las configuraciones de IVA.
+      tags:
+      - configuracion
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IvaRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/IvaRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/IvaRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Iva'
+          description: ''
+  /api/v1/configuracion/iva/{id}/:
+    get:
+      operationId: configuracion_iva_retrieve
+      description: Administra las configuraciones de IVA.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Configuración de IVA.
+        required: true
+      tags:
+      - configuracion
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Iva'
+          description: ''
+    put:
+      operationId: configuracion_iva_update
+      description: Administra las configuraciones de IVA.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Configuración de IVA.
+        required: true
+      tags:
+      - configuracion
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IvaRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/IvaRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/IvaRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Iva'
+          description: ''
+    patch:
+      operationId: configuracion_iva_partial_update
+      description: Administra las configuraciones de IVA.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Configuración de IVA.
+        required: true
+      tags:
+      - configuracion
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedIvaRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedIvaRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedIvaRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Iva'
+          description: ''
+    delete:
+      operationId: configuracion_iva_destroy
+      description: Administra las configuraciones de IVA.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Configuración de IVA.
+        required: true
+      tags:
+      - configuracion
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/configuracion/tipos-documento/:
+    get:
+      operationId: configuracion_tipos_documento_list
+      description: Administra los tipos de documentos fiscales.
+      tags:
+      - configuracion
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TipoDocumento'
+          description: ''
+    post:
+      operationId: configuracion_tipos_documento_create
+      description: Administra los tipos de documentos fiscales.
+      tags:
+      - configuracion
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TipoDocumentoRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TipoDocumentoRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TipoDocumentoRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TipoDocumento'
+          description: ''
+  /api/v1/configuracion/tipos-documento/{id}/:
+    get:
+      operationId: configuracion_tipos_documento_retrieve
+      description: Administra los tipos de documentos fiscales.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Tipo de Documento Fiscal.
+        required: true
+      tags:
+      - configuracion
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TipoDocumento'
+          description: ''
+    put:
+      operationId: configuracion_tipos_documento_update
+      description: Administra los tipos de documentos fiscales.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Tipo de Documento Fiscal.
+        required: true
+      tags:
+      - configuracion
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TipoDocumentoRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TipoDocumentoRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TipoDocumentoRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TipoDocumento'
+          description: ''
+    patch:
+      operationId: configuracion_tipos_documento_partial_update
+      description: Administra los tipos de documentos fiscales.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Tipo de Documento Fiscal.
+        required: true
+      tags:
+      - configuracion
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedTipoDocumentoRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedTipoDocumentoRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedTipoDocumentoRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TipoDocumento'
+          description: ''
+    delete:
+      operationId: configuracion_tipos_documento_destroy
+      description: Administra los tipos de documentos fiscales.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Tipo de Documento Fiscal.
+        required: true
+      tags:
+      - configuracion
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/facturacion/barcode-scan/:
+    post:
+      operationId: facturacion_barcode_scan_create
+      description: Agrega o quita productos de la cuenta actual mediante escaneo.
+      tags:
+      - facturacion
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/facturacion/cupones/:
+    get:
+      operationId: facturacion_cupones_list
+      tags:
+      - facturacion
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Cupondescuento'
+          description: ''
+    post:
+      operationId: facturacion_cupones_create
+      tags:
+      - facturacion
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CupondescuentoRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CupondescuentoRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CupondescuentoRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cupondescuento'
+          description: ''
+  /api/v1/facturacion/cupones/{id}/:
+    get:
+      operationId: facturacion_cupones_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this cupondescuento.
+        required: true
+      tags:
+      - facturacion
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cupondescuento'
+          description: ''
+    put:
+      operationId: facturacion_cupones_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this cupondescuento.
+        required: true
+      tags:
+      - facturacion
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CupondescuentoRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CupondescuentoRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CupondescuentoRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cupondescuento'
+          description: ''
+    patch:
+      operationId: facturacion_cupones_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this cupondescuento.
+        required: true
+      tags:
+      - facturacion
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedCupondescuentoRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedCupondescuentoRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedCupondescuentoRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cupondescuento'
+          description: ''
+    delete:
+      operationId: facturacion_cupones_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this cupondescuento.
+        required: true
+      tags:
+      - facturacion
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/facturacion/detallefactura/actualizar-descuento/:
+    post:
+      operationId: facturacion_detallefactura_actualizar_descuento_create
+      description: Aplica descuento a una línea de producto específica.
+      tags:
+      - facturacion
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/facturacion/devoluciones/:
+    get:
+      operationId: facturacion_devoluciones_list
+      tags:
+      - facturacion
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Devolucion'
+          description: ''
+    post:
+      operationId: facturacion_devoluciones_create
+      tags:
+      - facturacion
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DevolucionRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/DevolucionRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DevolucionRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Devolucion'
+          description: ''
+  /api/v1/facturacion/devoluciones/{id}/:
+    get:
+      operationId: facturacion_devoluciones_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this devolucion.
+        required: true
+      tags:
+      - facturacion
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Devolucion'
+          description: ''
+    put:
+      operationId: facturacion_devoluciones_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this devolucion.
+        required: true
+      tags:
+      - facturacion
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DevolucionRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/DevolucionRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DevolucionRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Devolucion'
+          description: ''
+    patch:
+      operationId: facturacion_devoluciones_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this devolucion.
+        required: true
+      tags:
+      - facturacion
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedDevolucionRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedDevolucionRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedDevolucionRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Devolucion'
+          description: ''
+    delete:
+      operationId: facturacion_devoluciones_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this devolucion.
+        required: true
+      tags:
+      - facturacion
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/facturacion/factura-imprimir/{factura_id}/:
+    get:
+      operationId: facturacion_factura_imprimir_retrieve
+      description: Genera y devuelve un archivo PDF para la factura especificada.
+        El formato de papel se puede especificar como un parámetro de consulta.
+      summary: Imprimir Factura en PDF
+      parameters:
+      - in: path
+        name: factura_id
+        schema:
+          type: integer
+        description: ID de la factura a imprimir
+        required: true
+      - in: query
+        name: paper_size
+        schema:
+          type: string
+        description: Tamaño del papel ('58' o '80')
+      tags:
+      - facturacion
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                description: Factura en formato PDF.
+                content:
+                  application/pdf:
+                    schema:
+                      type: string
+                      format: binary
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                description: Factura no encontrada.
+          description: ''
+  /api/v1/facturacion/factura-pendiente/:
+    get:
+      operationId: facturacion_factura_pendiente_retrieve
+      description: Recupera la factura abierta de un cliente para continuar la venta.
+      tags:
+      - facturacion
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/facturacion/factura/descuento-global/:
+    post:
+      operationId: facturacion_factura_descuento_global_create
+      description: Aplica el mismo descuento a todos los productos de la factura.
+      tags:
+      - facturacion
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/facturacion/factura/reset/:
+    post:
+      operationId: facturacion_factura_reset_create
+      description: Cancela la cuenta actual y vacía los items.
+      tags:
+      - facturacion
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/facturacion/facturas/{id}/anular/:
+    post:
+      operationId: facturacion_facturas_anular_create
+      summary: Anular una Factura
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - facturacion
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                description: Factura anulada y stock restaurado.
+          description: ''
+  /api/v1/facturacion/lista/:
+    get:
+      operationId: facturacion_lista_list
+      description: ViewSet para la gestión completa de Facturas (Listar, Crear, Obtener,
+        Actualizar, Eliminar).
+      tags:
+      - facturacion
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Factura'
+          description: ''
+    post:
+      operationId: facturacion_lista_create
+      description: ViewSet para la gestión completa de Facturas (Listar, Crear, Obtener,
+        Actualizar, Eliminar).
+      tags:
+      - facturacion
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FacturaRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/FacturaRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/FacturaRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Factura'
+          description: ''
+  /api/v1/facturacion/lista/{id}/:
+    get:
+      operationId: facturacion_lista_retrieve
+      description: ViewSet para la gestión completa de Facturas (Listar, Crear, Obtener,
+        Actualizar, Eliminar).
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this factura.
+        required: true
+      tags:
+      - facturacion
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Factura'
+          description: ''
+    put:
+      operationId: facturacion_lista_update
+      description: ViewSet para la gestión completa de Facturas (Listar, Crear, Obtener,
+        Actualizar, Eliminar).
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this factura.
+        required: true
+      tags:
+      - facturacion
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FacturaRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/FacturaRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/FacturaRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Factura'
+          description: ''
+    patch:
+      operationId: facturacion_lista_partial_update
+      description: ViewSet para la gestión completa de Facturas (Listar, Crear, Obtener,
+        Actualizar, Eliminar).
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this factura.
+        required: true
+      tags:
+      - facturacion
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedFacturaRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedFacturaRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedFacturaRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Factura'
+          description: ''
+    delete:
+      operationId: facturacion_lista_destroy
+      description: ViewSet para la gestión completa de Facturas (Listar, Crear, Obtener,
+        Actualizar, Eliminar).
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this factura.
+        required: true
+      tags:
+      - facturacion
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/facturacion/metodos-pago/:
+    get:
+      operationId: facturacion_metodos_pago_list
+      tags:
+      - facturacion
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MetodoPago'
+          description: ''
+    post:
+      operationId: facturacion_metodos_pago_create
+      tags:
+      - facturacion
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MetodoPagoRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MetodoPagoRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MetodoPagoRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MetodoPago'
+          description: ''
+  /api/v1/facturacion/metodos-pago/{id}/:
+    get:
+      operationId: facturacion_metodos_pago_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this metodo pago.
+        required: true
+      tags:
+      - facturacion
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MetodoPago'
+          description: ''
+    put:
+      operationId: facturacion_metodos_pago_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this metodo pago.
+        required: true
+      tags:
+      - facturacion
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MetodoPagoRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MetodoPagoRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MetodoPagoRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MetodoPago'
+          description: ''
+    patch:
+      operationId: facturacion_metodos_pago_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this metodo pago.
+        required: true
+      tags:
+      - facturacion
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedMetodoPagoRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedMetodoPagoRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedMetodoPagoRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MetodoPago'
+          description: ''
+    delete:
+      operationId: facturacion_metodos_pago_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this metodo pago.
+        required: true
+      tags:
+      - facturacion
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/facturacion/pago/:
+    post:
+      operationId: facturacion_pago_create
+      description: Procesa el cierre de la factura y el registro del pago.
+      tags:
+      - facturacion
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/facturacion/public/catalog/:
+    get:
+      operationId: facturacion_public_catalog_retrieve
+      description: Expone el catálogo de productos y variantes a clientes no autenticados
+        (Catálogo del SaaS).
+      tags:
+      - facturacion
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/v1/facturacion/public/external-order/crear/:
+    post:
+      operationId: facturacion_public_external_order_crear_create
+      description: Endpoint público para que los clientes finales creen pedidos en
+        la tienda del Tenant.
+      tags:
+      - facturacion
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/v1/facturacion/transaccion-metodo/:
+    get:
+      operationId: facturacion_transaccion_metodo_retrieve
+      tags:
+      - facturacion
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/facturacion/transacciones/:
+    get:
+      operationId: facturacion_transacciones_list
+      tags:
+      - facturacion
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Transaccionpago'
+          description: ''
+    post:
+      operationId: facturacion_transacciones_create
+      tags:
+      - facturacion
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransaccionpagoRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TransaccionpagoRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TransaccionpagoRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Transaccionpago'
+          description: ''
+  /api/v1/facturacion/transacciones/{id}/:
+    get:
+      operationId: facturacion_transacciones_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this transaccionpago.
+        required: true
+      tags:
+      - facturacion
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Transaccionpago'
+          description: ''
+    put:
+      operationId: facturacion_transacciones_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this transaccionpago.
+        required: true
+      tags:
+      - facturacion
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransaccionpagoRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TransaccionpagoRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TransaccionpagoRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Transaccionpago'
+          description: ''
+    patch:
+      operationId: facturacion_transacciones_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this transaccionpago.
+        required: true
+      tags:
+      - facturacion
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedTransaccionpagoRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedTransaccionpagoRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedTransaccionpagoRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Transaccionpago'
+          description: ''
+    delete:
+      operationId: facturacion_transacciones_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this transaccionpago.
+        required: true
+      tags:
+      - facturacion
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/inventario/actual/:
+    get:
+      operationId: inventario_actual_retrieve
+      description: Devuelve el catálogo unificado para la pantalla de inventario o
+        POS.
+      tags:
+      - inventario
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/inventario/almacenes/:
+    get:
+      operationId: inventario_almacenes_list
+      tags:
+      - inventario
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Almacen'
+          description: ''
+    post:
+      operationId: inventario_almacenes_create
+      tags:
+      - inventario
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AlmacenRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AlmacenRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AlmacenRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Almacen'
+          description: ''
+  /api/v1/inventario/almacenes/{id}/:
+    get:
+      operationId: inventario_almacenes_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this almacen.
+        required: true
+      tags:
+      - inventario
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Almacen'
+          description: ''
+    put:
+      operationId: inventario_almacenes_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this almacen.
+        required: true
+      tags:
+      - inventario
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AlmacenRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AlmacenRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AlmacenRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Almacen'
+          description: ''
+    patch:
+      operationId: inventario_almacenes_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this almacen.
+        required: true
+      tags:
+      - inventario
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedAlmacenRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedAlmacenRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedAlmacenRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Almacen'
+          description: ''
+    delete:
+      operationId: inventario_almacenes_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this almacen.
+        required: true
+      tags:
+      - inventario
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/inventario/atributos/:
+    get:
+      operationId: inventario_atributos_list
+      tags:
+      - inventario
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Atributo'
+          description: ''
+    post:
+      operationId: inventario_atributos_create
+      tags:
+      - inventario
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AtributoRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AtributoRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AtributoRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Atributo'
+          description: ''
+  /api/v1/inventario/atributos/{id}/:
+    get:
+      operationId: inventario_atributos_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this atributo.
+        required: true
+      tags:
+      - inventario
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Atributo'
+          description: ''
+    put:
+      operationId: inventario_atributos_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this atributo.
+        required: true
+      tags:
+      - inventario
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AtributoRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AtributoRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AtributoRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Atributo'
+          description: ''
+    patch:
+      operationId: inventario_atributos_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this atributo.
+        required: true
+      tags:
+      - inventario
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedAtributoRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedAtributoRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedAtributoRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Atributo'
+          description: ''
+    delete:
+      operationId: inventario_atributos_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this atributo.
+        required: true
+      tags:
+      - inventario
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/inventario/categorias/:
+    get:
+      operationId: inventario_categorias_list
+      tags:
+      - inventario
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Categoria'
+          description: ''
+    post:
+      operationId: inventario_categorias_create
+      tags:
+      - inventario
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CategoriaRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CategoriaRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CategoriaRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Categoria'
+          description: ''
+  /api/v1/inventario/categorias/{id}/:
+    get:
+      operationId: inventario_categorias_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this categoriaproducto.
+        required: true
+      tags:
+      - inventario
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Categoria'
+          description: ''
+    put:
+      operationId: inventario_categorias_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this categoriaproducto.
+        required: true
+      tags:
+      - inventario
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CategoriaRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CategoriaRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CategoriaRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Categoria'
+          description: ''
+    patch:
+      operationId: inventario_categorias_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this categoriaproducto.
+        required: true
+      tags:
+      - inventario
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedCategoriaRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedCategoriaRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedCategoriaRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Categoria'
+          description: ''
+    delete:
+      operationId: inventario_categorias_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this categoriaproducto.
+        required: true
+      tags:
+      - inventario
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/inventario/inventario-fisico/:
+    get:
+      operationId: inventario_inventario_fisico_list
+      tags:
+      - inventario
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Inventario'
+          description: ''
+    post:
+      operationId: inventario_inventario_fisico_create
+      tags:
+      - inventario
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InventarioRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/InventarioRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/InventarioRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Inventario'
+          description: ''
+  /api/v1/inventario/inventario-fisico/{id}/:
+    get:
+      operationId: inventario_inventario_fisico_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this inventario.
+        required: true
+      tags:
+      - inventario
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Inventario'
+          description: ''
+    put:
+      operationId: inventario_inventario_fisico_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this inventario.
+        required: true
+      tags:
+      - inventario
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InventarioRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/InventarioRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/InventarioRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Inventario'
+          description: ''
+    patch:
+      operationId: inventario_inventario_fisico_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this inventario.
+        required: true
+      tags:
+      - inventario
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedInventarioRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedInventarioRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedInventarioRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Inventario'
+          description: ''
+    delete:
+      operationId: inventario_inventario_fisico_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this inventario.
+        required: true
+      tags:
+      - inventario
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/inventario/movimientos/:
+    get:
+      operationId: inventario_movimientos_list
+      tags:
+      - inventario
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MovimientoInventario'
+          description: ''
+    post:
+      operationId: inventario_movimientos_create
+      tags:
+      - inventario
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MovimientoInventarioRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MovimientoInventarioRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MovimientoInventarioRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MovimientoInventario'
+          description: ''
+  /api/v1/inventario/movimientos/{id}/:
+    get:
+      operationId: inventario_movimientos_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this movimiento inventario.
+        required: true
+      tags:
+      - inventario
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MovimientoInventario'
+          description: ''
+    put:
+      operationId: inventario_movimientos_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this movimiento inventario.
+        required: true
+      tags:
+      - inventario
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MovimientoInventarioRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MovimientoInventarioRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MovimientoInventarioRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MovimientoInventario'
+          description: ''
+    patch:
+      operationId: inventario_movimientos_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this movimiento inventario.
+        required: true
+      tags:
+      - inventario
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedMovimientoInventarioRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedMovimientoInventarioRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedMovimientoInventarioRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MovimientoInventario'
+          description: ''
+    delete:
+      operationId: inventario_movimientos_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this movimiento inventario.
+        required: true
+      tags:
+      - inventario
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/inventario/productos/:
+    get:
+      operationId: inventario_productos_list
+      tags:
+      - Inventario
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Producto'
+          description: ''
+    post:
+      operationId: inventario_productos_create
+      tags:
+      - Inventario
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductoRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ProductoRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ProductoRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Producto'
+          description: ''
+  /api/v1/inventario/productos/{id}/:
+    get:
+      operationId: inventario_productos_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this producto.
+        required: true
+      tags:
+      - Inventario
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Producto'
+          description: ''
+    put:
+      operationId: inventario_productos_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this producto.
+        required: true
+      tags:
+      - Inventario
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductoRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ProductoRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ProductoRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Producto'
+          description: ''
+    patch:
+      operationId: inventario_productos_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this producto.
+        required: true
+      tags:
+      - Inventario
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedProductoRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedProductoRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedProductoRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Producto'
+          description: ''
+    delete:
+      operationId: inventario_productos_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this producto.
+        required: true
+      tags:
+      - Inventario
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/inventario/variantes/:
+    get:
+      operationId: inventario_variantes_list
+      tags:
+      - inventario
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Variacionproducto'
+          description: ''
+    post:
+      operationId: inventario_variantes_create
+      tags:
+      - inventario
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VariacionproductoRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/VariacionproductoRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/VariacionproductoRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Variacionproducto'
+          description: ''
+  /api/v1/inventario/variantes/{id}/:
+    get:
+      operationId: inventario_variantes_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this variacionproducto.
+        required: true
+      tags:
+      - inventario
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Variacionproducto'
+          description: ''
+    put:
+      operationId: inventario_variantes_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this variacionproducto.
+        required: true
+      tags:
+      - inventario
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VariacionproductoRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/VariacionproductoRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/VariacionproductoRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Variacionproducto'
+          description: ''
+    patch:
+      operationId: inventario_variantes_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this variacionproducto.
+        required: true
+      tags:
+      - inventario
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedVariacionproductoRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedVariacionproductoRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedVariacionproductoRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Variacionproducto'
+          description: ''
+    delete:
+      operationId: inventario_variantes_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this variacionproducto.
+        required: true
+      tags:
+      - inventario
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/pagos/metodos-config/:
+    get:
+      operationId: pagos_metodos_config_list
+      description: Permite a los administradores del tenant gestionar los métodos
+        de pago disponibles.
+      tags:
+      - pagos
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MetodoPagoConfig'
+          description: ''
+    post:
+      operationId: pagos_metodos_config_create
+      description: Permite a los administradores del tenant gestionar los métodos
+        de pago disponibles.
+      tags:
+      - pagos
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MetodoPagoConfigRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MetodoPagoConfigRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MetodoPagoConfigRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MetodoPagoConfig'
+          description: ''
+  /api/v1/pagos/metodos-config/{id}/:
+    get:
+      operationId: pagos_metodos_config_retrieve
+      description: Permite a los administradores del tenant gestionar los métodos
+        de pago disponibles.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Configuración de Método
+          de Pago.
+        required: true
+      tags:
+      - pagos
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MetodoPagoConfig'
+          description: ''
+    put:
+      operationId: pagos_metodos_config_update
+      description: Permite a los administradores del tenant gestionar los métodos
+        de pago disponibles.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Configuración de Método
+          de Pago.
+        required: true
+      tags:
+      - pagos
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MetodoPagoConfigRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MetodoPagoConfigRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MetodoPagoConfigRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MetodoPagoConfig'
+          description: ''
+    patch:
+      operationId: pagos_metodos_config_partial_update
+      description: Permite a los administradores del tenant gestionar los métodos
+        de pago disponibles.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Configuración de Método
+          de Pago.
+        required: true
+      tags:
+      - pagos
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedMetodoPagoConfigRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedMetodoPagoConfigRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedMetodoPagoConfigRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MetodoPagoConfig'
+          description: ''
+    delete:
+      operationId: pagos_metodos_config_destroy
+      description: Permite a los administradores del tenant gestionar los métodos
+        de pago disponibles.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Configuración de Método
+          de Pago.
+        required: true
+      tags:
+      - pagos
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/pagos/pagomovil-config/:
+    get:
+      operationId: pagos_pagomovil_config_list
+      tags:
+      - pagos
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PagoMovilConfig'
+          description: ''
+    post:
+      operationId: pagos_pagomovil_config_create
+      tags:
+      - pagos
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PagoMovilConfigRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PagoMovilConfigRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PagoMovilConfigRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagoMovilConfig'
+          description: ''
+  /api/v1/pagos/pagomovil-config/{id}/:
+    get:
+      operationId: pagos_pagomovil_config_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Configuración Pago Móvil.
+        required: true
+      tags:
+      - pagos
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagoMovilConfig'
+          description: ''
+    put:
+      operationId: pagos_pagomovil_config_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Configuración Pago Móvil.
+        required: true
+      tags:
+      - pagos
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PagoMovilConfigRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PagoMovilConfigRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PagoMovilConfigRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagoMovilConfig'
+          description: ''
+    patch:
+      operationId: pagos_pagomovil_config_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Configuración Pago Móvil.
+        required: true
+      tags:
+      - pagos
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedPagoMovilConfigRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedPagoMovilConfigRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedPagoMovilConfigRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagoMovilConfig'
+          description: ''
+    delete:
+      operationId: pagos_pagomovil_config_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Configuración Pago Móvil.
+        required: true
+      tags:
+      - pagos
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/pagos/transacciones-pasarela/:
+    get:
+      operationId: pagos_transacciones_pasarela_list
+      description: Permite a los administradores del tenant ver las transacciones
+        de pasarela.
+      tags:
+      - pagos
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TransaccionPasarela'
+          description: ''
+  /api/v1/pagos/transacciones-pasarela/{id}/:
+    get:
+      operationId: pagos_transacciones_pasarela_retrieve
+      description: Permite a los administradores del tenant ver las transacciones
+        de pasarela.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Transacción de Pasarela.
+        required: true
+      tags:
+      - pagos
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransaccionPasarela'
+          description: ''
+  /api/v1/pagos/zelle-config/:
+    get:
+      operationId: pagos_zelle_config_list
+      tags:
+      - pagos
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ZelleConfig'
+          description: ''
+    post:
+      operationId: pagos_zelle_config_create
+      tags:
+      - pagos
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ZelleConfigRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ZelleConfigRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ZelleConfigRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ZelleConfig'
+          description: ''
+  /api/v1/pagos/zelle-config/{id}/:
+    get:
+      operationId: pagos_zelle_config_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Configuración Zelle.
+        required: true
+      tags:
+      - pagos
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ZelleConfig'
+          description: ''
+    put:
+      operationId: pagos_zelle_config_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Configuración Zelle.
+        required: true
+      tags:
+      - pagos
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ZelleConfigRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ZelleConfigRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ZelleConfigRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ZelleConfig'
+          description: ''
+    patch:
+      operationId: pagos_zelle_config_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Configuración Zelle.
+        required: true
+      tags:
+      - pagos
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedZelleConfigRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedZelleConfigRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedZelleConfigRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ZelleConfig'
+          description: ''
+    delete:
+      operationId: pagos_zelle_config_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Configuración Zelle.
+        required: true
+      tags:
+      - pagos
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/proveedores/proveedores/:
+    get:
+      operationId: proveedores_proveedores_list
+      description: CRUD completo de proveedores delegando operaciones críticas al
+        Core.
+      tags:
+      - proveedores
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Proveedor'
+          description: ''
+    post:
+      operationId: proveedores_proveedores_create
+      description: CRUD completo de proveedores delegando operaciones críticas al
+        Core.
+      tags:
+      - proveedores
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProveedorRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ProveedorRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ProveedorRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Proveedor'
+          description: ''
+  /api/v1/proveedores/proveedores/{id}/:
+    get:
+      operationId: proveedores_proveedores_retrieve
+      description: CRUD completo de proveedores delegando operaciones críticas al
+        Core.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this proveedor.
+        required: true
+      tags:
+      - proveedores
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Proveedor'
+          description: ''
+    put:
+      operationId: proveedores_proveedores_update
+      description: CRUD completo de proveedores delegando operaciones críticas al
+        Core.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this proveedor.
+        required: true
+      tags:
+      - proveedores
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProveedorRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ProveedorRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ProveedorRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Proveedor'
+          description: ''
+    patch:
+      operationId: proveedores_proveedores_partial_update
+      description: CRUD completo de proveedores delegando operaciones críticas al
+        Core.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this proveedor.
+        required: true
+      tags:
+      - proveedores
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedProveedorRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedProveedorRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedProveedorRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Proveedor'
+          description: ''
+    delete:
+      operationId: proveedores_proveedores_destroy
+      description: Sobreescribimos el método DELETE de la API para usar nuestro servicio.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this proveedor.
+        required: true
+      tags:
+      - proveedores
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/public/catalogo/:
+    get:
+      operationId: public_catalogo_list
+      description: Vista pública para que los clientes vean el catálogo de productos.
+      summary: Ver Catálogo de Productos Público
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - public
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedPublicProductoList'
+          description: ''
+  /api/v1/public/ordenar/:
+    post:
+      operationId: public_ordenar_create
+      description: Vista pública para que un cliente cree un nuevo pedido.
+      summary: Crear un Nuevo Pedido desde el Catálogo
+      tags:
+      - public
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PublicCreateOrderRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PublicCreateOrderRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PublicCreateOrderRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/v1/reportes/cierre-caja/:
+    get:
+      operationId: reportes_cierre_caja_retrieve
+      description: Genera el reporte de cierre de caja para el día actual o uno específico.
+      tags:
+      - reportes
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/reportes/clientes/:
+    get:
+      operationId: reportes_clientes_retrieve
+      description: Exporta el reporte de clientes a JSON, PDF, Excel o CSV.
+      tags:
+      - reportes
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/reportes/dashboard/:
+    get:
+      operationId: reportes_dashboard_retrieve
+      description: Proporciona datos agregados para el dashboard principal del tenant.
+      summary: Obtener Datos del Dashboard
+      parameters:
+      - in: query
+        name: end_date
+        schema:
+          type: string
+          format: date
+        description: Fecha de fin (YYYY-MM-DD)
+      - in: query
+        name: start_date
+        schema:
+          type: string
+          format: date
+        description: Fecha de inicio (YYYY-MM-DD)
+      tags:
+      - reportes
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardResponse'
+          description: ''
+  /api/v1/reportes/ventas/:
+    get:
+      operationId: reportes_ventas_retrieve
+      summary: Reporte de Ventas
+      parameters:
+      - in: query
+        name: fecha_fin
+        schema:
+          type: string
+          format: date
+        description: Fecha de fin (YYYY-MM-DD)
+      - in: query
+        name: fecha_inicio
+        schema:
+          type: string
+          format: date
+        description: Fecha de inicio (YYYY-MM-DD)
+      tags:
+      - reportes
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/reportes/ventas/detalles/:
+    get:
+      operationId: reportes_ventas_detalles_retrieve
+      description: Reporte detallado de ventas (incluyendo los ítems comprados en
+        cada factura).
+      tags:
+      - reportes
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/rrhh/attendance-summary/:
+    get:
+      operationId: rrhh_attendance_summary_retrieve
+      summary: Obtiene el resumen de asistencia del mes para el usuario autenticado
+      tags:
+      - rrhh
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttendanceSummaryResponse'
+          description: ''
+  /api/v1/rrhh/break/:
+    post:
+      operationId: rrhh_break_create
+      summary: Inicia o finaliza un descanso para el usuario
+      tags:
+      - rrhh
+      requestBody:
+        content:
+          application/json:
+            schema:
+              example:
+                start: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/rrhh/clock-in/:
+    post:
+      operationId: rrhh_clock_in_create
+      summary: Registra la entrada del usuario (Clock In)
+      tags:
+      - rrhh
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/rrhh/clock-out/:
+    post:
+      operationId: rrhh_clock_out_create
+      summary: Registra la salida del usuario (Clock Out)
+      tags:
+      - rrhh
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/rrhh/dias-festivos/:
+    get:
+      operationId: rrhh_dias_festivos_list
+      tags:
+      - rrhh
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DiaFestivo'
+          description: ''
+    post:
+      operationId: rrhh_dias_festivos_create
+      tags:
+      - rrhh
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DiaFestivoRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/DiaFestivoRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DiaFestivoRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DiaFestivo'
+          description: ''
+  /api/v1/rrhh/dias-festivos/{id}/:
+    delete:
+      operationId: rrhh_dias_festivos_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - rrhh
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/rrhh/horario/:
+    get:
+      operationId: rrhh_horario_retrieve
+      summary: Obtener el horario de la empresa
+      tags:
+      - rrhh
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Horario'
+          description: ''
+    put:
+      operationId: rrhh_horario_update
+      summary: Actualizar el horario de la empresa
+      tags:
+      - rrhh
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HorarioRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/HorarioRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/HorarioRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Horario'
+          description: ''
+  /api/v1/rrhh/sucursales/:
+    get:
+      operationId: rrhh_sucursales_list
+      description: Administra las sucursales del tenant.
+      tags:
+      - rrhh
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Sucursal'
+          description: ''
+    post:
+      operationId: rrhh_sucursales_create
+      description: Administra las sucursales del tenant.
+      tags:
+      - rrhh
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SucursalRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SucursalRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SucursalRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Sucursal'
+          description: ''
+  /api/v1/rrhh/sucursales/{id}/:
+    get:
+      operationId: rrhh_sucursales_retrieve
+      description: Administra las sucursales del tenant.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Sucursal.
+        required: true
+      tags:
+      - rrhh
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Sucursal'
+          description: ''
+    put:
+      operationId: rrhh_sucursales_update
+      description: Administra las sucursales del tenant.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Sucursal.
+        required: true
+      tags:
+      - rrhh
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SucursalRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SucursalRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SucursalRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Sucursal'
+          description: ''
+    patch:
+      operationId: rrhh_sucursales_partial_update
+      description: Administra las sucursales del tenant.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Sucursal.
+        required: true
+      tags:
+      - rrhh
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedSucursalRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedSucursalRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedSucursalRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Sucursal'
+          description: ''
+    delete:
+      operationId: rrhh_sucursales_destroy
+      description: Administra las sucursales del tenant.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Sucursal.
+        required: true
+      tags:
+      - rrhh
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+components:
+  schemas:
+    Almacen:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        nombre:
+          type: string
+          maxLength: 100
+        direccion:
+          type: string
+        telefono:
+          type: string
+          nullable: true
+          maxLength: 15
+        activo:
+          type: boolean
+        estado:
+          nullable: true
+          oneOf:
+          - $ref: '#/components/schemas/AlmacenEstadoEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+          - $ref: '#/components/schemas/NullEnum'
+      required:
+      - direccion
+      - id
+      - nombre
+    AlmacenEstadoEnum:
+      enum:
+      - AND
+      - ARA
+      - AST
+      - BAL
+      - CAN
+      - CANT
+      - CLM
+      - CYL
+      - CAT
+      - EXT
+      - GAL
+      - RIA
+      - MAD
+      - MUR
+      - NAV
+      - PV
+      - VAL
+      type: string
+      description: |-
+        * `AND` - Andalucía
+        * `ARA` - Aragón
+        * `AST` - Asturias
+        * `BAL` - Baleares
+        * `CAN` - Canarias
+        * `CANT` - Cantabria
+        * `CLM` - Castilla-La Mancha
+        * `CYL` - Castilla y León
+        * `CAT` - Cataluña
+        * `EXT` - Extremadura
+        * `GAL` - Galicia
+        * `RIA` - La Rioja
+        * `MAD` - Madrid
+        * `MUR` - Murcia
+        * `NAV` - Navarra
+        * `PV` - País Vasco
+        * `VAL` - Valencia
+    AlmacenRequest:
+      type: object
+      properties:
+        nombre:
+          type: string
+          minLength: 1
+          maxLength: 100
+        direccion:
+          type: string
+          minLength: 1
+        telefono:
+          type: string
+          nullable: true
+          maxLength: 15
+        activo:
+          type: boolean
+        estado:
+          nullable: true
+          oneOf:
+          - $ref: '#/components/schemas/AlmacenEstadoEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+          - $ref: '#/components/schemas/NullEnum'
+      required:
+      - direccion
+      - nombre
+    Asistencia:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        fecha:
+          type: string
+          format: date
+        hora_entrada:
+          type: string
+          format: date-time
+          nullable: true
+          title: Hora de Entrada
+        hora_salida:
+          type: string
+          format: date-time
+          nullable: true
+          title: Hora de Salida
+        estado:
+          allOf:
+          - $ref: '#/components/schemas/AsistenciaEstadoEnum'
+          title: Estado del Día
+        estado_actual:
+          type: string
+          description: 'Estado en tiempo real: out, in, break'
+          maxLength: 10
+        llegada_tarde:
+          type: boolean
+        usuario:
+          type: integer
+      required:
+      - fecha
+      - id
+      - usuario
+    AsistenciaEstadoEnum:
+      enum:
+      - Presente
+      - Ausente
+      - Festivo
+      - Medio Día
+      type: string
+      description: |-
+        * `Presente` - Presente
+        * `Ausente` - Ausente
+        * `Festivo` - Festivo
+        * `Medio Día` - Medio Día
+    Atributo:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        nombre:
+          type: string
+          maxLength: 80
+        valores:
+          type: array
+          items:
+            $ref: '#/components/schemas/ValorAtributo'
+          readOnly: true
+      required:
+      - id
+      - nombre
+      - valores
+    AtributoRequest:
+      type: object
+      properties:
+        nombre:
+          type: string
+          minLength: 1
+          maxLength: 80
+      required:
+      - nombre
+    AttendanceSummaryDetail:
+      type: object
+      properties:
+        total_working_days:
+          type: integer
+          description: Total de días laborables en el mes (ejemplo estático).
+        absent_days:
+          type: integer
+          description: Días ausente.
+        present_days:
+          type: integer
+          description: Días presente.
+        half_days:
+          type: integer
+          description: Medios días.
+        late_days:
+          type: integer
+          description: Días con llegada tarde.
+        holidays:
+          type: integer
+          description: Días festivos en el mes.
+      required:
+      - absent_days
+      - half_days
+      - holidays
+      - late_days
+      - present_days
+      - total_working_days
+    AttendanceSummaryResponse:
+      type: object
+      properties:
+        current_status:
+          type: string
+          description: 'Estado actual del usuario: ''in'', ''out'', o ''break''.'
+        summary:
+          allOf:
+          - $ref: '#/components/schemas/AttendanceSummaryDetail'
+          description: Resumen de asistencia del mes.
+        log:
+          type: array
+          items:
+            $ref: '#/components/schemas/Asistencia'
+          description: Registro de asistencias del mes.
+      required:
+      - current_status
+      - log
+      - summary
+    BlankEnum:
+      enum:
+      - ''
+    Categoria:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        nombre:
+          type: string
+          maxLength: 100
+        slug:
+          type: string
+          readOnly: true
+          pattern: ^[-a-zA-Z0-9_]+$
+        activo:
+          type: boolean
+        padre:
+          type: integer
+          nullable: true
+        padre_nombre:
+          type: string
+          readOnly: true
+      required:
+      - id
+      - nombre
+      - padre_nombre
+      - slug
+    CategoriaRequest:
+      type: object
+      properties:
+        nombre:
+          type: string
+          minLength: 1
+          maxLength: 100
+        activo:
+          type: boolean
+        padre:
+          type: integer
+          nullable: true
+      required:
+      - nombre
+    Cliente:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        nombre:
+          type: string
+          title: Nombre Completo
+          description: Nombre o razón social del cliente.
+          maxLength: 255
+        email:
+          type: string
+          format: email
+          nullable: true
+          title: Correo Electrónico
+          maxLength: 254
+        telefono:
+          type: string
+          nullable: true
+          title: Teléfono de Contacto
+          maxLength: 20
+        direccion:
+          type: string
+          nullable: true
+          title: Dirección Física
+        tipo_documento:
+          type: string
+          nullable: true
+          title: Tipo de Documento
+          description: 'Ej: Cédula, RIF, Pasaporte'
+          maxLength: 50
+        documento:
+          type: string
+          nullable: true
+          title: Número de Documento
+          maxLength: 50
+        fecha_registro:
+          type: string
+          format: date-time
+          readOnly: true
+          title: Fecha de Registro
+        activo:
+          type: boolean
+          description: Indica si el cliente está activo.
+      required:
+      - fecha_registro
+      - id
+      - nombre
+    ClienteRequest:
+      type: object
+      properties:
+        nombre:
+          type: string
+          minLength: 1
+          title: Nombre Completo
+          description: Nombre o razón social del cliente.
+          maxLength: 255
+        email:
+          type: string
+          format: email
+          nullable: true
+          title: Correo Electrónico
+          maxLength: 254
+        telefono:
+          type: string
+          nullable: true
+          title: Teléfono de Contacto
+          maxLength: 20
+        direccion:
+          type: string
+          nullable: true
+          title: Dirección Física
+        tipo_documento:
+          type: string
+          nullable: true
+          title: Tipo de Documento
+          description: 'Ej: Cédula, RIF, Pasaporte'
+          maxLength: 50
+        documento:
+          type: string
+          nullable: true
+          title: Número de Documento
+          maxLength: 50
+        activo:
+          type: boolean
+          description: Indica si el cliente está activo.
+      required:
+      - nombre
+    ConfiguracionEmpresa:
+      type: object
+      properties:
+        nombre_comercial:
+          type: string
+          maxLength: 255
+        razon_social:
+          type: string
+          nullable: true
+          title: Razón Social
+          maxLength: 255
+        rif:
+          type: string
+          nullable: true
+          title: RIF / ID Fiscal
+          maxLength: 20
+        telefono:
+          type: string
+          nullable: true
+          title: Teléfono de la Empresa
+          description: Número para recibir notificaciones de pedidos.
+          maxLength: 50
+        direccion:
+          type: string
+          nullable: true
+          title: Dirección Fiscal
+        logo:
+          type: string
+          format: uri
+          nullable: true
+          title: Logo de la Empresa
+    ConfiguracionEmpresaRequest:
+      type: object
+      properties:
+        nombre_comercial:
+          type: string
+          minLength: 1
+          maxLength: 255
+        razon_social:
+          type: string
+          nullable: true
+          title: Razón Social
+          maxLength: 255
+        rif:
+          type: string
+          nullable: true
+          title: RIF / ID Fiscal
+          maxLength: 20
+        telefono:
+          type: string
+          nullable: true
+          title: Teléfono de la Empresa
+          description: Número para recibir notificaciones de pedidos.
+          maxLength: 50
+        direccion:
+          type: string
+          nullable: true
+          title: Dirección Fiscal
+        logo:
+          type: string
+          format: binary
+          nullable: true
+          title: Logo de la Empresa
+    Cupondescuento:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        codigo:
+          type: string
+          maxLength: 20
+        tipo:
+          type: string
+          maxLength: 15
+        valor:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        valido_desde:
+          type: string
+          format: date
+        valido_hasta:
+          type: string
+          format: date
+        usos_maximos:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          nullable: true
+        usos_actuales:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          nullable: true
+        minimo_compra:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          nullable: true
+        solo_categoria:
+          type: integer
+          nullable: true
+        solo_almacen:
+          type: integer
+          nullable: true
+      required:
+      - codigo
+      - id
+      - tipo
+      - valido_desde
+      - valido_hasta
+      - valor
+    CupondescuentoRequest:
+      type: object
+      properties:
+        codigo:
+          type: string
+          minLength: 1
+          maxLength: 20
+        tipo:
+          type: string
+          minLength: 1
+          maxLength: 15
+        valor:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        valido_desde:
+          type: string
+          format: date
+        valido_hasta:
+          type: string
+          format: date
+        usos_maximos:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          nullable: true
+        usos_actuales:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          nullable: true
+        minimo_compra:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          nullable: true
+        solo_categoria:
+          type: integer
+          nullable: true
+        solo_almacen:
+          type: integer
+          nullable: true
+      required:
+      - codigo
+      - tipo
+      - valido_desde
+      - valido_hasta
+      - valor
+    DashboardResponse:
+      type: object
+      description: |-
+        Serializer para validar la estructura de salida del Dashboard.
+        Aunque el Dashboard es lectura, esto ayuda a documentar la API.
+      properties:
+        userInfo:
+          type: object
+          additionalProperties: {}
+        resumen:
+          type: object
+          additionalProperties: {}
+        graficoVentas:
+          type: object
+          additionalProperties: {}
+        productosMasVendidos:
+          type: array
+          items: {}
+        productosBajoStock:
+          type: array
+          items: {}
+        infoGeneral:
+          type: object
+          additionalProperties: {}
+      required:
+      - graficoVentas
+      - infoGeneral
+      - productosBajoStock
+      - productosMasVendidos
+      - resumen
+      - userInfo
+    Detallefactura:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        nombre:
+          type: string
+          readOnly: true
+        cantidad:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+        precio_unitario:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        total_linea:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+      required:
+      - cantidad
+      - id
+      - nombre
+      - precio_unitario
+    DetallefacturaRequest:
+      type: object
+      properties:
+        cantidad:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+        precio_unitario:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        total_linea:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+      required:
+      - cantidad
+      - precio_unitario
+    Devolucion:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        motivo:
+          type: string
+        estado:
+          type: string
+          nullable: true
+          maxLength: 20
+        monto_reembolso:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          nullable: true
+        fecha_solicitud:
+          type: string
+          format: date-time
+          nullable: true
+        fecha_resolucion:
+          type: string
+          format: date-time
+          nullable: true
+        activo:
+          type: boolean
+        orden:
+          type: integer
+          nullable: true
+      required:
+      - id
+      - motivo
+    DevolucionRequest:
+      type: object
+      properties:
+        motivo:
+          type: string
+          minLength: 1
+        estado:
+          type: string
+          nullable: true
+          maxLength: 20
+        monto_reembolso:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          nullable: true
+        fecha_solicitud:
+          type: string
+          format: date-time
+          nullable: true
+        fecha_resolucion:
+          type: string
+          format: date-time
+          nullable: true
+        activo:
+          type: boolean
+        orden:
+          type: integer
+          nullable: true
+      required:
+      - motivo
+    DiaFestivo:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        fecha:
+          type: string
+          format: date
+        descripcion:
+          type: string
+          title: Descripción
+          maxLength: 255
+      required:
+      - descripcion
+      - fecha
+      - id
+    DiaFestivoRequest:
+      type: object
+      properties:
+        fecha:
+          type: string
+          format: date
+        descripcion:
+          type: string
+          minLength: 1
+          title: Descripción
+          maxLength: 255
+      required:
+      - descripcion
+      - fecha
+    Factura:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        detalles:
+          type: array
+          items:
+            $ref: '#/components/schemas/Detallefactura'
+          readOnly: true
+        fecha_operacion:
+          type: string
+          format: date-time
+        correlativo:
+          type: string
+          nullable: true
+          maxLength: 50
+        subtotal:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        descuento_global:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          nullable: true
+        iva_total:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        total:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        estado:
+          type: string
+          nullable: true
+          maxLength: 20
+        nif_factura:
+          type: string
+          nullable: true
+          maxLength: 20
+        activo:
+          type: boolean
+        nombre_cliente_pendiente:
+          type: string
+          nullable: true
+          maxLength: 100
+        comentario_pendiente:
+          type: string
+          nullable: true
+        usuario:
+          type: integer
+          nullable: true
+        cliente:
+          type: integer
+          nullable: true
+        orden:
+          type: integer
+          nullable: true
+        almacen:
+          type: integer
+          nullable: true
+        metodo_pago:
+          type: integer
+          nullable: true
+      required:
+      - detalles
+      - fecha_operacion
+      - id
+    FacturaRequest:
+      type: object
+      properties:
+        fecha_operacion:
+          type: string
+          format: date-time
+        correlativo:
+          type: string
+          nullable: true
+          maxLength: 50
+        subtotal:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        descuento_global:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          nullable: true
+        iva_total:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        total:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        estado:
+          type: string
+          nullable: true
+          maxLength: 20
+        nif_factura:
+          type: string
+          nullable: true
+          maxLength: 20
+        activo:
+          type: boolean
+        nombre_cliente_pendiente:
+          type: string
+          nullable: true
+          maxLength: 100
+        comentario_pendiente:
+          type: string
+          nullable: true
+        usuario:
+          type: integer
+          nullable: true
+        cliente:
+          type: integer
+          nullable: true
+        orden:
+          type: integer
+          nullable: true
+        almacen:
+          type: integer
+          nullable: true
+        metodo_pago:
+          type: integer
+          nullable: true
+      required:
+      - fecha_operacion
+    Horario:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        nombre:
+          type: string
+          title: Nombre del Horario
+          maxLength: 100
+        hora_entrada_oficial:
+          type: string
+          format: time
+          title: Hora de Entrada Oficial
+        hora_salida_oficial:
+          type: string
+          format: time
+          title: Hora de Salida Oficial
+        margen_tardanza_minutos:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          title: Margen de Tardanza (minutos)
+          description: Minutos de tolerancia para llegar tarde
+      required:
+      - hora_entrada_oficial
+      - hora_salida_oficial
+      - id
+    HorarioRequest:
+      type: object
+      properties:
+        nombre:
+          type: string
+          minLength: 1
+          title: Nombre del Horario
+          maxLength: 100
+        hora_entrada_oficial:
+          type: string
+          format: time
+          title: Hora de Entrada Oficial
+        hora_salida_oficial:
+          type: string
+          format: time
+          title: Hora de Salida Oficial
+        margen_tardanza_minutos:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          title: Margen de Tardanza (minutos)
+          description: Minutos de tolerancia para llegar tarde
+      required:
+      - hora_entrada_oficial
+      - hora_salida_oficial
+    Inventario:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        cantidad:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+        activo:
+          type: boolean
+        producto:
+          type: integer
+          nullable: true
+        almacen:
+          type: integer
+          nullable: true
+      required:
+      - almacen
+      - id
+      - producto
+    InventarioRequest:
+      type: object
+      properties:
+        cantidad:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+        activo:
+          type: boolean
+        producto:
+          type: integer
+          nullable: true
+        almacen:
+          type: integer
+          nullable: true
+      required:
+      - almacen
+      - producto
+    Iva:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        nombre:
+          type: string
+          nullable: true
+          title: Nombre del IVA
+          description: 'Ej: IVA General, IVA Reducido'
+          maxLength: 20
+        porcentaje_iva:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          title: Porcentaje (%)
+        activo:
+          type: boolean
+        fecha_creacion:
+          type: string
+          format: date-time
+          readOnly: true
+          title: Fecha de Creación
+      required:
+      - fecha_creacion
+      - id
+      - porcentaje_iva
+    IvaRequest:
+      type: object
+      properties:
+        nombre:
+          type: string
+          nullable: true
+          title: Nombre del IVA
+          description: 'Ej: IVA General, IVA Reducido'
+          maxLength: 20
+        porcentaje_iva:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          title: Porcentaje (%)
+        activo:
+          type: boolean
+      required:
+      - porcentaje_iva
+    MetodoPago:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        nombre:
+          type: string
+          maxLength: 50
+        nro_cuenta:
+          type: string
+          nullable: true
+          maxLength: 50
+        telefono:
+          type: string
+          nullable: true
+          maxLength: 20
+        tipo_metodo:
+          type: string
+          nullable: true
+          maxLength: 20
+        activo:
+          type: boolean
+      required:
+      - id
+      - nombre
+    MetodoPagoConfig:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        nombre:
+          type: string
+          title: Nombre del Método
+          description: 'Ej: Pago Móvil, Zelle, Efectivo'
+          maxLength: 100
+        activo:
+          type: boolean
+        es_manual:
+          type: boolean
+          title: Verificación Manual
+          description: Indica si el pago requiere verificación manual.
+        instrucciones:
+          type: string
+          nullable: true
+          title: Instrucciones para el Cliente
+          description: 'Instrucciones para el cliente (ej: datos de Pago Móvil).'
+        pago_movil_config:
+          allOf:
+          - $ref: '#/components/schemas/PagoMovilConfig'
+          readOnly: true
+        zelle_config:
+          allOf:
+          - $ref: '#/components/schemas/ZelleConfig'
+          readOnly: true
+      required:
+      - id
+      - nombre
+      - pago_movil_config
+      - zelle_config
+    MetodoPagoConfigRequest:
+      type: object
+      properties:
+        nombre:
+          type: string
+          minLength: 1
+          title: Nombre del Método
+          description: 'Ej: Pago Móvil, Zelle, Efectivo'
+          maxLength: 100
+        activo:
+          type: boolean
+        es_manual:
+          type: boolean
+          title: Verificación Manual
+          description: Indica si el pago requiere verificación manual.
+        instrucciones:
+          type: string
+          nullable: true
+          title: Instrucciones para el Cliente
+          description: 'Instrucciones para el cliente (ej: datos de Pago Móvil).'
+      required:
+      - nombre
+    MetodoPagoRequest:
+      type: object
+      properties:
+        nombre:
+          type: string
+          minLength: 1
+          maxLength: 50
+        nro_cuenta:
+          type: string
+          nullable: true
+          maxLength: 50
+        telefono:
+          type: string
+          nullable: true
+          maxLength: 20
+        tipo_metodo:
+          type: string
+          nullable: true
+          maxLength: 20
+        activo:
+          type: boolean
+      required:
+      - nombre
+    MovimientoInventario:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        tipo_movimiento:
+          $ref: '#/components/schemas/TipoMovimientoEnum'
+        stock_minimo:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          nullable: true
+        fecha_movimiento:
+          type: string
+          format: date-time
+          readOnly: true
+        activo:
+          type: boolean
+        inventario:
+          type: integer
+        cantidad:
+          type: integer
+          nullable: true
+      required:
+      - fecha_movimiento
+      - id
+      - inventario
+      - tipo_movimiento
+    MovimientoInventarioRequest:
+      type: object
+      properties:
+        tipo_movimiento:
+          $ref: '#/components/schemas/TipoMovimientoEnum'
+        stock_minimo:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          nullable: true
+        activo:
+          type: boolean
+        inventario:
+          type: integer
+        cantidad:
+          type: integer
+          nullable: true
+      required:
+      - inventario
+      - tipo_movimiento
+    MyTokenObtainPairRequest:
+      type: object
+      properties:
+        username:
+          type: string
+          writeOnly: true
+          minLength: 1
+        password:
+          type: string
+          writeOnly: true
+          minLength: 1
+      required:
+      - password
+      - username
+    NullEnum:
+      enum:
+      - null
+    PaginatedPublicProductoList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicProducto'
+    PagoMovilConfig:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        banco:
+          type: string
+          maxLength: 100
+        cedula:
+          type: string
+          title: Cédula / RIF
+          maxLength: 20
+        telefono:
+          type: string
+          title: Teléfono
+          maxLength: 20
+        metodo_pago:
+          type: integer
+          title: Método de Pago Asociado
+      required:
+      - banco
+      - cedula
+      - id
+      - metodo_pago
+      - telefono
+    PagoMovilConfigRequest:
+      type: object
+      properties:
+        banco:
+          type: string
+          minLength: 1
+          maxLength: 100
+        cedula:
+          type: string
+          minLength: 1
+          title: Cédula / RIF
+          maxLength: 20
+        telefono:
+          type: string
+          minLength: 1
+          title: Teléfono
+          maxLength: 20
+        metodo_pago:
+          type: integer
+          title: Método de Pago Asociado
+      required:
+      - banco
+      - cedula
+      - metodo_pago
+      - telefono
+    PatchedAlmacenRequest:
+      type: object
+      properties:
+        nombre:
+          type: string
+          minLength: 1
+          maxLength: 100
+        direccion:
+          type: string
+          minLength: 1
+        telefono:
+          type: string
+          nullable: true
+          maxLength: 15
+        activo:
+          type: boolean
+        estado:
+          nullable: true
+          oneOf:
+          - $ref: '#/components/schemas/AlmacenEstadoEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+          - $ref: '#/components/schemas/NullEnum'
+    PatchedAtributoRequest:
+      type: object
+      properties:
+        nombre:
+          type: string
+          minLength: 1
+          maxLength: 80
+    PatchedCategoriaRequest:
+      type: object
+      properties:
+        nombre:
+          type: string
+          minLength: 1
+          maxLength: 100
+        activo:
+          type: boolean
+        padre:
+          type: integer
+          nullable: true
+    PatchedClienteRequest:
+      type: object
+      properties:
+        nombre:
+          type: string
+          minLength: 1
+          title: Nombre Completo
+          description: Nombre o razón social del cliente.
+          maxLength: 255
+        email:
+          type: string
+          format: email
+          nullable: true
+          title: Correo Electrónico
+          maxLength: 254
+        telefono:
+          type: string
+          nullable: true
+          title: Teléfono de Contacto
+          maxLength: 20
+        direccion:
+          type: string
+          nullable: true
+          title: Dirección Física
+        tipo_documento:
+          type: string
+          nullable: true
+          title: Tipo de Documento
+          description: 'Ej: Cédula, RIF, Pasaporte'
+          maxLength: 50
+        documento:
+          type: string
+          nullable: true
+          title: Número de Documento
+          maxLength: 50
+        activo:
+          type: boolean
+          description: Indica si el cliente está activo.
+    PatchedConfiguracionEmpresaRequest:
+      type: object
+      properties:
+        nombre_comercial:
+          type: string
+          minLength: 1
+          maxLength: 255
+        razon_social:
+          type: string
+          nullable: true
+          title: Razón Social
+          maxLength: 255
+        rif:
+          type: string
+          nullable: true
+          title: RIF / ID Fiscal
+          maxLength: 20
+        telefono:
+          type: string
+          nullable: true
+          title: Teléfono de la Empresa
+          description: Número para recibir notificaciones de pedidos.
+          maxLength: 50
+        direccion:
+          type: string
+          nullable: true
+          title: Dirección Fiscal
+        logo:
+          type: string
+          format: binary
+          nullable: true
+          title: Logo de la Empresa
+    PatchedCupondescuentoRequest:
+      type: object
+      properties:
+        codigo:
+          type: string
+          minLength: 1
+          maxLength: 20
+        tipo:
+          type: string
+          minLength: 1
+          maxLength: 15
+        valor:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        valido_desde:
+          type: string
+          format: date
+        valido_hasta:
+          type: string
+          format: date
+        usos_maximos:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          nullable: true
+        usos_actuales:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          nullable: true
+        minimo_compra:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          nullable: true
+        solo_categoria:
+          type: integer
+          nullable: true
+        solo_almacen:
+          type: integer
+          nullable: true
+    PatchedDevolucionRequest:
+      type: object
+      properties:
+        motivo:
+          type: string
+          minLength: 1
+        estado:
+          type: string
+          nullable: true
+          maxLength: 20
+        monto_reembolso:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          nullable: true
+        fecha_solicitud:
+          type: string
+          format: date-time
+          nullable: true
+        fecha_resolucion:
+          type: string
+          format: date-time
+          nullable: true
+        activo:
+          type: boolean
+        orden:
+          type: integer
+          nullable: true
+    PatchedFacturaRequest:
+      type: object
+      properties:
+        fecha_operacion:
+          type: string
+          format: date-time
+        correlativo:
+          type: string
+          nullable: true
+          maxLength: 50
+        subtotal:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        descuento_global:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          nullable: true
+        iva_total:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        total:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        estado:
+          type: string
+          nullable: true
+          maxLength: 20
+        nif_factura:
+          type: string
+          nullable: true
+          maxLength: 20
+        activo:
+          type: boolean
+        nombre_cliente_pendiente:
+          type: string
+          nullable: true
+          maxLength: 100
+        comentario_pendiente:
+          type: string
+          nullable: true
+        usuario:
+          type: integer
+          nullable: true
+        cliente:
+          type: integer
+          nullable: true
+        orden:
+          type: integer
+          nullable: true
+        almacen:
+          type: integer
+          nullable: true
+        metodo_pago:
+          type: integer
+          nullable: true
+    PatchedInventarioRequest:
+      type: object
+      properties:
+        cantidad:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+        activo:
+          type: boolean
+        producto:
+          type: integer
+          nullable: true
+        almacen:
+          type: integer
+          nullable: true
+    PatchedIvaRequest:
+      type: object
+      properties:
+        nombre:
+          type: string
+          nullable: true
+          title: Nombre del IVA
+          description: 'Ej: IVA General, IVA Reducido'
+          maxLength: 20
+        porcentaje_iva:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          title: Porcentaje (%)
+        activo:
+          type: boolean
+    PatchedMetodoPagoConfigRequest:
+      type: object
+      properties:
+        nombre:
+          type: string
+          minLength: 1
+          title: Nombre del Método
+          description: 'Ej: Pago Móvil, Zelle, Efectivo'
+          maxLength: 100
+        activo:
+          type: boolean
+        es_manual:
+          type: boolean
+          title: Verificación Manual
+          description: Indica si el pago requiere verificación manual.
+        instrucciones:
+          type: string
+          nullable: true
+          title: Instrucciones para el Cliente
+          description: 'Instrucciones para el cliente (ej: datos de Pago Móvil).'
+    PatchedMetodoPagoRequest:
+      type: object
+      properties:
+        nombre:
+          type: string
+          minLength: 1
+          maxLength: 50
+        nro_cuenta:
+          type: string
+          nullable: true
+          maxLength: 50
+        telefono:
+          type: string
+          nullable: true
+          maxLength: 20
+        tipo_metodo:
+          type: string
+          nullable: true
+          maxLength: 20
+        activo:
+          type: boolean
+    PatchedMovimientoInventarioRequest:
+      type: object
+      properties:
+        tipo_movimiento:
+          $ref: '#/components/schemas/TipoMovimientoEnum'
+        stock_minimo:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          nullable: true
+        activo:
+          type: boolean
+        inventario:
+          type: integer
+        cantidad:
+          type: integer
+          nullable: true
+    PatchedPagoMovilConfigRequest:
+      type: object
+      properties:
+        banco:
+          type: string
+          minLength: 1
+          maxLength: 100
+        cedula:
+          type: string
+          minLength: 1
+          title: Cédula / RIF
+          maxLength: 20
+        telefono:
+          type: string
+          minLength: 1
+          title: Teléfono
+          maxLength: 20
+        metodo_pago:
+          type: integer
+          title: Método de Pago Asociado
+    PatchedProductoRequest:
+      type: object
+      properties:
+        nombre:
+          type: string
+          minLength: 1
+          maxLength: 150
+        descripcion:
+          type: string
+          nullable: true
+        precio:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          nullable: true
+        cantidad:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          nullable: true
+        codigo_barras:
+          type: string
+          nullable: true
+          maxLength: 50
+        disponible_online:
+          type: boolean
+          nullable: true
+        descuento:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          nullable: true
+        slug:
+          type: string
+          nullable: true
+          maxLength: 100
+        sku:
+          type: string
+          nullable: true
+          description: Código único de producto (SKU), usado para sincronizar con
+            otras plataformas.
+          maxLength: 100
+        peso:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          nullable: true
+        dimensiones:
+          type: string
+          nullable: true
+          maxLength: 50
+        imagen:
+          type: string
+          format: binary
+          nullable: true
+        tipo:
+          $ref: '#/components/schemas/TipoEnum'
+        activo:
+          type: boolean
+        almacen:
+          type: integer
+          nullable: true
+        configuracion_iva:
+          type: integer
+          nullable: true
+        categoria:
+          type: integer
+          nullable: true
+    PatchedProveedorRequest:
+      type: object
+      properties:
+        identificador_fiscal:
+          type: string
+          minLength: 1
+          maxLength: 10
+        nombre:
+          type: string
+          minLength: 1
+          maxLength: 100
+        direccion:
+          type: string
+          minLength: 1
+        telefono:
+          type: string
+          nullable: true
+          maxLength: 15
+        email:
+          type: string
+          minLength: 1
+          maxLength: 254
+        plazo_pago:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          nullable: true
+        activo:
+          type: boolean
+    PatchedSucursalRequest:
+      type: object
+      properties:
+        nombre:
+          type: string
+          minLength: 1
+          title: Nombre de la Sucursal
+          maxLength: 100
+        direccion:
+          type: string
+          nullable: true
+          title: Dirección
+    PatchedTipoDocumentoRequest:
+      type: object
+      properties:
+        codigo:
+          type: string
+          minLength: 1
+          title: Código
+          maxLength: 10
+        descripcion:
+          type: string
+          minLength: 1
+          title: Descripción
+          maxLength: 100
+        obligatorio:
+          type: boolean
+        activo:
+          type: boolean
+    PatchedTransaccionpagoRequest:
+      type: object
+      properties:
+        monto:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        estado:
+          type: string
+          minLength: 1
+          maxLength: 20
+        codigo_transaccion:
+          type: string
+          nullable: true
+          maxLength: 100
+        fecha:
+          type: string
+          format: date-time
+          nullable: true
+        activo:
+          type: boolean
+        orden:
+          type: integer
+          nullable: true
+        metodo_pago:
+          type: integer
+          nullable: true
+    PatchedUserManagedRequest:
+      type: object
+      description: Serializer para que un admin de tenant vea y gestione a sus usuarios.
+      properties:
+        email:
+          type: string
+          minLength: 1
+        first_name:
+          type: string
+          minLength: 1
+        last_name:
+          type: string
+          minLength: 1
+        is_active:
+          type: boolean
+        rol:
+          type: integer
+          nullable: true
+        sucursal:
+          type: integer
+          nullable: true
+          title: Sucursal Asignada
+        password:
+          type: string
+          writeOnly: true
+          minLength: 1
+    PatchedVariacionproductoRequest:
+      type: object
+      properties:
+        nombre:
+          type: string
+          minLength: 1
+          maxLength: 80
+        sku:
+          type: string
+          nullable: true
+          maxLength: 50
+        precio:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          nullable: true
+        cantidad:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          nullable: true
+        codigo_barras:
+          type: string
+          nullable: true
+          minLength: 1
+          maxLength: 50
+        imagen:
+          type: string
+          format: binary
+          nullable: true
+        producto:
+          type: integer
+          nullable: true
+        atributos:
+          type: array
+          items:
+            type: integer
+    PatchedZelleConfigRequest:
+      type: object
+      properties:
+        email_zelle:
+          type: string
+          format: email
+          minLength: 1
+          title: Email de Zelle
+          maxLength: 254
+        nombre_beneficiario:
+          type: string
+          minLength: 1
+          title: Nombre del Beneficiario
+          maxLength: 255
+        metodo_pago:
+          type: integer
+          title: Método de Pago Asociado
+    Producto:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        variantes:
+          type: array
+          items:
+            $ref: '#/components/schemas/Variacionproducto'
+          readOnly: true
+        nombre:
+          type: string
+          maxLength: 150
+        descripcion:
+          type: string
+          nullable: true
+        precio:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          nullable: true
+        cantidad:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          nullable: true
+        codigo_barras:
+          type: string
+          nullable: true
+          maxLength: 50
+        disponible_online:
+          type: boolean
+          nullable: true
+        descuento:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          nullable: true
+        slug:
+          type: string
+          nullable: true
+          maxLength: 100
+        sku:
+          type: string
+          nullable: true
+          description: Código único de producto (SKU), usado para sincronizar con
+            otras plataformas.
+          maxLength: 100
+        peso:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          nullable: true
+        dimensiones:
+          type: string
+          nullable: true
+          maxLength: 50
+        imagen:
+          type: string
+          format: uri
+          nullable: true
+        tipo:
+          $ref: '#/components/schemas/TipoEnum'
+        activo:
+          type: boolean
+        almacen:
+          type: integer
+          nullable: true
+        configuracion_iva:
+          type: integer
+          nullable: true
+        categoria:
+          type: integer
+          nullable: true
+      required:
+      - id
+      - nombre
+      - variantes
+    ProductoRequest:
+      type: object
+      properties:
+        nombre:
+          type: string
+          minLength: 1
+          maxLength: 150
+        descripcion:
+          type: string
+          nullable: true
+        precio:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          nullable: true
+        cantidad:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          nullable: true
+        codigo_barras:
+          type: string
+          nullable: true
+          maxLength: 50
+        disponible_online:
+          type: boolean
+          nullable: true
+        descuento:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          nullable: true
+        slug:
+          type: string
+          nullable: true
+          maxLength: 100
+        sku:
+          type: string
+          nullable: true
+          description: Código único de producto (SKU), usado para sincronizar con
+            otras plataformas.
+          maxLength: 100
+        peso:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          nullable: true
+        dimensiones:
+          type: string
+          nullable: true
+          maxLength: 50
+        imagen:
+          type: string
+          format: binary
+          nullable: true
+        tipo:
+          $ref: '#/components/schemas/TipoEnum'
+        activo:
+          type: boolean
+        almacen:
+          type: integer
+          nullable: true
+        configuracion_iva:
+          type: integer
+          nullable: true
+        categoria:
+          type: integer
+          nullable: true
+      required:
+      - nombre
+    Proveedor:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        identificador_fiscal:
+          type: string
+          maxLength: 10
+        nombre:
+          type: string
+          maxLength: 100
+        direccion:
+          type: string
+        telefono:
+          type: string
+          nullable: true
+          maxLength: 15
+        email:
+          type: string
+          maxLength: 254
+        plazo_pago:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          nullable: true
+        activo:
+          type: boolean
+      required:
+      - direccion
+      - email
+      - id
+      - identificador_fiscal
+      - nombre
+    ProveedorRequest:
+      type: object
+      properties:
+        identificador_fiscal:
+          type: string
+          minLength: 1
+          maxLength: 10
+        nombre:
+          type: string
+          minLength: 1
+          maxLength: 100
+        direccion:
+          type: string
+          minLength: 1
+        telefono:
+          type: string
+          nullable: true
+          maxLength: 15
+        email:
+          type: string
+          minLength: 1
+          maxLength: 254
+        plazo_pago:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          nullable: true
+        activo:
+          type: boolean
+      required:
+      - direccion
+      - email
+      - identificador_fiscal
+      - nombre
+    PublicCreateOrderRequest:
+      type: object
+      description: |-
+        Serializer para validar los datos de un nuevo pedido creado por un cliente
+        desde el catálogo público.
+      properties:
+        cliente_nombre:
+          type: string
+          minLength: 1
+          maxLength: 100
+        cliente_telefono:
+          type: string
+          minLength: 1
+          maxLength: 20
+        cliente_direccion:
+          type: string
+          minLength: 1
+          maxLength: 255
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicOrderItemRequest'
+      required:
+      - cliente_nombre
+      - cliente_telefono
+      - items
+    PublicOrderItemRequest:
+      type: object
+      properties:
+        variacion_id:
+          type: integer
+        cantidad:
+          type: integer
+          minimum: 1
+      required:
+      - cantidad
+      - variacion_id
+    PublicProducto:
+      type: object
+      properties:
+        id:
+          type: integer
+        nombre:
+          type: string
+        descripcion:
+          type: string
+        precio_venta:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        imagen_url:
+          type: string
+          readOnly: true
+      required:
+      - descripcion
+      - id
+      - imagen_url
+      - nombre
+      - precio_venta
+    Sucursal:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        nombre:
+          type: string
+          title: Nombre de la Sucursal
+          maxLength: 100
+        direccion:
+          type: string
+          nullable: true
+          title: Dirección
+      required:
+      - id
+      - nombre
+    SucursalRequest:
+      type: object
+      properties:
+        nombre:
+          type: string
+          minLength: 1
+          title: Nombre de la Sucursal
+          maxLength: 100
+        direccion:
+          type: string
+          nullable: true
+          title: Dirección
+      required:
+      - nombre
+    TipoDocumento:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        codigo:
+          type: string
+          title: Código
+          maxLength: 10
+        descripcion:
+          type: string
+          title: Descripción
+          maxLength: 100
+        obligatorio:
+          type: boolean
+        activo:
+          type: boolean
+      required:
+      - codigo
+      - descripcion
+      - id
+    TipoDocumentoRequest:
+      type: object
+      properties:
+        codigo:
+          type: string
+          minLength: 1
+          title: Código
+          maxLength: 10
+        descripcion:
+          type: string
+          minLength: 1
+          title: Descripción
+          maxLength: 100
+        obligatorio:
+          type: boolean
+        activo:
+          type: boolean
+      required:
+      - codigo
+      - descripcion
+    TipoEnum:
+      enum:
+      - simple
+      - variable
+      type: string
+      description: |-
+        * `simple` - Simple
+        * `variable` - Variable
+    TipoMovimientoEnum:
+      enum:
+      - entrada
+      - salida
+      type: string
+      description: |-
+        * `entrada` - Entrada
+        * `salida` - Salida
+    TransaccionPasarela:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        factura:
+          type: integer
+          nullable: true
+          title: Factura Asociada
+        metodo_pago:
+          type: integer
+          title: Método de Pago
+        metodo_pago_nombre:
+          type: string
+          readOnly: true
+        monto:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        referencia_externa:
+          type: string
+          nullable: true
+          description: ID de transacción de la pasarela.
+          maxLength: 255
+        estado:
+          type: string
+          description: 'Ej: pendiente, completado, fallido, reembolsado.'
+          maxLength: 50
+        fecha_creacion:
+          type: string
+          format: date-time
+          readOnly: true
+          title: Fecha de Creación
+      required:
+      - fecha_creacion
+      - id
+      - metodo_pago
+      - metodo_pago_nombre
+      - monto
+    Transaccionpago:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        monto:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        estado:
+          type: string
+          maxLength: 20
+        codigo_transaccion:
+          type: string
+          nullable: true
+          maxLength: 100
+        fecha:
+          type: string
+          format: date-time
+          nullable: true
+        activo:
+          type: boolean
+        orden:
+          type: integer
+          nullable: true
+        metodo_pago:
+          type: integer
+          nullable: true
+      required:
+      - estado
+      - id
+      - monto
+    TransaccionpagoRequest:
+      type: object
+      properties:
+        monto:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        estado:
+          type: string
+          minLength: 1
+          maxLength: 20
+        codigo_transaccion:
+          type: string
+          nullable: true
+          maxLength: 100
+        fecha:
+          type: string
+          format: date-time
+          nullable: true
+        activo:
+          type: boolean
+        orden:
+          type: integer
+          nullable: true
+        metodo_pago:
+          type: integer
+          nullable: true
+      required:
+      - estado
+      - monto
+    UserManaged:
+      type: object
+      description: Serializer para que un admin de tenant vea y gestione a sus usuarios.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        email:
+          type: string
+        first_name:
+          type: string
+        last_name:
+          type: string
+        is_active:
+          type: boolean
+        rol:
+          type: integer
+          nullable: true
+        sucursal:
+          type: integer
+          nullable: true
+          title: Sucursal Asignada
+      required:
+      - email
+      - first_name
+      - id
+      - is_active
+      - last_name
+    UserManagedRequest:
+      type: object
+      description: Serializer para que un admin de tenant vea y gestione a sus usuarios.
+      properties:
+        email:
+          type: string
+          minLength: 1
+        first_name:
+          type: string
+          minLength: 1
+        last_name:
+          type: string
+          minLength: 1
+        is_active:
+          type: boolean
+        rol:
+          type: integer
+          nullable: true
+        sucursal:
+          type: integer
+          nullable: true
+          title: Sucursal Asignada
+        password:
+          type: string
+          writeOnly: true
+          minLength: 1
+      required:
+      - email
+      - first_name
+      - is_active
+      - last_name
+    UserMe:
+      type: object
+      description: Serializer para el endpoint /me, mostrando los datos del usuario
+        actual.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        email:
+          type: string
+          readOnly: true
+        first_name:
+          type: string
+          readOnly: true
+        last_name:
+          type: string
+          readOnly: true
+        rol:
+          type: string
+          readOnly: true
+          nullable: true
+        sucursal:
+          type: string
+          readOnly: true
+          nullable: true
+      required:
+      - email
+      - first_name
+      - id
+      - last_name
+      - rol
+      - sucursal
+    ValorAtributo:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        valor:
+          type: string
+          maxLength: 80
+      required:
+      - id
+      - valor
+    ValorAtributoRequest:
+      type: object
+      properties:
+        valor:
+          type: string
+          minLength: 1
+          maxLength: 80
+      required:
+      - valor
+    Variacionproducto:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        base_imponible:
+          type: string
+          readOnly: true
+        nombre:
+          type: string
+          maxLength: 80
+        sku:
+          type: string
+          nullable: true
+          maxLength: 50
+        precio:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          nullable: true
+        cantidad:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          nullable: true
+        codigo_barras:
+          type: string
+          nullable: true
+          maxLength: 50
+        imagen:
+          type: string
+          format: uri
+          nullable: true
+        producto:
+          type: integer
+          nullable: true
+        atributos:
+          type: array
+          items:
+            type: integer
+      required:
+      - atributos
+      - base_imponible
+      - id
+      - nombre
+    VariacionproductoRequest:
+      type: object
+      properties:
+        nombre:
+          type: string
+          minLength: 1
+          maxLength: 80
+        sku:
+          type: string
+          nullable: true
+          maxLength: 50
+        precio:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          nullable: true
+        cantidad:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          nullable: true
+        codigo_barras:
+          type: string
+          nullable: true
+          minLength: 1
+          maxLength: 50
+        imagen:
+          type: string
+          format: binary
+          nullable: true
+        producto:
+          type: integer
+          nullable: true
+        atributos:
+          type: array
+          items:
+            type: integer
+      required:
+      - atributos
+      - nombre
+    ZelleConfig:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        email_zelle:
+          type: string
+          format: email
+          title: Email de Zelle
+          maxLength: 254
+        nombre_beneficiario:
+          type: string
+          title: Nombre del Beneficiario
+          maxLength: 255
+        metodo_pago:
+          type: integer
+          title: Método de Pago Asociado
+      required:
+      - email_zelle
+      - id
+      - metodo_pago
+      - nombre_beneficiario
+    ZelleConfigRequest:
+      type: object
+      properties:
+        email_zelle:
+          type: string
+          format: email
+          minLength: 1
+          title: Email de Zelle
+          maxLength: 254
+        nombre_beneficiario:
+          type: string
+          minLength: 1
+          title: Nombre del Beneficiario
+          maxLength: 255
+        metodo_pago:
+          type: integer
+          title: Método de Pago Asociado
+      required:
+      - email_zelle
+      - metodo_pago
+      - nombre_beneficiario
+  securitySchemes:
+    jwtAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
