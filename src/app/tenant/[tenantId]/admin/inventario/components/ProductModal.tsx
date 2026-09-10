@@ -1,9 +1,11 @@
 "use client";
 
 import React from 'react';
-import { X, Loader2 } from 'lucide-react';
+import { Package } from 'lucide-react';
 import VariantFields from './VariantFields';
+import IvaVisualSelector from './IvaVisualSelector';
 import { Almacen, Categoria, Iva } from '@/types/api';
+import { AppModal, ActionButton } from '@/components/ui';
 
 /**
  * @typedef {Object} ProductForm
@@ -97,92 +99,95 @@ export default function ProductModal({
   guardarProducto, cargando, setModalProducto
 }: ProductModalProps): React.ReactElement {
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-      <div className="bg-white w-full max-w-2xl rounded-2xl shadow-xl overflow-hidden animate-scale-in">
-        <div className="bg-primary-900 p-4 text-white flex justify-between items-center">
-          <h3 className="font-bold">Crear Nuevo Producto</h3>
-          <button onClick={() => setModalProducto(false)} className="hover:text-primary-200"><X size={20}/></button>
+    <AppModal
+      isOpen
+      onClose={() => setModalProducto(false)}
+      title="Crear Nuevo Producto"
+      icon={<Package size={20} />}
+      size="xl"
+      footer={
+        <>
+          <ActionButton variant="secondary" onClick={() => setModalProducto(false)}>Cancelar</ActionButton>
+          <ActionButton type="submit" loading={cargando} onClick={guardarProducto}>Guardar Producto</ActionButton>
+        </>
+      }
+    >
+      <form onSubmit={guardarProducto} className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
+
+        {/* Selector de Tipo de Producto */}
+        <div className="flex items-center gap-4 p-2 bg-slate-100 rounded-lg">
+          <label className="block text-xs font-bold text-slate-500 uppercase">Tipo de Producto</label>
+          <button type="button" onClick={() => setEsProductoConVariantes(!esProductoConVariantes)} className="w-12 h-6 bg-slate-200 rounded-full p-1 transition-colors">
+            <span className={`w-4 h-4 bg-white rounded-full shadow-md transform transition-transform ${esProductoConVariantes ? 'translate-x-6 bg-primary-600' : 'translate-x-0'}`}></span>
+          </button>
+          <span className={`font-semibold text-sm ${esProductoConVariantes ? 'text-primary-700' : 'text-slate-600'}`}>
+            {esProductoConVariantes ? 'Con Variantes (Tallas, Colores, etc.)' : 'Producto Simple'}
+          </span>
         </div>
-        <form onSubmit={guardarProducto} className="p-6 space-y-4 h-[70vh] overflow-y-auto">
-          
-          {/* Selector de Tipo de Producto */}
-          <div className="flex items-center gap-4 p-2 bg-slate-100 rounded-lg">
-            <label className="block text-xs font-bold text-slate-500 uppercase">Tipo de Producto</label>
-            <button type="button" onClick={() => setEsProductoConVariantes(!esProductoConVariantes)} className="w-12 h-6 bg-slate-200 rounded-full p-1 transition-colors">
-              <span className={`w-4 h-4 bg-white rounded-full shadow-md transform transition-transform ${esProductoConVariantes ? 'translate-x-6 bg-primary-600' : 'translate-x-0'}`}></span>
-            </button>
-            <span className={`font-semibold text-sm ${esProductoConVariantes ? 'text-primary-700' : 'text-slate-600'}`}>
-              {esProductoConVariantes ? 'Con Variantes (Tallas, Colores, etc.)' : 'Producto Simple'}
-            </span>
-          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t">
-            <div className="md:col-span-2">
-              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Nombre del Producto</label>
-              <input type="text" value={formProducto.nombre} onChange={e => setFormProducto({...formProducto, nombre: e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm" required />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t">
+          <div className="md:col-span-2">
+            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Nombre del Producto</label>
+            <input type="text" value={formProducto.nombre} onChange={e => setFormProducto({...formProducto, nombre: e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm" required />
+          </div>
+        </div>
+
+        {/* Campos para Producto Simple */}
+        {!esProductoConVariantes && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-fade-in">
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Precio</label>
+              <input type="number" step="0.01" value={formProducto.precio} onChange={e => setFormProducto({...formProducto, precio: e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm" required={!esProductoConVariantes} />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Stock Inicial</label>
+              <input type="number" value={formProducto.cantidad} onChange={e => setFormProducto({...formProducto, cantidad: parseInt(e.target.value) || 0})} className="w-full px-3 py-2 border rounded-lg text-sm" required={!esProductoConVariantes} />
             </div>
           </div>
+        )}
 
-          {/* Campos para Producto Simple */}
-          {!esProductoConVariantes && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-fade-in">
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Precio</label>
-                <input type="number" step="0.01" value={formProducto.precio} onChange={e => setFormProducto({...formProducto, precio: e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm" required={!esProductoConVariantes} />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Stock Inicial</label>
-                <input type="number" value={formProducto.cantidad} onChange={e => setFormProducto({...formProducto, cantidad: parseInt(e.target.value)})} className="w-full px-3 py-2 border rounded-lg text-sm" required={!esProductoConVariantes} />
-              </div>
-            </div>
-          )}
+        {/* Campos para Producto con Variantes */}
+        {esProductoConVariantes && (
+          <VariantFields
+            variantes={variantes}
+            onVariantChange={handleCambioVariante}
+            onRemoveVariant={handleEliminarVariante}
+            onAddVariant={handleAñadirVariante}
+            ivas={ivas}
+            configuracionIva={formProducto.configuracion_iva}
+          />
+        )}
 
-          {/* Campos para Producto con Variantes */}
-          {esProductoConVariantes && (
-            <VariantFields
-              variantes={variantes}
-              onVariantChange={handleCambioVariante}
-              onRemoveVariant={handleEliminarVariante}
-              onAddVariant={handleAñadirVariante}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:col-span-2 pt-4 border-t">
+          <div>
+            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Código de Barras / SKU (Padre)</label>
+            <input type="text" value={formProducto.codigo_barras} onChange={e => setFormProducto({...formProducto, codigo_barras: e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm" />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Almacén Principal</label>
+            <select value={formProducto.almacen} onChange={e => setFormProducto({...formProducto, almacen: e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm bg-white" required>
+              <option value="">Selecciona un almacén...</option>
+              {almacenes.map(a => <option key={a.id} value={a.id}>{a.nombre}</option>)}
+            </select>
+          </div>
+          <div className="md:col-span-2">
+            <IvaVisualSelector
+              ivas={ivas}
+              value={formProducto.configuracion_iva}
+              onChange={(value) => setFormProducto({ ...formProducto, configuracion_iva: value })}
+              basePrice={Number.isFinite(parseFloat(formProducto.precio)) ? parseFloat(formProducto.precio) : 0}
+              label="Impuesto (IVA)"
             />
-          )}
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:col-span-2 pt-4 border-t">
-            <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Código de Barras / SKU (Padre)</label>
-              <input type="text" value={formProducto.codigo_barras} onChange={e => setFormProducto({...formProducto, codigo_barras: e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm" />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Almacén Principal</label>
-              <select value={formProducto.almacen} onChange={e => setFormProducto({...formProducto, almacen: e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm bg-white" required>
-                <option value="">Selecciona un almacén...</option>
-                {almacenes.map(a => <option key={a.id} value={a.id}>{a.nombre}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Impuesto (IVA)</label>
-              <select value={formProducto.configuracion_iva} onChange={e => setFormProducto({...formProducto, configuracion_iva: e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm bg-white" required>
-                <option value="">Selecciona un IVA...</option>
-                {ivas.map(i => <option key={i.id} value={i.id}>{i.nombre} ({i.porcentaje_iva}%)</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Categoría</label>
-              <select value={formProducto.categoria} onChange={e => setFormProducto({...formProducto, categoria: e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm bg-white" required>
-                <option value="">Selecciona una categoría...</option>
-                {categorias.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-              </select>
-            </div>
           </div>
-
-          <div className="md:col-span-2 mt-4 pt-4 border-t flex justify-end gap-3 sticky bottom-0 bg-white py-2">
-            <button type="button" onClick={() => setModalProducto(false)} className="px-4 py-2 text-sm font-bold text-slate-500 bg-slate-100 rounded-lg">Cancelar</button>
-            <button type="submit" disabled={cargando} className="px-4 py-2 text-sm font-bold text-white bg-primary-600 rounded-lg flex items-center gap-2">
-              {cargando && <Loader2 size={16} className="animate-spin" />} Guardar Producto
-            </button>
+          <div>
+            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Categoría</label>
+            <select value={formProducto.categoria} onChange={e => setFormProducto({...formProducto, categoria: e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm bg-white" required>
+              <option value="">Selecciona una categoría...</option>
+              {categorias.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+            </select>
           </div>
-        </form>
-      </div>
-    </div>
+        </div>
+      </form>
+    </AppModal>
   );
 }

@@ -2,7 +2,7 @@
  * @file Servicio para encapsular la lógica de API para el módulo de Clientes.
  */
 import { apiPrivada } from '@/services/api';
-import { Cliente, ClienteRequest } from '@/types/api';
+import { Cliente, ClienteB2B, ClienteRequest } from '@/types/api';
 
 /**
  * Obtiene la lista completa de clientes del tenant.
@@ -10,6 +10,16 @@ import { Cliente, ClienteRequest } from '@/types/api';
  */
 export const getClientes = async (): Promise<Cliente[]> => {
   const response = await apiPrivada.get<Cliente[]>('/clientes/');
+  return response.data;
+};
+
+/**
+ * Obtiene la lista de clientes de la red B2B del tenant.
+ * El backend expone los clientes bajo `/clientes/`; se reutiliza el listado.
+ * @returns {Promise<ClienteB2B[]>} Una promesa que se resuelve en un array de Clientes B2B.
+ */
+export const getB2BClientes = async (): Promise<ClienteB2B[]> => {
+  const response = await apiPrivada.get<ClienteB2B[]>('/clientes/');
   return response.data;
 };
 

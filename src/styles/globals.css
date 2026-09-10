@@ -20,3 +20,80 @@ body {
   background-color: #f8fafc; /* Fondo gris muy clarito por defecto */
   color: #0f172a;
 }
+
+/* ============================================================
+   Animaciones personalizadas (estilo "fina"):
+   transiciones fluidas entre pasos del POS, fades y entradas.
+   ============================================================ */
+@layer utilities {
+  /* Entrada con fade + leve desplazamiento desde abajo. */
+  .animate-fade-in {
+    animation: fadeIn 0.35s ease-out both;
+  }
+
+  /* Entrada con subida suave (tarjetas animadas en cascada). */
+  .animate-slide-up {
+    animation: slideUp 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  /* Entrada con escala (modales y badges de éxito). */
+  .animate-scale-in {
+    animation: scaleIn 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  /* Rebote suave (icono de check de pago completado). */
+  .animate-bounce-in {
+    animation: bounceIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes bounceIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+  70% {
+    transform: scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}

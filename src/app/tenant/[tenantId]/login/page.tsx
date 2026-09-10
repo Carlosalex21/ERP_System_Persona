@@ -29,9 +29,9 @@ export default function TenantLogin({ params }: { params: Promise<{ tenantId: st
       Cookies.remove('refresh_token');
 
       // 2. MAGIA: Obligamos a Axios a usar la ruta exacta del backend de este cliente (Igual que Swagger)
-      const backendTenantUrl = `http://${tenantId}.localhost:8000/api/v1/auth/token/`;
+      //const backendTenantUrl = `http://${tenantId}.localhost:8000/api/v1/auth/token/`;
 
-      const res = await apiPublica.post(backendTenantUrl, {
+      const res = await apiPublica.post('/auth/token/', {
         username: usuario, 
         password: password
       });
@@ -46,13 +46,14 @@ export default function TenantLogin({ params }: { params: Promise<{ tenantId: st
       router.push('admin');
 
     } catch (error: any) {
-      if (error.response?.status === 401) {
-        setErrorLogin('Usuario o contraseña incorrectos.');
-      } else {
-        setErrorLogin('Error al conectar con el servidor.');
-      }
-      setCargando(false);
-    }
+      console.error("Detalle del error:", error.response || error.message);
+  if (error.response?.status === 401) {
+    setErrorLogin('Usuario o contraseña incorrectos.');
+  } else {
+    setErrorLogin(`Error: ${error.message || 'Desconocido'}`);
+  }
+  setCargando(false);
+}
   };
 
   return (

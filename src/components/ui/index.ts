@@ -1,0 +1,8 @@
+/**
+ * @file Barrel de componentes UI reutilizables.
+ * Centraliza las importaciones para mantener consistencia en toda la app.
+ */
+export { default as AppModal } from './AppModal';
+export { Skeleton, StatCardSkeleton, TableSkeleton, CardGridSkeleton } from './Skeleton';
+export { default as PageHeader } from './PageHeader';
+export { StatCard, EmptyState, Badge, ActionButton } from './primitives';

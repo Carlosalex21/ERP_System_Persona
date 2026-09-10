@@ -16,7 +16,8 @@ function AuthContent() {
   const planElegido = searchParams.get('plan');
 
   // Estados de Interfaz
-  const [view, setView] = useState<View>(planElegido ? 'register' : 'login');
+  // Si el usuario vino de un plan, primero elegimos el tipo de negocio (retail/b2b).
+  const [view, setView] = useState<View>(planElegido ? 'select_type' : 'login');
   const [verPassword, setVerPassword] = useState(false);
   const [cargando, setCargando] = useState(false);
   const [errorGlobal, setErrorGlobal] = useState('');
@@ -71,7 +72,7 @@ function AuthContent() {
     setValidandoSubdominio(true);
     const timeoutId = setTimeout(async () => {
       try {
-        const res = await apiPublica.get(`/api/v1/tenants/check-subdomain/?subdomain=${subdominio}`);
+        const res = await apiPublica.get(`/tenants/check-subdomain/?subdomain=${subdominio}`);
         setSubdominioDisponible(res.data.available);
         setMensajeSubdominio(res.data.available ? '' : (res.data.message || ''));
       } catch (error) {
@@ -102,13 +103,26 @@ function AuthContent() {
     setFaseRegistro('creando'); 
 
     const payload = {
-      first_name: firstName, last_name: lastName, username: usernameRegistro,
-      email, password, nombre_empresa: nombreEmpresa, subdomain: subdominio, plan_id: 1, tipo_negocio: businessType
+      first_name: firstName, 
+      last_name: lastName, 
+      username: usernameRegistro,
+      email, 
+      password, 
+      nombre_empresa: nombreEmpresa, 
+      subdomain: subdominio, 
+      plan_id: 1, 
+      tipo_negocio: businessType
     };
 
-    await apiPublica.post('/api/v1/tenants/register/', payload);
-
-    setFaseRegistro('exito');
+    try {
+      await apiPublica.post('/tenants/register/', payload);
+      setFaseRegistro('exito');
+    } catch (error: any) {
+      // Esto imprimirá en la consola del navegador el diccionario exacto de errores que envía Django
+      console.error("Errores de validación del backend:", error.response?.data);
+      setErrorGlobal("Hubo un error al registrar la empresa. Revisa los datos.");
+      setFaseRegistro('formulario'); // o el estado inicial que manejes
+    }
   };
 
   const manejarSubmit = async (e: React.FormEvent) => {
@@ -183,9 +197,18 @@ function AuthContent() {
             <div className="w-16 h-16 bg-green-50 text-green-600 rounded-full flex items-center justify-center border border-green-200">
               <Check size={36} />
             </div>
-            <h2 className="text-2xl font-black text-slate-900 tracking-tight">¡Plataforma Levantada con Éxito!</h2>
-            <p className="text-slate-500 text-sm max-w-md">Hemos completado la migración de tu esquema y aislamiento de datos. Guarda tus enlaces de acceso corporativos:</p>
+            <h2 className="text-2xl font-black text-slate-900 tracking-tight">¡Cuenta Creada!</h2>
+            <p className="text-slate-500 text-sm max-w-md">
+              Tu entorno multi-tenant fue aislado correctamente. Ahora activa tu suscripción para publicar tu catálogo.
+            </p>
           </div>
+
+          <button
+            onClick={() => router.push(`/pago?plan=${planElegido || 'emprendedor'}&subdominio=${subdominio}`)}
+            className="w-full bg-accent-500 text-white py-4 rounded-xl font-black text-base shadow-lg hover:bg-accent-600 transition-all flex items-center justify-center gap-2"
+          >
+            Continuar al Pago <ArrowRight size={18} />
+          </button>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Tarjeta 1: Tienda Pública */}
