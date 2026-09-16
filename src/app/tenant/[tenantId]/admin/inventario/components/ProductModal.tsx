@@ -1,10 +1,11 @@
 "use client";
 
-import React from 'react';
-import { Package } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { ImagePlus, Package, X } from 'lucide-react';
 import VariantFields from './VariantFields';
+import PresentacionesFields, { PresentacionForm } from './PresentacionesFields';
 import IvaVisualSelector from './IvaVisualSelector';
-import { Almacen, Categoria, Iva } from '@/types/api';
+import { Almacen, Categoria, Iva, Moneda } from '@/types/api';
 import { AppModal, ActionButton } from '@/components/ui';
 
 /**
@@ -13,6 +14,8 @@ import { AppModal, ActionButton } from '@/components/ui';
  * @property {string} descripcion - Descripción del producto.
  * @property {string} precio - Precio del producto.
  * @property {number} cantidad - Cantidad en stock.
+ * @property {string} stock_minimo - Umbral de "bajo stock" propio del producto (vacío = usa el general).
+ * @property {string} sku - SKU interno (distinto del código de barras; para sincronizar con otras plataformas).
  * @property {string} codigo_barras - Código de barras o SKU.
  * @property {boolean} disponible_online - Si está disponible online.
  * @property {string} tipo - Tipo de producto ('simple' o 'variable').
@@ -25,12 +28,16 @@ interface ProductForm {
   descripcion: string;
   precio: string;
   cantidad: number;
+  stock_minimo: string;
+  sku: string;
   codigo_barras: string;
   disponible_online: boolean;
   tipo: 'simple' | 'variable';
   almacen: string;
   configuracion_iva: string;
   categoria: string;
+  moneda: string;
+  imagen: File | null;
 }
 
 /**
@@ -60,6 +67,10 @@ interface Variant {
  * @property {() => void} handleAñadirVariante - Función para añadir una variante.
  * @property {(index: number) => void} handleEliminarVariante - Función para eliminar una variante.
  * @property {(index: number, campo: string, valor: any) => void} handleCambioVariante - Función para cambiar un campo de una variante.
+ * @property {PresentacionForm[]} presentaciones - Presentaciones de venta del producto (Unidad, Caja, Bulto...).
+ * @property {() => void} handleAñadirPresentacion - Función para añadir una presentación.
+ * @property {(index: number) => void} handleEliminarPresentacion - Función para eliminar una presentación.
+ * @property {(index: number, campo: string, valor: any) => void} handleCambioPresentacion - Función para cambiar un campo de una presentación.
  * @property {Almacen[]} almacenes - Lista de almacenes disponibles.
  * @property {Iva[]} ivas - Lista de configuraciones de IVA disponibles.
  * @property {Categoria[]} categorias - Lista de categorías disponibles.
@@ -77,16 +88,29 @@ interface ProductModalProps {
   handleAñadirVariante: () => void;
   handleEliminarVariante: (index: number) => void;
   handleCambioVariante: (index: number, campo: string, valor: any) => void;
+  presentaciones: PresentacionForm[];
+  handleAñadirPresentacion: () => void;
+  handleEliminarPresentacion: (index: number) => void;
+  handleCambioPresentacion: (index: number, campo: string, valor: any) => void;
   almacenes: Almacen[];
   ivas: Iva[];
   categorias: Categoria[];
+  monedas: Moneda[];
   guardarProducto: (e: React.FormEvent) => Promise<void>;
   cargando: boolean;
   setModalProducto: (abierto: boolean) => void;
+  /** true si se está editando un producto existente en vez de creando uno nuevo. */
+  editando?: boolean;
 }
 
 /**
- * Modal para la creación o edición de productos, incluyendo la gestión de variantes.
+ * Modal para la creación o edición de productos, incluyendo la gestión de
+ * variantes y presentaciones de venta.
+ *
+ * Orden de las secciones: primero todo lo general (nombre, foto, precio,
+ * stock, presentaciones, almacén, categoría) y AL FINAL la selección de
+ * impuesto -- con su desglose base/IVA/total -- porque es lo último que se
+ * decide al cargar un producto, no lo primero.
  * @param {ProductModalProps} props - Las propiedades del componente.
  * @returns {JSX.Element} El modal de producto.
  */
@@ -95,26 +119,46 @@ export default function ProductModal({
   esProductoConVariantes, setEsProductoConVariantes,
   variantes, setVariantes,
   handleAñadirVariante, handleEliminarVariante, handleCambioVariante,
-  almacenes, ivas, categorias,
-  guardarProducto, cargando, setModalProducto
+  presentaciones, handleAñadirPresentacion, handleEliminarPresentacion, handleCambioPresentacion,
+  almacenes, ivas, categorias, monedas,
+  guardarProducto, cargando, setModalProducto, editando = false,
 }: ProductModalProps): React.ReactElement {
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  // Genera (y libera) una URL de vista previa local cuando se selecciona un
+  // archivo de imagen -- no se sube nada hasta que se guarda el producto.
+  useEffect(() => {
+    if (!formProducto.imagen) {
+      setPreviewUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(formProducto.imagen);
+    setPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [formProducto.imagen]);
+
   return (
     <AppModal
       isOpen
       onClose={() => setModalProducto(false)}
-      title="Crear Nuevo Producto"
+      title={editando ? 'Editar Producto' : 'Crear Nuevo Producto'}
       icon={<Package size={20} />}
       size="xl"
       footer={
         <>
           <ActionButton variant="secondary" onClick={() => setModalProducto(false)}>Cancelar</ActionButton>
-          <ActionButton type="submit" loading={cargando} onClick={guardarProducto}>Guardar Producto</ActionButton>
+          <ActionButton type="submit" loading={cargando} onClick={guardarProducto}>
+            {editando ? 'Guardar Cambios' : 'Guardar Producto'}
+          </ActionButton>
         </>
       }
     >
       <form onSubmit={guardarProducto} className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
 
-        {/* Selector de Tipo de Producto */}
+        {/* Selector de Tipo de Producto -- oculto al editar: por ahora esta
+            pantalla solo edita los campos simples de un producto ya
+            existente, no agrega/quita variantes. */}
+        {!editando && (
         <div className="flex items-center gap-4 p-2 bg-slate-100 rounded-lg">
           <label className="block text-xs font-bold text-slate-500 uppercase">Tipo de Producto</label>
           <button type="button" onClick={() => setEsProductoConVariantes(!esProductoConVariantes)} className="w-12 h-6 bg-slate-200 rounded-full p-1 transition-colors">
@@ -124,24 +168,125 @@ export default function ProductModal({
             {esProductoConVariantes ? 'Con Variantes (Tallas, Colores, etc.)' : 'Producto Simple'}
           </span>
         </div>
+        )}
+        {editando && formProducto.tipo === 'variable' && (
+          <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2">
+            Este producto tiene variantes. Por ahora, editar aquí solo cambia sus datos generales (nombre, categoría, etc.), no sus variantes.
+          </p>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t">
           <div className="md:col-span-2">
             <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Nombre del Producto</label>
             <input type="text" value={formProducto.nombre} onChange={e => setFormProducto({...formProducto, nombre: e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm" required />
           </div>
+
+          <div className="md:col-span-2">
+            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Descripción</label>
+            <textarea
+              value={formProducto.descripcion}
+              onChange={e => setFormProducto({ ...formProducto, descripcion: e.target.value })}
+              className="w-full px-3 py-2 border rounded-lg text-sm"
+              rows={2}
+              placeholder="Se muestra en el catálogo público, si el producto está habilitado ahí."
+            />
+          </div>
+
+          <div className="md:col-span-2">
+            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Foto del Producto</label>
+            <div className="flex items-center gap-4">
+              <div className="w-20 h-20 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 flex items-center justify-center overflow-hidden shrink-0">
+                {previewUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- vista previa de un archivo local (blob:), no un asset del bundle.
+                  <img src={previewUrl} alt="Vista previa" className="w-full h-full object-cover" />
+                ) : (
+                  <ImagePlus size={22} className="text-slate-300" />
+                )}
+              </div>
+              <div className="flex-1">
+                <input
+                  id="producto-imagen"
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={e => setFormProducto({ ...formProducto, imagen: e.target.files?.[0] ?? null })}
+                />
+                <div className="flex items-center gap-2">
+                  <label
+                    htmlFor="producto-imagen"
+                    className="cursor-pointer inline-flex items-center gap-2 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition-colors"
+                  >
+                    <ImagePlus size={14} /> {formProducto.imagen ? 'Cambiar imagen' : 'Subir imagen'}
+                  </label>
+                  {formProducto.imagen && (
+                    <button
+                      type="button"
+                      onClick={() => setFormProducto({ ...formProducto, imagen: null })}
+                      className="p-2 text-slate-400 hover:text-red-500 transition-colors"
+                      aria-label="Quitar imagen"
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Se muestra en el catálogo público y en el listado de inventario. JPG o PNG.
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Campos para Producto Simple */}
         {!esProductoConVariantes && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-fade-in">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 animate-fade-in">
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Precio</label>
               <input type="number" step="0.01" value={formProducto.precio} onChange={e => setFormProducto({...formProducto, precio: e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm" required={!esProductoConVariantes} />
             </div>
             <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Moneda del precio</label>
+              <select value={formProducto.moneda} onChange={e => setFormProducto({...formProducto, moneda: e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm bg-white">
+                {monedas.map(m => (
+                  <option key={m.id} value={m.id}>
+                    {m.codigo} {m.es_predeterminada ? '(base)' : ''}
+                  </option>
+                ))}
+              </select>
+              <p className="text-[11px] text-slate-400 mt-1">
+                En qu&eacute; moneda escribiste el precio de arriba. Si cambias de tienda de moneda en el POS, se convierte autom&aacute;ticamente.
+              </p>
+            </div>
+            <div>
               <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Stock Inicial</label>
               <input type="number" value={formProducto.cantidad} onChange={e => setFormProducto({...formProducto, cantidad: parseInt(e.target.value) || 0})} className="w-full px-3 py-2 border rounded-lg text-sm" required={!esProductoConVariantes} />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Stock Mínimo</label>
+              <input
+                type="number"
+                min="0"
+                value={formProducto.stock_minimo}
+                onChange={e => setFormProducto({ ...formProducto, stock_minimo: e.target.value })}
+                className="w-full px-3 py-2 border rounded-lg text-sm"
+                placeholder="Opcional"
+              />
+              <p className="text-[11px] text-slate-400 mt-1">A partir de cuánto stock se avisa &quot;bajo stock&quot;. Vacío = umbral general.</p>
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">SKU</label>
+              <input
+                type="text"
+                value={formProducto.sku}
+                onChange={e => setFormProducto({ ...formProducto, sku: e.target.value })}
+                className="w-full px-3 py-2 border rounded-lg text-sm"
+                placeholder="Opcional"
+              />
+              <p className="text-[11px] text-slate-400 mt-1">Código interno propio (distinto del de barras), útil para sincronizar con otras plataformas.</p>
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Código de Barras</label>
+              <input type="text" value={formProducto.codigo_barras} onChange={e => setFormProducto({...formProducto, codigo_barras: e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Opcional" />
             </div>
           </div>
         )}
@@ -158,26 +303,27 @@ export default function ProductModal({
           />
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:col-span-2 pt-4 border-t">
-          <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Código de Barras / SKU (Padre)</label>
-            <input type="text" value={formProducto.codigo_barras} onChange={e => setFormProducto({...formProducto, codigo_barras: e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm" />
+        {/* Presentaciones de venta -- solo aplica a productos simples (ver
+            docstring de `PresentacionProducto` en el backend). */}
+        {!esProductoConVariantes && (
+          <div className="pt-4 border-t">
+            <PresentacionesFields
+              presentaciones={presentaciones}
+              onChange={handleCambioPresentacion}
+              onAdd={handleAñadirPresentacion}
+              onRemove={handleEliminarPresentacion}
+              precioUnitario={Number.isFinite(parseFloat(formProducto.precio)) ? parseFloat(formProducto.precio) : 0}
+            />
           </div>
+        )}
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:col-span-2 pt-4 border-t">
           <div>
             <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Almacén Principal</label>
             <select value={formProducto.almacen} onChange={e => setFormProducto({...formProducto, almacen: e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm bg-white" required>
               <option value="">Selecciona un almacén...</option>
               {almacenes.map(a => <option key={a.id} value={a.id}>{a.nombre}</option>)}
             </select>
-          </div>
-          <div className="md:col-span-2">
-            <IvaVisualSelector
-              ivas={ivas}
-              value={formProducto.configuracion_iva}
-              onChange={(value) => setFormProducto({ ...formProducto, configuracion_iva: value })}
-              basePrice={Number.isFinite(parseFloat(formProducto.precio)) ? parseFloat(formProducto.precio) : 0}
-              label="Impuesto (IVA)"
-            />
           </div>
           <div>
             <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Categoría</label>
@@ -186,6 +332,32 @@ export default function ProductModal({
               {categorias.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
             </select>
           </div>
+
+          <label className="md:col-span-2 flex items-center gap-3 p-3 bg-slate-50 border rounded-lg cursor-pointer">
+            <input
+              type="checkbox"
+              checked={formProducto.disponible_online}
+              onChange={e => setFormProducto({ ...formProducto, disponible_online: e.target.checked })}
+              className="w-5 h-5 accent-primary-600"
+            />
+            <span className="text-sm font-semibold text-slate-700">Mostrar en el catálogo público (tienda online)</span>
+          </label>
+        </div>
+
+        {/* Impuesto y desglose del precio -- al final: es lo último que se
+            decide, no lo primero, y así el total queda siempre como cierre
+            del formulario en vez de aparecer a mitad de camino. Se muestra
+            también para productos con variantes: `VariantFields` usa este
+            mismo `configuracion_iva` para desglosar el precio de cada
+            variante. */}
+        <div className="pt-4 border-t">
+          <IvaVisualSelector
+            ivas={ivas}
+            value={formProducto.configuracion_iva}
+            onChange={(value) => setFormProducto({ ...formProducto, configuracion_iva: value })}
+            basePrice={Number.isFinite(parseFloat(formProducto.precio)) ? parseFloat(formProducto.precio) : 0}
+            label="Impuesto (IVA)"
+          />
         </div>
       </form>
     </AppModal>

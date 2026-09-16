@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import Cookies from 'js-cookie';
 import { Lock, User, ArrowRight, Loader2, Store } from 'lucide-react';
 import { apiPublica } from '@/services/api';
+import { getB2BPerfil } from '@/services/b2bPortalService';
+import { getSharedCookieDomain } from '@/utils/cookieDomain';
 
 export default function TenantLogin({ params }: { params: Promise<{ tenantId: string }> }) {
   const { tenantId } = use(params);
@@ -21,29 +23,36 @@ export default function TenantLogin({ params }: { params: Promise<{ tenantId: st
     setCargando(true);
 
     try {
-      // 1. LIMPIEZA EXTREMA: Borramos cualquier rastro de cookies viejas o globales
-      Cookies.remove('access_token', { domain: '.localhost' });
-      Cookies.remove('refresh_token', { domain: '.localhost' });
-      Cookies.remove('access_token', { domain: 'localhost' });
-      Cookies.remove('access_token');
-      Cookies.remove('refresh_token');
+      const domain = getSharedCookieDomain();
 
-      // 2. MAGIA: Obligamos a Axios a usar la ruta exacta del backend de este cliente (Igual que Swagger)
-      //const backendTenantUrl = `http://${tenantId}.localhost:8000/api/v1/auth/token/`;
+      // 1. Limpiamos cualquier sesión anterior antes de pedir una nueva.
+      Cookies.remove('access_token', { domain });
+      Cookies.remove('refresh_token', { domain });
 
       const res = await apiPublica.post('/auth/token/', {
-        username: usuario, 
+        username: usuario,
         password: password
       });
 
       const { access, refresh } = res.data;
-      
-      // 3. Guardamos la cookie de forma simple (solo pertenece a este subdominio)
-      Cookies.set('access_token', access, { expires: 1 });
-      Cookies.set('refresh_token', refresh, { expires: 7 });
 
-      // 4. Redirigimos al panel de control de forma relativa
-      router.push('admin');
+      // 2. Guardamos la cookie en el dominio compartido (`.localhost` en dev,
+      // `.erpsystem.com` en producción) -- así viaja también al dominio raíz,
+      // necesario para flujos como "Prueba gratis: Nd" -> `/pago` que viven
+      // fuera del subdominio del tenant.
+      Cookies.set('access_token', access, { expires: 1, domain });
+      Cookies.set('refresh_token', refresh, { expires: 7, domain });
+
+      // 4. Este mismo login lo usan tanto el personal del tenant como sus
+      // clientes B2B autenticados -- se distingue por si existe un perfil
+      // ClienteB2B asociado (403 si no lo hay) y se manda a cada quien a su
+      // panel correspondiente.
+      try {
+        await getB2BPerfil();
+        router.push('b2b/portal');
+      } catch {
+        router.push('admin');
+      }
 
     } catch (error: any) {
       console.error("Detalle del error:", error.response || error.message);
@@ -93,16 +102,19 @@ export default function TenantLogin({ params }: { params: Promise<{ tenantId: st
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Contraseña</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-bold text-slate-500 uppercase">Contraseña</label>
+                <a href="forgot-password" className="text-[11px] font-bold text-primary-600 hover:text-primary-700">¿Olvidaste tu contraseña?</a>
+              </div>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                <input 
-                  type="password" 
-                  value={password} 
-                  onChange={e => setPassword(e.target.value)} 
-                  className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary-600 transition-colors" 
+                <input
+                  type="password"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary-600 transition-colors"
                   placeholder="••••••••"
-                  required 
+                  required
                 />
               </div>
             </div>

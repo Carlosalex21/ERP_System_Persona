@@ -1,24 +1,70 @@
 @import "tailwindcss";
 
 @theme {
-  /* Nuestro Azul Principal (Primary) */
-  --color-primary-50: #eff6ff;
-  --color-primary-100: #dbeafe;
-  --color-primary-500: #3b82f6;
-  --color-primary-600: #2563eb;
-  --color-primary-700: #1d4ed8;
-  --color-primary-800: #1e40af;
-  --color-primary-900: #1e3a8a;
+  /*
+   * Marca: azul cobalto + negro-azulado, con dorado como único contraste
+   * cálido -- pedido explícito por el cliente ("mis colores son el azul,
+   * negro"), no una copia de la referencia (que usaba morado/rosa). El
+   * dorado sobre azul profundo es la combinación clásica banca/fintech
+   * premium: se usa con moderación (CTAs y acentos puntuales), nunca como
+   * segundo color de fondo. Como el resto de la app ya consume estos mismos
+   * tokens (`bg-primary-600`, `text-accent-500`, etc.), este único cambio
+   * se propaga a toda la aplicación sin tocar cada componente uno por uno.
+   */
+  --color-primary-50: #eef3ff;
+  --color-primary-100: #dce7ff;
+  --color-primary-200: #b3c9ff;
+  --color-primary-300: #7fa3ff;
+  --color-primary-400: #4a76fa;
+  --color-primary-500: #2c56ea;
+  --color-primary-600: #1f40c9;
+  --color-primary-700: #1a339e;
+  --color-primary-800: #172a78;
+  --color-primary-900: #0d1745;
 
-  /* Nuestro Naranja de Acento (Accent) */
-  --color-accent-500: #f97316;
-  --color-accent-600: #ea580c;
+  --color-accent-50: #fff9ec;
+  --color-accent-100: #ffefc7;
+  --color-accent-200: #ffdd85;
+  --color-accent-300: #ffc848;
+  --color-accent-400: #f5b120;
+  --color-accent-500: #e0960f;
+  --color-accent-600: #b8760a;
+  --color-accent-700: #8f5b08;
+
+  /* Negro-azulado: el "negro" pedido, con la misma temperatura que el azul
+     de marca en vez de un neutro genérico. Usado en secciones oscuras. */
+  --color-ink-950: #050810;
+  --color-ink-900: #0a0f1e;
+  --color-ink-800: #101a30;
+  --color-ink-700: #1a2846;
+
+  /*
+   * Radios semánticos: antes cada componente elegía entre rounded-xl/2xl/3xl
+   * a mano, sin criterio compartido (ver auditoría de arquitectura). Estos
+   * tokens generan las utilidades `rounded-control`/`rounded-card`/`rounded-pill`
+   * automáticamente (Tailwind v4 las deriva de cualquier `--radius-*` en
+   * `@theme`) para que los componentes nuevos tengan un único vocabulario.
+   * Los componentes existentes con `rounded-2xl` etc. no se tocan en este
+   * pase: es infraestructura para adoptar de a poco, no un rediseño masivo.
+   */
+  --radius-control: 0.75rem; /* inputs, botones */
+  --radius-card: 1rem; /* tarjetas, modales */
+  --radius-pill: 9999px; /* badges, chips */
 }
 
 /* Configuraciones base opcionales */
 body {
   background-color: #f8fafc; /* Fondo gris muy clarito por defecto */
   color: #0f172a;
+}
+
+/* ============================================================
+   Tipografía de display del sitio de marketing (home/planes/login):
+   titulares "esculturales" en Unbounded, muy compactos y pesados --
+   ver `--font-unbounded` en app/layout.tsx. Solo se usa fuera del panel.
+   ============================================================ */
+.font-display {
+  font-family: var(--font-unbounded), ui-sans-serif, system-ui, sans-serif;
 }
 
 /* ============================================================
@@ -77,6 +123,63 @@ body {
   to {
     opacity: 1;
     transform: scale(1);
+  }
+}
+
+/* ============================================================
+   Scrollbar delgado y discreto para paneles oscuros (sidebar, etc.):
+   por defecto el navegador dibuja una barra ancha y clara que desentona
+   sobre fondos oscuros.
+   ============================================================ */
+.scrollbar-thin-dark {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+}
+.scrollbar-thin-dark::-webkit-scrollbar {
+  width: 6px;
+}
+.scrollbar-thin-dark::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scrollbar-thin-dark::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.15);
+  border-radius: 9999px;
+}
+.scrollbar-thin-dark::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(255, 255, 255, 0.28);
+}
+
+/* ============================================================
+   Sitio de marketing: marquesina infinita (barra de confianza) y
+   flotación suave para los "stickers" decorativos del hero.
+   ============================================================ */
+@layer utilities {
+  .animate-marquee {
+    animation: marquee 28s linear infinite;
+  }
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+  .animate-float-delayed {
+    animation: float 6s ease-in-out 1.5s infinite;
+  }
+}
+
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0) rotate(var(--sticker-rotate, 0deg));
+  }
+  50% {
+    transform: translateY(-14px) rotate(var(--sticker-rotate, 0deg));
   }
 }
 

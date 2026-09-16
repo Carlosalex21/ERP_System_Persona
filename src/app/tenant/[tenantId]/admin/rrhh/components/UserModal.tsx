@@ -2,8 +2,8 @@
 
 import { useState, type ReactElement } from 'react';
 import { X, Loader2 } from 'lucide-react';
-import { Rol, Sucursal, UserManagedRequest } from '@/types/api';
-import { createManagedUser } from '@/services/rrhhService';
+import { Rol, Sucursal, UserManaged, UserManagedRequest } from '@/types/api';
+import { createManagedUser, updateManagedUser } from '@/services/rrhhService';
 
 interface UserModalProps {
   isOpen: boolean;
@@ -11,12 +11,23 @@ interface UserModalProps {
   onSave: () => void;
   roles: Rol[];
   sucursales: Sucursal[];
+  /** Si viene un empleado, el modal edita ese registro en vez de invitar uno nuevo. */
+  usuario?: UserManaged | null;
 }
 
-export default function UserModal({ isOpen, onClose, onSave, roles, sucursales }: UserModalProps): ReactElement | null {
+export default function UserModal({ isOpen, onClose, onSave, roles, sucursales, usuario = null }: UserModalProps): ReactElement | null {
+  const editando = usuario !== null;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [formData, setFormData] = useState<Partial<UserManagedRequest>>({
+  const [formData, setFormData] = useState<Partial<UserManagedRequest>>(() => usuario ? {
+    first_name: usuario.first_name,
+    last_name: usuario.last_name,
+    email: usuario.email,
+    password: '',
+    rol: usuario.rol ?? undefined,
+    sucursal: usuario.sucursal ?? undefined,
+    is_active: usuario.is_active,
+  } : {
     first_name: '',
     last_name: '',
     email: '',
@@ -48,29 +59,44 @@ export default function UserModal({ isOpen, onClose, onSave, roles, sucursales }
       return;
     }
 
-    // Validación del lado del cliente antes de enviar
-    if (!formData.password || formData.password.trim() === '') {
+    // La contraseña solo es obligatoria al invitar (crear); al editar, se
+    // deja en blanco para no tocar la existente.
+    if (!editando && (!formData.password || formData.password.trim() === '')) {
       setError("La contraseña temporal es obligatoria.");
       setLoading(false);
       return;
     }
 
-    const payload: UserManagedRequest = {
-      first_name: formData.first_name || '',
-      last_name: formData.last_name || '',
-      email: formData.email || '',
-      password: formData.password,
-      rol: formData.rol ? Number(formData.rol) : null,
-      sucursal: formData.sucursal ? Number(formData.sucursal) : null,
-      is_active: formData.is_active || false,
-    };
-
     try {
-      await createManagedUser(payload);
+      if (editando && usuario) {
+        const payload: Partial<UserManagedRequest> = {
+          first_name: formData.first_name || '',
+          last_name: formData.last_name || '',
+          email: formData.email || '',
+          rol: formData.rol ? Number(formData.rol) : null,
+          sucursal: formData.sucursal ? Number(formData.sucursal) : null,
+          is_active: formData.is_active || false,
+        };
+        if (formData.password && formData.password.trim() !== '') {
+          payload.password = formData.password;
+        }
+        await updateManagedUser(usuario.id, payload);
+      } else {
+        const payload: UserManagedRequest = {
+          first_name: formData.first_name || '',
+          last_name: formData.last_name || '',
+          email: formData.email || '',
+          password: formData.password || '',
+          rol: formData.rol ? Number(formData.rol) : null,
+          sucursal: formData.sucursal ? Number(formData.sucursal) : null,
+          is_active: formData.is_active || false,
+        };
+        await createManagedUser(payload);
+      }
       onSave();
     } catch (err: any) {
-      console.error("Error al crear usuario:", err);
-      let errorMessage = "Ocurrió un error al invitar al empleado.";
+      console.error("Error al guardar usuario:", err);
+      let errorMessage = editando ? "Ocurrió un error al actualizar el empleado." : "Ocurrió un error al invitar al empleado.";
       if (err.response?.data) {
         // Intenta encontrar el primer mensaje de error del backend, sea cual sea el campo.
         const fieldErrors = Object.values(err.response.data).flat();
@@ -90,7 +116,7 @@ export default function UserModal({ isOpen, onClose, onSave, roles, sucursales }
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
       <div className="bg-white w-full max-w-lg rounded-2xl shadow-xl overflow-hidden animate-scale-in">
         <div className="bg-primary-900 p-4 text-white flex justify-between items-center">
-          <h3 className="font-bold">Invitar Nuevo Empleado</h3>
+          <h3 className="font-bold">{editando ? 'Editar Empleado' : 'Invitar Nuevo Empleado'}</h3>
           <button onClick={onClose} className="hover:text-primary-200"><X size={20}/></button>
         </div>
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
@@ -109,8 +135,18 @@ export default function UserModal({ isOpen, onClose, onSave, roles, sucursales }
             <input type="email" name="email" value={formData.email} onChange={handleChange} className="w-full px-3 py-2 border rounded-lg text-sm" required />
           </div>
           <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Contraseña Temporal</label>
-            <input type="password" name="password" value={formData.password} onChange={handleChange} className="w-full px-3 py-2 border rounded-lg text-sm" required />
+            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+              {editando ? 'Nueva Contraseña (opcional)' : 'Contraseña Temporal'}
+            </label>
+            <input
+              type="password"
+              name="password"
+              value={formData.password}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border rounded-lg text-sm"
+              placeholder={editando ? 'Déjalo en blanco para no cambiarla' : undefined}
+              required={!editando}
+            />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -139,7 +175,7 @@ export default function UserModal({ isOpen, onClose, onSave, roles, sucursales }
             <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-bold text-slate-500 bg-slate-100 rounded-lg">Cancelar</button>
             <button type="submit" disabled={loading} className="px-4 py-2 text-sm font-bold text-white bg-primary-600 rounded-lg flex items-center gap-2">
               {loading && <Loader2 size={16} className="animate-spin" />}
-              {loading ? 'Invitando...' : 'Invitar Empleado'}
+              {loading ? 'Guardando...' : editando ? 'Guardar Cambios' : 'Invitar Empleado'}
             </button>
           </div>
         </form>

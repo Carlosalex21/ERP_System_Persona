@@ -7,9 +7,11 @@
 
 import { useCallback, useMemo, useState, type ReactElement } from 'react';
 import { Search, ShoppingCart, User, XCircle } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 import { Cliente, Moneda, Producto } from '@/types/api';
 import type { TasaCambioActual } from '@/services/configuracionService';
+import type { Vendedor } from '@/services/usuariosService';
 import type { TotalesCalculo } from '@/utils/taxCalculator';
 
 import CartLineItem from './CartLineItem';
@@ -38,7 +40,17 @@ interface SaleCartProps {
   onCurrencyChange: (code: string) => void;
   onRefreshRates: () => void;
   refreshingRates: boolean;
+  onSaveRate: (tasa: string) => Promise<void>;
+  savingRate: boolean;
   totales: TotalesCalculo;
+  /** Convierte un monto desde la moneda propia del producto a la moneda de venta seleccionada. */
+  convertirPrecio: (monto: number, monedaOrigenCodigo?: string | null) => number;
+
+  condicionPago: 'contado' | 'credito';
+  onCondicionPagoChange: (valor: 'contado' | 'credito') => void;
+  vendedores: Vendedor[];
+  vendedorId: number | null;
+  onVendedorChange: (id: number | null) => void;
 }
 
 /**
@@ -63,7 +75,15 @@ export default function SaleCart({
   onCurrencyChange,
   onRefreshRates,
   refreshingRates,
+  onSaveRate,
+  savingRate,
   totales,
+  convertirPrecio,
+  condicionPago,
+  onCondicionPagoChange,
+  vendedores,
+  vendedorId,
+  onVendedorChange,
 }: SaleCartProps): ReactElement {
   const [clientSearch, setClientSearch] = useState('');
 
@@ -125,10 +145,16 @@ export default function SaleCart({
   );
 
   return (
-    <div className="bg-white h-full flex flex-col rounded-2xl border border-slate-200 shadow-sm">
+    // `min-h-0`: sin esto, un hijo flex con `overflow-y-auto` (la lista de
+    // ítems más abajo) nunca llega a activar su propio scroll -- por
+    // default un flex item no se encoge más allá del tamaño de su
+    // contenido, así que la tarjeta entera crecía con cada producto
+    // agregado y empujaba los totales/botón de pago fuera de la vista,
+    // obligando a scrollear TODA la página en vez de solo la lista.
+    <div className="bg-white h-full min-h-0 flex flex-col rounded-2xl border border-slate-200 shadow-sm">
       {/* Selector de Moneda */}
-      <div className="p-4 border-b bg-slate-50/50">
-        <div className="mb-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+      <div className="p-3 border-b bg-slate-50/50 shrink-0">
+        <div className="mb-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
           Moneda de la venta
         </div>
         <CurrencySelector
@@ -138,11 +164,13 @@ export default function SaleCart({
           onCurrencyChange={onCurrencyChange}
           onRefreshRates={onRefreshRates}
           refreshingRates={refreshingRates}
+          onSaveRate={onSaveRate}
+          savingRate={savingRate}
         />
       </div>
 
       {/* Sección de Cliente */}
-      <div className="p-4 border-b relative">
+      <div className="p-3 border-b relative shrink-0">
         {selectedClient ? (
           <div className="flex items-center justify-between">
             <div className="min-w-0">
@@ -158,7 +186,7 @@ export default function SaleCart({
             </button>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-2">
             <div className="relative group">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
               <input
@@ -190,18 +218,54 @@ export default function SaleCart({
             <button
               type="button"
               onClick={onNewClientClick}
-              className="w-full text-center px-4 py-2 text-sm font-bold text-primary-600 hover:bg-primary-50 border-2 border-dashed border-primary-200 rounded-lg flex items-center justify-center gap-2"
+              className="w-full text-center px-3 py-1.5 text-xs font-bold text-primary-600 hover:bg-primary-50 border-2 border-dashed border-primary-200 rounded-lg flex items-center justify-center gap-1.5"
             >
-              <User size={16} /> Crear nuevo cliente
+              <User size={14} /> Crear nuevo cliente
             </button>
           </div>
         )}
       </div>
 
+      {/* Condición de pago + Vendedor */}
+      <div className="p-3 border-b grid grid-cols-2 gap-2 shrink-0">
+        <div>
+          <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Condición</label>
+          <div className="flex rounded-lg border border-slate-200 overflow-hidden text-xs font-bold">
+            <button
+              type="button"
+              onClick={() => onCondicionPagoChange('contado')}
+              className={`flex-1 py-1.5 transition-colors ${condicionPago === 'contado' ? 'bg-primary-600 text-white' : 'bg-white text-slate-500 hover:bg-slate-50'}`}
+            >
+              Contado
+            </button>
+            <button
+              type="button"
+              onClick={() => onCondicionPagoChange('credito')}
+              className={`flex-1 py-1.5 transition-colors ${condicionPago === 'credito' ? 'bg-primary-600 text-white' : 'bg-white text-slate-500 hover:bg-slate-50'}`}
+            >
+              Crédito
+            </button>
+          </div>
+        </div>
+        <div>
+          <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Vendedor</label>
+          <select
+            value={vendedorId ?? ''}
+            onChange={(e) => onVendedorChange(e.target.value ? Number(e.target.value) : null)}
+            className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs bg-white"
+          >
+            <option value="">Quien está logueado</option>
+            {vendedores.map(v => (
+              <option key={v.id} value={v.id}>{v.nombre}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
       {/* Encabezado del carrito */}
-      <div className="p-4 border-b flex justify-between items-center">
-        <h2 className="font-bold text-lg flex items-center gap-2">
-          <ShoppingCart size={20} className="text-primary-600" />
+      <div className="px-3 py-2 border-b flex justify-between items-center shrink-0">
+        <h2 className="font-bold text-sm flex items-center gap-1.5">
+          <ShoppingCart size={16} className="text-primary-600" />
           Venta Actual
         </h2>
         {cartItems.length > 0 && (
@@ -215,8 +279,13 @@ export default function SaleCart({
         )}
       </div>
 
-      {/* Lista de Items del Carrito */}
-      <div className="flex-grow overflow-y-auto p-4 space-y-3">
+      {/* Lista de Items del Carrito -- `min-h-0` para que el scroll interno
+          (ver comentario arriba) realmente active en vez de estirar la tarjeta.
+          `min-h-[110px]`: piso mínimo para que, aunque las secciones de
+          arriba/abajo (`shrink-0`) crezcan, esta lista nunca quede aplastada
+          a un puñado de píxeles -- ver el colapso del desglose en
+          `TotalsBreakdown` para la otra mitad de este mismo arreglo. */}
+      <div className="flex-grow min-h-[110px] overflow-y-auto p-4 space-y-2">
         {cartItems.length === 0 ? (
           <div className="text-center text-slate-400 pt-16">
             <p>Añade productos a la venta.</p>
@@ -227,6 +296,7 @@ export default function SaleCart({
               key={item.id}
               item={item}
               currencySymbol={currencySymbol}
+              convertirPrecio={convertirPrecio}
               onRemove={handleRemove}
               onIncrement={handleIncrement}
               onDecrement={handleDecrement}
@@ -236,22 +306,24 @@ export default function SaleCart({
         )}
       </div>
 
-      {/* Totales y Botón de Pago */}
+      {/* Totales y Botón de Pago -- `shrink-0`: siempre visible, nunca lo
+          empuja fuera de la vista la lista de ítems (que scrollea sola). */}
       {cartItems.length > 0 && (
-        <div className="p-4 border-t bg-slate-50/50 rounded-b-2xl">
+        <div className="p-3 border-t bg-slate-50/50 rounded-b-2xl shrink-0">
           <TotalsBreakdown
             totales={totales}
             currencyCode={selectedCurrencyCode}
             baseCurrencyCode={baseCurrencyCode}
           />
-          <button
+          <motion.button
+            whileTap={{ scale: 0.97 }}
             type="button"
             onClick={onProceedToPayment}
             disabled={cartItems.length === 0 || !selectedClient}
-            className="w-full mt-4 bg-primary-600 text-white font-bold py-3 rounded-xl hover:bg-primary-700 transition-colors shadow-lg disabled:bg-slate-400"
+            className="w-full mt-3 bg-primary-600 text-white font-bold py-2.5 rounded-xl hover:bg-primary-700 transition-colors shadow-lg disabled:bg-slate-400"
           >
             Proceder al Pago
-          </button>
+          </motion.button>
         </div>
       )}
     </div>

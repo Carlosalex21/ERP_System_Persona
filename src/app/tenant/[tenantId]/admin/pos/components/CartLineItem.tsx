@@ -13,6 +13,8 @@ interface CartLineItemProps {
   item: CartItem;
   /** Símbolo de la moneda activa para mostrar el precio. */
   currencySymbol: string;
+  /** Convierte un monto desde la moneda propia del producto a la moneda de venta seleccionada. */
+  convertirPrecio: (monto: number, monedaOrigenCodigo?: string | null) => number;
   onRemove: (productId: number) => void;
   onIncrement: (productId: number) => void;
   onDecrement: (productId: number) => void;
@@ -26,6 +28,7 @@ interface CartLineItemProps {
 const CartLineItem = memo(function CartLineItem({
   item,
   currencySymbol,
+  convertirPrecio,
   onRemove,
   onIncrement,
   onDecrement,
@@ -37,7 +40,7 @@ const CartLineItem = memo(function CartLineItem({
         <p className="font-bold text-sm text-slate-800 truncate">{item.nombre}</p>
         <p className="text-xs text-slate-500">
           {currencySymbol}
-          {parseFloat(item.precio || '0').toFixed(2)}
+          {convertirPrecio(parseFloat(item.precio || '0'), item.moneda_codigo).toFixed(2)}
         </p>
       </div>
 

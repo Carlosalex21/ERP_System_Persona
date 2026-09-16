@@ -29,6 +29,7 @@ type RetencionFormValues = {
   tipo_retencion: 'islr' | 'iva' | 'otros';
   porcentaje: string;
   base: string;
+  periodo_imposicion: string;
 };
 
 export default function RetencionModal({
@@ -53,18 +54,28 @@ export default function RetencionModal({
       tipo_retencion: 'islr',
       porcentaje: '',
       base: '',
+      periodo_imposicion: '',
     },
   });
 
   useEffect(() => {
     const cargarOpciones = async () => {
       try {
-        const [facturasData, proveedoresData] = await Promise.all([
+        const [facturasRes, proveedoresRes] = await Promise.allSettled([
           apiPrivada.get<Factura[]>('/facturacion/lista/'),
           apiPrivada.get<Proveedor[]>('/proveedores/proveedores/'),
         ]);
-        setFacturas(facturasData.data);
-        setProveedores(proveedoresData.data);
+        if (facturasRes.status === 'fulfilled') setFacturas(facturasRes.value.data);
+        if (proveedoresRes.status === 'fulfilled') setProveedores(proveedoresRes.value.data);
+        const fallo = [facturasRes, proveedoresRes].find(
+          (r): r is PromiseRejectedResult => r.status === 'rejected',
+        );
+        if (fallo) {
+          const messages = getApiErrorMessages(fallo.reason);
+          if (messages.length > 0) {
+            messages.forEach((msg) => toast.error(msg));
+          }
+        }
       } catch (error) {
         const messages = getApiErrorMessages(error);
         if (messages.length > 0) {
@@ -85,6 +96,7 @@ export default function RetencionModal({
         tipo_retencion: retencion.tipo_retencion,
         porcentaje: retencion.porcentaje,
         base: retencion.base,
+        periodo_imposicion: retencion.periodo_imposicion || '',
       });
     } else {
       reset({
@@ -94,6 +106,7 @@ export default function RetencionModal({
         tipo_retencion: 'islr',
         porcentaje: '',
         base: '',
+        periodo_imposicion: '',
       });
     }
   }, [retencion, reset]);
@@ -111,6 +124,7 @@ export default function RetencionModal({
       tipo_retencion: values.tipo_retencion,
       porcentaje: String(parseDecimal(values.porcentaje)),
       base: String(parseDecimal(values.base)),
+      periodo_imposicion: values.periodo_imposicion.trim() || null,
     };
     try {
       if (retencion) {
@@ -235,14 +249,16 @@ export default function RetencionModal({
               type="number"
               step="0.01"
               min="0"
-              max="100"
               {...register('porcentaje', {
                 required: 'El porcentaje es obligatorio',
                 min: { value: 0, message: 'Debe ser mayor o igual a 0' },
               })}
               className="w-full px-3 py-2 border rounded-lg text-sm"
-              placeholder="Ej: 2"
+              placeholder="Ej: 2, 75 o 100"
             />
+            {/* Sin `max`: algunas retenciones (ej. IVA especial) son del 75% o
+                100% -- un tope de 100 en el input HTML bloqueaba escribir esos
+                valores válidos antes de que el usuario terminara de tipear. */}
             {errors.porcentaje && (
               <p className="text-xs text-red-500 mt-1">{errors.porcentaje.message}</p>
             )}
@@ -265,6 +281,20 @@ export default function RetencionModal({
             />
             {errors.base && <p className="text-xs text-red-500 mt-1">{errors.base.message}</p>}
           </div>
+        </div>
+
+        <div>
+          <label className="block text-xs font-bold text-slate-500 uppercase mb-1" htmlFor="retencion-periodo">
+            Periodo de Imposición
+          </label>
+          <input
+            id="retencion-periodo"
+            type="text"
+            {...register('periodo_imposicion')}
+            className="w-full px-3 py-2 border rounded-lg text-sm"
+            placeholder="Ej: 2026 o 01/2026"
+          />
+          <p className="text-[10px] text-slate-400 mt-1">Opcional. El periodo fiscal que declara el proveedor en su comprobante.</p>
         </div>
 
         {/* Previsualización del monto */}

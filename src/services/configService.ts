@@ -3,14 +3,18 @@
  */
 import { apiPrivada } from '@/services/api';
 import { Iva, IvaRequest, Almacen, AlmacenRequest, Categoria, CategoriaRequest } from '@/types/api';
+import { conRespaldoOffline } from '@/utils/offlineCache';
 
 /**
- * Obtiene la lista completa de configuraciones de IVA.
+ * Obtiene la lista completa de configuraciones de IVA. Con respaldo en
+ * IndexedDB para que el POS pueda seguir calculando impuestos sin conexión.
  * @returns {Promise<Iva[]>}
  */
 export const getIvas = async (): Promise<Iva[]> => {
-  const response = await apiPrivada.get<Iva[]>('/configuracion/iva/');
-  return response.data;
+  return conRespaldoOffline('ivas', async () => {
+    const response = await apiPrivada.get<Iva[]>('/configuracion/iva/');
+    return response.data;
+  });
 };
 
 /**

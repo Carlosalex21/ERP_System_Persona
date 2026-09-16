@@ -4,6 +4,7 @@ import type { ReactElement } from 'react';
 import Dropzone from '@/components/ui/Dropzone';
 import { bulkUploadClientesB2B } from '@/services/clientesService';
 import { Users } from 'lucide-react';
+import { PageHeader, Card, FadeIn } from '@/components/ui';
 
 /**
  * Página para la carga masiva de clientes B2B.
@@ -11,16 +12,17 @@ import { Users } from 'lucide-react';
  */
 export default function ImportarClientesB2BPage(): ReactElement {
   return (
-    <div className="p-8">
-      <div className="flex items-center gap-4 mb-8">
-        <Users size={32} className="text-indigo-600" />
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800">Importar Clientes B2B</h1>
-          <p className="text-slate-500">Sube un archivo CSV o XLSX para crear tu red de clientes mayoristas.</p>
-        </div>
-      </div>
-      
-      <Dropzone onUpload={bulkUploadClientesB2B} uploadLabel="Procesar Archivo de Clientes" />
+    <div className="space-y-6 animate-fade-in">
+      <PageHeader
+        icon={<Users size={20} />}
+        title="Importar Clientes B2B"
+        description="Sube un archivo CSV o XLSX para crear tu red de clientes mayoristas."
+      />
+      <FadeIn delay={0.05}>
+        <Card>
+          <Dropzone onUpload={bulkUploadClientesB2B} uploadLabel="Procesar Archivo de Clientes" />
+        </Card>
+      </FadeIn>
     </div>
   );
 }

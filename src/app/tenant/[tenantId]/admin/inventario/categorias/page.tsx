@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, useEffect, useCallback, type ReactElement } from 'react';
+import { useState, useEffect, useCallback, useMemo, type ReactElement } from 'react';
+import type { ColumnDef } from '@tanstack/react-table';
 import { Plus, Tags, Pencil, Trash2, FolderTree } from 'lucide-react';
+import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 
 import CategoriaModal from './CategoriaModal';
-import { TableSkeleton } from '@/components/ui';
+import { DataTable, TableSkeleton, PageHeader, Card, EmptyState } from '@/components/ui';
 import {
   getCategorias,
   createCategoria,
@@ -80,114 +82,112 @@ export default function CategoriasPage(): ReactElement {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="space-y-6 animate-fade-in">
-        <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
-          <div>
-            <div className="h-7 w-64 bg-slate-200 rounded-lg animate-pulse" />
-            <div className="h-3 w-44 bg-slate-200 rounded mt-2 animate-pulse" />
-          </div>
-          <div className="h-10 w-36 bg-slate-200 rounded-xl animate-pulse" />
+  const columns = useMemo<ColumnDef<Categoria>[]>(() => [
+    {
+      accessorKey: 'nombre',
+      header: 'Categoría',
+      cell: ({ row }) => (
+        <div className="flex items-center gap-3">
+          <span className="w-9 h-9 rounded-lg bg-primary-50 text-primary-600 flex items-center justify-center shrink-0">
+            <Tags size={16} />
+          </span>
+          <span className="font-bold text-slate-900">{row.original.nombre}</span>
         </div>
-        <TableSkeleton rows={5} />
-      </div>
-    );
-  }
+      ),
+    },
+    {
+      id: 'padre',
+      header: 'Padre',
+      enableSorting: false,
+      cell: ({ row }) => {
+        const padreNombre = categorias.find(c => c.id === row.original.padre)?.nombre;
+        return (
+          <span className="text-xs font-medium text-slate-600">
+            {padreNombre || <span className="text-slate-300">— Sin padre —</span>}
+          </span>
+        );
+      },
+    },
+    {
+      accessorKey: 'activo',
+      header: () => <div className="text-center">Estado</div>,
+      cell: ({ row }) => (
+        <div className="text-center">
+          <span
+            className={`px-2.5 py-1 rounded-lg font-bold text-xs border ${
+              row.original.activo
+                ? 'bg-green-50 text-green-700 border-green-200'
+                : 'bg-slate-100 text-slate-400 border-slate-200'
+            }`}
+          >
+            {row.original.activo ? 'Activa' : 'Inactiva'}
+          </span>
+        </div>
+      ),
+    },
+    {
+      id: 'acciones',
+      header: () => <div className="text-right">Acciones</div>,
+      enableSorting: false,
+      cell: ({ row }) => (
+        <div className="flex justify-end gap-1">
+          <button
+            onClick={() => abrirEdicion(row.original)}
+            className="p-2 text-slate-400 hover:text-primary-600 transition-colors"
+            aria-label="Editar categoría"
+          >
+            <Pencil size={16} />
+          </button>
+          <button
+            onClick={() => eliminar(row.original)}
+            className="p-2 text-slate-400 hover:text-red-500 transition-colors"
+            aria-label="Eliminar categoría"
+          >
+            <Trash2 size={16} />
+          </button>
+        </div>
+      ),
+    },
+  ], [categorias]);
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
-        <div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-            <Tags size={24} className="text-primary-600" /> Categorías de Productos
-          </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Organiza tu catálogo para que tus clientes encuentren rápido lo que buscan.
-          </p>
-        </div>
-        <button
-          onClick={abrirNueva}
-          className="bg-primary-600 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-primary-700 flex items-center justify-center gap-2 shadow-md"
-        >
-          <Plus size={18} /> Nueva Categoría
-        </button>
-      </div>
-
-      {categorias.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-12 text-center">
-          <FolderTree size={48} className="mx-auto text-slate-300" />
-          <h3 className="mt-4 text-lg font-bold text-slate-700">Aún no tienes categorías</h3>
-          <p className="mt-1 text-sm text-slate-500">
-            Crea tu primera categoría para organizar tu inventario y mejorar la experiencia de compra.
-          </p>
-          <button
+      <PageHeader
+        icon={<Tags size={20} />}
+        title="Categorías de Productos"
+        description="Organiza tu catálogo para que tus clientes encuentren rápido lo que buscan."
+        actions={
+          <motion.button
+            whileTap={{ scale: 0.96 }}
             onClick={abrirNueva}
-            className="mt-6 inline-flex items-center gap-2 bg-primary-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-primary-700 shadow-md"
+            className="bg-primary-600 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-primary-700 flex items-center justify-center gap-2 shadow-md"
           >
-            <Plus size={18} /> Crear primera categoría
-          </button>
-        </div>
+            <Plus size={18} /> Nueva Categoría
+          </motion.button>
+        }
+      />
+
+      {loading ? (
+        <TableSkeleton rows={5} />
+      ) : categorias.length === 0 ? (
+        <EmptyState
+          icon={<FolderTree size={28} />}
+          title="Aún no tienes categorías"
+          description="Crea tu primera categoría para organizar tu inventario y mejorar la experiencia de compra."
+          action={
+            <motion.button
+              whileTap={{ scale: 0.96 }}
+              onClick={abrirNueva}
+              className="inline-flex items-center gap-2 bg-primary-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-primary-700 shadow-md"
+            >
+              <Plus size={18} /> Crear primera categoría
+            </motion.button>
+          }
+        />
       ) : (
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          <table className="w-full text-left text-sm">
-            <thead>
-              <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase text-[10px] tracking-wider">
-                <th className="p-4 pl-6">Categoría</th>
-                <th className="p-4">Padre</th>
-                <th className="p-4 text-center">Estado</th>
-                <th className="p-4 text-right">Acciones</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {categorias.map(categoria => {
-                const padreNombre = categorias.find(c => c.id === categoria.padre)?.nombre;
-                return (
-                  <tr key={categoria.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="p-4 pl-6 font-bold text-slate-900 flex items-center gap-3">
-                      <span className="w-9 h-9 rounded-lg bg-primary-50 text-primary-600 flex items-center justify-center shrink-0">
-                        <Tags size={16} />
-                      </span>
-                      {categoria.nombre}
-                    </td>
-                    <td className="p-4 text-xs font-medium text-slate-600">
-                      {padreNombre || <span className="text-slate-300">— Sin padre —</span>}
-                    </td>
-                    <td className="p-4 text-center">
-                      <span
-                        className={`px-2.5 py-1 rounded-lg font-bold text-xs border ${
-                          categoria.activo
-                            ? 'bg-green-50 text-green-700 border-green-200'
-                            : 'bg-slate-100 text-slate-400 border-slate-200'
-                        }`}
-                      >
-                        {categoria.activo ? 'Activa' : 'Inactiva'}
-                      </span>
-                    </td>
-                    <td className="p-4 text-right">
-                      <div className="flex justify-end gap-1">
-                        <button
-                          onClick={() => abrirEdicion(categoria)}
-                          className="p-2 text-slate-400 hover:text-primary-600 transition-colors"
-                          aria-label="Editar categoría"
-                        >
-                          <Pencil size={16} />
-                        </button>
-                        <button
-                          onClick={() => eliminar(categoria)}
-                          className="p-2 text-slate-400 hover:text-red-500 transition-colors"
-                          aria-label="Eliminar categoría"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        <Card padding="none" className="overflow-hidden">
+          <DataTable columns={columns} data={categorias} resultLabel="categorías" />
+        </Card>
       )}
 
       {modalAbierto && (

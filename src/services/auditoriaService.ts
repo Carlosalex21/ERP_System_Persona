@@ -1,0 +1,26 @@
+/**
+ * @file Servicio para el registro de auditoría del tenant -- quién hizo qué
+ * cambio, cuándo, y con qué valores antes/después. Solo lectura: el backend
+ * no expone crear/editar/borrar un registro de auditoría (ver
+ * `RegistroAuditoriaViewSet`, `ReadOnlyModelViewSet`).
+ */
+import { apiPrivada } from './api';
+import { RegistroAuditoria } from '@/types/api';
+
+export interface FiltrosAuditoria {
+  modelo?: string;
+  accion?: string;
+  fecha_desde?: string;
+  fecha_hasta?: string;
+  q?: string;
+}
+
+/**
+ * Lista el registro de auditoría del tenant, opcionalmente filtrado.
+ * @param {FiltrosAuditoria} filtros - Filtros opcionales (modelo, acción, rango de fechas, búsqueda libre).
+ * @returns {Promise<RegistroAuditoria[]>}
+ */
+export const getRegistrosAuditoria = async (filtros: FiltrosAuditoria = {}): Promise<RegistroAuditoria[]> => {
+  const response = await apiPrivada.get<RegistroAuditoria[]>('/auditoria/registros/', { params: filtros });
+  return response.data;
+};

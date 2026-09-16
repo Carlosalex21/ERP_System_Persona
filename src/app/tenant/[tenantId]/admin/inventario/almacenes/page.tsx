@@ -1,12 +1,14 @@
 "use client";
 
 import { useState, useEffect, useCallback, type ReactElement } from 'react';
-import { Plus, Loader2, Warehouse, Trash2, Pencil, MapPin, Phone } from 'lucide-react';
+import { Plus, Warehouse, Trash2, Pencil, MapPin, Phone } from 'lucide-react';
+import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 
 import AlmacenModal from './AlmacenModal';
 import { getAlmacenes, createAlmacen, updateAlmacen, deleteAlmacen } from '@/services/inventoryService';
 import type { Almacen, AlmacenRequest } from '@/types/api';
+import { PageHeader, Card, EmptyState, CardGridSkeleton, Stagger, StaggerItem } from '@/components/ui';
 
 export default function AlmacenesPage(): ReactElement {
   const [almacenes, setAlmacenes] = useState<Almacen[]>([]);
@@ -74,53 +76,46 @@ export default function AlmacenesPage(): ReactElement {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <Loader2 className="animate-spin text-primary-600" size={32} />
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
-        <div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-            <Warehouse size={24} className="text-primary-600" /> Almacenes
-          </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Configura tus puntos de inventario y sucursales para gestionar el stock.
-          </p>
-        </div>
-        <button
-          onClick={abrirNuevo}
-          className="bg-primary-600 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-primary-700 flex items-center justify-center gap-2 shadow-md"
-        >
-          <Plus size={18} /> Nuevo Almacén
-        </button>
-      </div>
-
-      {almacenes.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-12 text-center">
-          <Warehouse size={48} className="mx-auto text-slate-300" />
-          <h3 className="mt-4 text-lg font-bold text-slate-700">Aún no tienes almacenes</h3>
-          <p className="mt-1 text-sm text-slate-500">
-            Crea tu primer almacén para poder registrar productos y gestionar el inventario.
-          </p>
-          <button
+      <PageHeader
+        icon={<Warehouse size={20} />}
+        title="Almacenes"
+        description="Configura tus puntos de inventario y sucursales para gestionar el stock."
+        actions={
+          <motion.button
+            whileTap={{ scale: 0.96 }}
             onClick={abrirNuevo}
-            className="mt-6 inline-flex items-center gap-2 bg-primary-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-primary-700 shadow-md"
+            className="bg-primary-600 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-primary-700 flex items-center justify-center gap-2 shadow-md"
           >
-            <Plus size={18} /> Crear primer almacén
-          </button>
-        </div>
+            <Plus size={18} /> Nuevo Almacén
+          </motion.button>
+        }
+      />
+
+      {loading ? (
+        <CardGridSkeleton count={3} />
+      ) : almacenes.length === 0 ? (
+        <EmptyState
+          icon={<Warehouse size={28} />}
+          title="Aún no tienes almacenes"
+          description="Crea tu primer almacén para poder registrar productos y gestionar el inventario."
+          action={
+            <motion.button
+              whileTap={{ scale: 0.96 }}
+              onClick={abrirNuevo}
+              className="inline-flex items-center gap-2 bg-primary-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-primary-700 shadow-md"
+            >
+              <Plus size={18} /> Crear primer almacén
+            </motion.button>
+          }
+        />
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <Stagger className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {almacenes.map(almacen => (
-            <div
-              key={almacen.id}
-              className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 flex flex-col justify-between hover:shadow-lg transition-all"
+            <StaggerItem key={almacen.id}>
+            <Card
+              className="flex flex-col justify-between hover:shadow-lg transition-shadow h-full"
             >
               <div>
                 <div className="flex items-start justify-between">
@@ -170,9 +165,10 @@ export default function AlmacenesPage(): ReactElement {
                   </div>
                 </div>
               </div>
-            </div>
+            </Card>
+            </StaggerItem>
           ))}
-        </div>
+        </Stagger>
       )}
 
       {modalAbierto && (

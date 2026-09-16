@@ -8,7 +8,7 @@ import React from 'react';
 import { Trash2, Percent } from 'lucide-react';
 
 import type { Iva } from '@/types/api';
-import { calcularPrecioFinal } from '@/utils/taxCalculator';
+import { extraerBaseImponible } from '@/utils/taxCalculator';
 import { parseDecimal } from '@/utils/helpers';
 
 /**
@@ -67,8 +67,12 @@ export default function VariantFields({
     <div className="space-y-3 animate-fade-in">
       <h4 className="text-sm font-bold text-slate-700">Variantes del Producto</h4>
       {variantes.map((variante, index) => {
-        const precioBase = parseDecimal(variante.precio);
-        const precioFinal = calcularPrecioFinal(precioBase, tasaIva);
+        // `variante.precio` es el precio final YA con IVA incluido (misma
+        // convención que `Producto.precio` -- ver comentario en
+        // `IvaVisualSelector`), así que aquí solo se desglosa, nunca se le
+        // suma impuesto encima.
+        const precioFinal = parseDecimal(variante.precio);
+        const baseImponible = extraerBaseImponible(precioFinal, tasaIva);
         return (
           <div key={index} className="bg-slate-50 p-2 rounded-lg border space-y-2">
             <div className="grid grid-cols-5 gap-2 items-center">
@@ -102,12 +106,14 @@ export default function VariantFields({
               </button>
             </div>
 
-            {/* Previsualización dinámica del precio final al consumidor */}
+            {/* Desglose del precio ya cobrado (el precio de arriba es el final, con IVA incluido) */}
             <div className="flex items-center justify-between text-xs bg-white border border-slate-200 rounded-md px-2 py-1.5">
               <span className="text-slate-500 flex items-center gap-1">
-                <Percent size={11} /> Precio final ({ivaSel?.nombre || 'Sin IVA'} {tasaIva}%):
+                <Percent size={11} /> Base {tasaIva}% ({ivaSel?.nombre || 'Sin IVA'}) + IVA:
               </span>
-              <span className="font-black text-primary-700">{precioFinal.toFixed(2)}</span>
+              <span className="font-black text-primary-700">
+                {baseImponible.toFixed(2)} + {(precioFinal - baseImponible).toFixed(2)}
+              </span>
             </div>
           </div>
         );

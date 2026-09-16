@@ -8,7 +8,7 @@ import { type ReactElement, useMemo } from 'react';
 import { ReceiptText, Percent } from 'lucide-react';
 
 import type { Iva } from '@/types/api';
-import { calcularPrecioFinal, roundMoney } from '@/utils/taxCalculator';
+import { extraerBaseImponible, roundMoney } from '@/utils/taxCalculator';
 import { parseDecimal } from '@/utils/helpers';
 
 interface IvaVisualSelectorProps {
@@ -16,14 +16,22 @@ interface IvaVisualSelectorProps {
   /** Valor seleccionado (id del IVA como string, '' si ninguno). */
   value: string;
   onChange: (value: string) => void;
-  /** Precio base imponible (neto) para calcular la preview. */
+  /**
+   * Precio que el cliente paga, YA CON IVA incluido (es como se interpreta
+   * `Producto.precio`/`Variacionproducto.precio` en todo el sistema -- ver
+   * `Producto.base_imponible` en el backend, que hace el mismo cálculo
+   * inverso). No es la base imponible.
+   */
   basePrice: number;
   /** Etiqueta opcional para el selector. */
   label?: string;
 }
 
 /**
- * Selector por chips del IVA con preview del precio final al consumidor.
+ * Selector por chips del IVA con desglose del precio ya cobrado al
+ * consumidor (el usuario escribe el precio final, ej. "67" para una
+ * botella que cuesta $67 con IVA incluido -- esto solo desglosa cuánto de
+ * eso es base imponible y cuánto es IVA, nunca le suma impuesto encima).
  */
 export default function IvaVisualSelector({
   ivas,
@@ -35,8 +43,8 @@ export default function IvaVisualSelector({
   const selectedIva = useMemo(() => ivas.find(i => String(i.id) === value), [ivas, value]);
 
   const tasaIva = selectedIva ? parseDecimal(selectedIva.porcentaje_iva) : 0;
-  const base = basePrice || 0;
-  const precioFinal = calcularPrecioFinal(base, tasaIva);
+  const precioFinal = basePrice || 0;
+  const base = extraerBaseImponible(precioFinal, tasaIva);
   const montoIva = roundMoney(precioFinal - base);
 
   const activeIvas = useMemo(() => ivas.filter(i => i.activo), [ivas]);

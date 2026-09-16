@@ -1,138 +1,190 @@
 "use client";
 
-import { useState, useEffect, use, type ReactElement } from 'react';
-import { Plus, Users, Edit, Trash2, Loader2, UserX, UserCheck } from 'lucide-react';
-import { getManagedUsers, getSucursales } from '@/services/rrhhService';
+import { useState, useEffect, useCallback, useMemo, type ReactElement } from 'react';
+import type { ColumnDef } from '@tanstack/react-table';
+import { Plus, Edit, Trash2, UserX, UserCheck, Users } from 'lucide-react';
+import { motion } from 'framer-motion';
+import toast from 'react-hot-toast';
+import { getManagedUsers, getSucursales, getRoles, updateManagedUser } from '@/services/rrhhService';
 import { UserManaged, Rol, Sucursal } from '@/types/api';
 import { getNombreById } from '@/utils/helpers';
+import { DataTable, PageHeader, Card, TableSkeleton } from '@/components/ui';
 import UserModal from './components/UserModal';
 
-// Roles predefinidos ya que no hay un endpoint para obtenerlos.
-const ROLES_PREDEFINIDOS: Rol[] = [
-  { id: 1, nombre: 'Administrador' },
-  { id: 2, nombre: 'Vendedor' },
-  { id: 3, nombre: 'Almacenista' },
-];
-
 /**
- * Página de Recursos Humanos (RRHH).
- * Actualmente es un placeholder.
- * @returns {ReactElement} El componente de la página de RRHH.
+ * Página de Recursos Humanos (RRHH): gestión de empleados del tenant.
  */
-export default function RrhhPage({ params }: { params: Promise<{ tenantId: string }> }): ReactElement {
-  const { tenantId } = use(params);
-
+export default function RrhhPage(): ReactElement {
   const [loading, setLoading] = useState(true);
   const [users, setUsers] = useState<UserManaged[]>([]);
   const [sucursales, setSucursales] = useState<Sucursal[]>([]);
+  const [roles, setRoles] = useState<Rol[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editandoUsuario, setEditandoUsuario] = useState<UserManaged | null>(null);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      const [usersData, sucursalesData] = await Promise.all([
+      // Antes: roles hardcodeados a 3 IDs fijos. Ahora se consultan los
+      // roles reales del tenant (ver apps.usuarios.api.views_roles).
+      const [usersRes, sucursalesRes, rolesRes] = await Promise.allSettled([
         getManagedUsers(),
         getSucursales(),
+        getRoles(),
       ]);
-      setUsers(usersData);
-      setSucursales(sucursalesData);
-    } catch (error) {
-      console.error("Error al cargar datos de RRHH:", error);
-      alert("No se pudieron cargar los datos de empleados.");
+      if (usersRes.status === 'fulfilled') setUsers(usersRes.value);
+      if (sucursalesRes.status === 'fulfilled') setSucursales(sucursalesRes.value);
+      if (rolesRes.status === 'fulfilled') setRoles(rolesRes.value);
+      const fallos = [usersRes, sucursalesRes, rolesRes].filter(
+        (r): r is PromiseRejectedResult => r.status === 'rejected',
+      );
+      if (fallos.length > 0) {
+        console.error("Error al cargar datos de RRHH:", fallos.map((f) => f.reason));
+        toast.error('Algunos datos no se pudieron cargar. Intenta actualizar la página.');
+      }
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [fetchData]);
 
   const handleSaveUser = async () => {
     setIsModalOpen(false);
-    await fetchData(); // Recargar datos después de guardar
+    setEditandoUsuario(null);
+    await fetchData();
   };
 
-  if (loading) {
-    return (
-      <div className="flex h-full min-h-[50vh] items-center justify-center text-slate-500">
-        <Loader2 size={32} className="animate-spin mr-3" />
-        Cargando gestión de empleados...
-      </div>
-    );
-  }
+  const abrirEdicion = (usuario: UserManaged): void => {
+    setEditandoUsuario(usuario);
+    setIsModalOpen(true);
+  };
+
+  // No se borra al empleado de verdad: su usuario queda referenciado en
+  // ventas/facturas pasadas (vendedor, quién la registró) y borrarlo de
+  // verdad dejaría esos registros históricos sin esa atribución. Se
+  // desactiva en su lugar -- ya no puede iniciar sesión, pero su historial
+  // se mantiene intacto.
+  const desactivarUsuario = async (usuario: UserManaged): Promise<void> => {
+    if (!confirm(`¿Desactivar a ${usuario.first_name} ${usuario.last_name}? Ya no podrá iniciar sesión.`)) return;
+    try {
+      await updateManagedUser(usuario.id, { is_active: false });
+      toast.success('Empleado desactivado.');
+      await fetchData();
+    } catch {
+      toast.error('No se pudo desactivar al empleado.');
+    }
+  };
+
+  const columns = useMemo<ColumnDef<UserManaged>[]>(() => [
+    {
+      id: 'nombre',
+      header: 'Nombre',
+      cell: ({ row }) => (
+        <div>
+          <span className="font-bold text-slate-900 block">{row.original.first_name} {row.original.last_name}</span>
+          <span className="text-xs text-slate-500">{row.original.email}</span>
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'rol',
+      header: 'Rol',
+      enableSorting: false,
+      cell: ({ row }) => <span className="text-xs font-medium text-slate-600">{getNombreById(roles, row.original.rol)}</span>,
+    },
+    {
+      accessorKey: 'sucursal',
+      header: 'Sucursal',
+      enableSorting: false,
+      cell: ({ row }) => <span className="text-xs font-medium text-slate-600">{getNombreById(sucursales, row.original.sucursal) || 'Todas'}</span>,
+    },
+    {
+      accessorKey: 'is_active',
+      header: () => <div className="text-center">Estado</div>,
+      cell: ({ row }) => (
+        <div className="text-center">
+          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full font-bold text-xs border ${
+            row.original.is_active
+              ? 'bg-green-50 text-green-700 border-green-200'
+              : 'bg-red-50 text-red-600 border-red-200'
+          }`}>
+            {row.original.is_active ? <UserCheck size={12} /> : <UserX size={12} />}
+            {row.original.is_active ? 'Activo' : 'Inactivo'}
+          </span>
+        </div>
+      ),
+    },
+    {
+      id: 'acciones',
+      header: () => <div className="text-right">Acciones</div>,
+      enableSorting: false,
+      cell: ({ row }) => (
+        <div className="flex justify-end gap-1">
+          <button
+            onClick={() => abrirEdicion(row.original)}
+            className="p-2 text-slate-400 hover:text-primary-600 transition-colors"
+            aria-label="Editar empleado"
+          >
+            <Edit size={16} />
+          </button>
+          {row.original.is_active && (
+            <button
+              onClick={() => desactivarUsuario(row.original)}
+              className="p-2 text-slate-400 hover:text-red-500 transition-colors"
+              aria-label="Desactivar empleado"
+            >
+              <Trash2 size={16} />
+            </button>
+          )}
+        </div>
+      ),
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], [roles, sucursales]);
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
-        <div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight">Gestión de Empleados</h1>
-          <p className="text-xs text-slate-500 mt-0.5">Invita, asigna roles y gestiona el acceso de tu equipo.</p>
-        </div>
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="bg-primary-600 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-primary-700 flex items-center justify-center gap-2 shadow-md"
-        >
-          <Plus size={18} /> Invitar Empleado
-        </button>
-      </div>
+      <PageHeader
+        icon={<Users size={20} />}
+        title="Gestión de Empleados"
+        description="Invita, asigna roles y gestiona el acceso de tu equipo."
+        actions={
+          <motion.button
+            whileTap={{ scale: 0.96 }}
+            onClick={() => { setEditandoUsuario(null); setIsModalOpen(true); }}
+            className="bg-primary-600 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-primary-700 flex items-center justify-center gap-2 shadow-md"
+          >
+            <Plus size={18} /> Invitar Empleado
+          </motion.button>
+        }
+      />
 
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase text-[10px] tracking-wider">
-            <tr>
-              <th className="p-4 pl-6">Nombre</th>
-              <th className="p-4">Rol</th>
-              <th className="p-4">Sucursal</th>
-              <th className="p-4 text-center">Estado</th>
-              <th className="p-4 text-right">Acciones</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {users.map(user => (
-              <tr key={user.id} className="hover:bg-slate-50 transition-colors">
-                <td className="p-4 pl-6">
-                  <span className="font-bold text-slate-900 block">{user.first_name} {user.last_name}</span>
-                  <span className="text-xs text-slate-500">{user.email}</span>
-                </td>
-                <td className="p-4 text-xs font-medium text-slate-600">{getNombreById(ROLES_PREDEFINIDOS, user.rol)}</td>
-                <td className="p-4 text-xs font-medium text-slate-600">{getNombreById(sucursales, user.sucursal) || 'Todas'}</td>
-                <td className="p-4 text-center">
-                  <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full font-bold text-xs border ${
-                    user.is_active
-                      ? 'bg-green-50 text-green-700 border-green-200'
-                      : 'bg-red-50 text-red-600 border-red-200'
-                  }`}>
-                    {user.is_active ? <UserCheck size={12} /> : <UserX size={12} />}
-                    {user.is_active ? 'Activo' : 'Inactivo'}
-                  </span>
-                </td>
-                <td className="p-4 text-right">
-                  <button className="p-2 text-slate-400 hover:text-primary-600 transition-colors"><Edit size={16} /></button>
-                  <button className="p-2 text-slate-400 hover:text-red-500 transition-colors"><Trash2 size={16} /></button>
-                </td>
-              </tr>
-            ))}
-            {users.length === 0 && (
-              <tr>
-                <td colSpan={5} className="p-8 text-center text-slate-400 text-sm">
-                  No has invitado a ningún empleado todavía.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      {loading ? (
+        <TableSkeleton rows={5} />
+      ) : (
+        <Card padding="none" className="overflow-hidden">
+          <DataTable
+            columns={columns}
+            data={users}
+            resultLabel="empleados"
+            emptyState={<div className="p-8 text-center text-slate-400 text-sm">No has invitado a ningún empleado todavía.</div>}
+          />
+        </Card>
+      )}
 
       {isModalOpen && (
         <UserModal
           isOpen={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
+          onClose={() => { setIsModalOpen(false); setEditandoUsuario(null); }}
           onSave={handleSaveUser}
-          roles={ROLES_PREDEFINIDOS}
+          roles={roles}
           sucursales={sucursales}
+          usuario={editandoUsuario}
         />
       )}
-      </div>
+    </div>
   );
 }

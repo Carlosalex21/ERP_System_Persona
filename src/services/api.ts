@@ -8,6 +8,7 @@ import axios, {
 import Cookies from 'js-cookie';
 
 import type { ApiEnvelope, ApiError } from '@/types/api';
+import { getSharedCookieDomain } from '@/utils/cookieDomain';
 
 // Definimos la URL base del backend en Django
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -159,7 +160,7 @@ function sleep(ms: number): Promise<void> {
  * - Errores transitorios (red, 5xx) => se reintenta con backoff. Si persisten,
  *   se devuelve `hard: false` para NO desloguear a un cajero en plena venta.
  */
-async function refreshAccessToken(): Promise<RefreshResult> {
+export async function refreshAccessToken(): Promise<RefreshResult> {
   const refreshToken = Cookies.get('refresh_token');
   if (!refreshToken) {
     return { ok: false, hard: true };
@@ -182,10 +183,11 @@ async function refreshAccessToken(): Promise<RefreshResult> {
       const refresh = data.refresh ?? null;
 
       if (access) {
-        Cookies.set('access_token', access, { expires: 1, secure: false, sameSite: 'Lax' });
+        const domain = getSharedCookieDomain();
+        Cookies.set('access_token', access, { expires: 1, secure: false, sameSite: 'Lax', domain });
         // El backend rota el refresh token (ROTATE_REFRESH_TOKENS=True); lo guardamos si viene.
         if (refresh) {
-          Cookies.set('refresh_token', refresh, { expires: 7, secure: false, sameSite: 'Lax' });
+          Cookies.set('refresh_token', refresh, { expires: 7, secure: false, sameSite: 'Lax', domain });
         }
         return { ok: true, access, refresh: refresh ?? undefined };
       }
@@ -220,6 +222,19 @@ apiPrivada.interceptors.response.use(
       _retry?: boolean;
       _tenantBaseURL?: string;
     };
+
+    // La suscripción del tenant venció (ver `SubscriptionGateMiddleware` en
+    // el backend, que bloquea con 402 antes de llegar a cualquier vista) --
+    // no tiene sentido reintentar ni refrescar el token, hay que mandar al
+    // dueño a la pantalla de "renueva tu plan".
+    if (
+      error.response?.status === 402 &&
+      typeof window !== 'undefined' &&
+      !window.location.pathname.endsWith('/suscripcion-vencida')
+    ) {
+      window.location.href = `${window.location.origin}/suscripcion-vencida`;
+      return new Promise(() => {}); // corta la cadena: ya estamos navegando fuera.
+    }
 
     if (
       error.response?.status === 401 &&
@@ -257,8 +272,9 @@ apiPrivada.interceptors.response.use(
       // Solo deslogueamos ante un fallo DURO de autenticación. Un 401 transitorio
       // (red caída, 5xx al renovar) NO debe expulsar al cajero en plena venta.
       if (refreshResult.hard) {
-        Cookies.remove('access_token');
-        Cookies.remove('refresh_token');
+        const domain = getSharedCookieDomain();
+        Cookies.remove('access_token', { domain });
+        Cookies.remove('refresh_token', { domain });
         if (typeof window !== 'undefined') {
           // Redirige al login del subdominio actual (tenant) para no perder el
           // contexto multi-tenant. window.location.origin ya incluye el subdominio.

@@ -9,7 +9,7 @@ import dynamic from 'next/dynamic';
 import { use, type ReactElement } from 'react';
 
 // La vista del dashboard se importa dinámicamente y solo se hidrata en el cliente.
-const DashboardView = dynamic(() => import('./DashboardView'), { ssr: false });
+const DashboardView = dynamic(() => import('./dashboard/DashboardView'), { ssr: false });
 
 export default function AdminDashboardPage({
   params,

@@ -3,7 +3,7 @@
  * y los documentos fiscales SENIAT (notas de crédito/débito, libros, retenciones).
  * Las lecturas usan caché en memoria (TTL) para evitar refetch en cada navegación.
  */
-import { apiPrivada } from './api';
+import { apiPrivada, apiRequest } from './api';
 import {
   Factura,
   FacturaRequest,
@@ -21,8 +21,11 @@ import {
   Retencion,
   RetencionRequest,
   PatchedRetencionRequest,
+  Transaccionpago,
+  PagoRequestLinea,
 } from '@/types/api';
 import { cachedGet, invalidateCache } from '@/utils/cache';
+import { conRespaldoOffline } from '@/utils/offlineCache';
 
 /**
  * Crea una nueva factura (cierra una venta).
@@ -36,14 +39,85 @@ export const createFactura = async (data: FacturaRequest): Promise<Factura> => {
 };
 
 /**
+ * Descarga el PDF de una factura y lo abre en una pestaña nueva (o fuerza
+ * la descarga si `descargar` es true). El endpoint exige autenticación, así
+ * que no se puede enlazar directo con un `<a href>` -- se pide como blob
+ * con el token ya inyectado por `apiPrivada` y se abre desde un object URL.
+ * @param {number} facturaId - ID de la factura.
+ * @param {{ paperSize?: '58' | '80'; descargar?: boolean }} [opciones]
+ */
+export const verFacturaPdf = async (
+  facturaId: number,
+  opciones?: { paperSize?: '58' | '80'; descargar?: boolean },
+): Promise<void> => {
+  const params = new URLSearchParams();
+  if (opciones?.paperSize) params.set('paper_size', opciones.paperSize);
+  if (opciones?.descargar) params.set('download', '1');
+  const query = params.toString();
+
+  const response = await apiPrivada.get(`/facturacion/factura-imprimir/${facturaId}/${query ? `?${query}` : ''}`, {
+    responseType: 'blob',
+  });
+  const blobUrl = window.URL.createObjectURL(response.data as Blob);
+
+  if (opciones?.descargar) {
+    const link = document.createElement('a');
+    link.href = blobUrl;
+    link.download = `factura_${facturaId}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  } else {
+    window.open(blobUrl, '_blank');
+  }
+  // Libera el object URL después de darle tiempo a la pestaña/descarga de tomarlo.
+  setTimeout(() => window.URL.revokeObjectURL(blobUrl), 30_000);
+};
+
+/**
+ * Descarga el PDF de una factura y devuelve un object URL para previsualizarlo
+ * embebido (ej. en un `<iframe>` dentro de un modal), en vez de abrirlo en una
+ * pestaña nueva. Quien llama es responsable de liberar el URL con
+ * `window.URL.revokeObjectURL` cuando ya no lo necesite (ej. al cerrar el modal).
+ * @param {number} facturaId - ID de la factura.
+ * @param {'58' | '80'} [paperSize] - Tamaño de papel térmico, o vacío para hoja completa.
+ * @returns {Promise<string>} Object URL del PDF.
+ */
+export const obtenerFacturaPdfBlobUrl = async (
+  facturaId: number,
+  paperSize?: '58' | '80',
+): Promise<string> => {
+  const params = new URLSearchParams();
+  if (paperSize) params.set('paper_size', paperSize);
+  const query = params.toString();
+
+  const response = await apiPrivada.get(`/facturacion/factura-imprimir/${facturaId}/${query ? `?${query}` : ''}`, {
+    responseType: 'blob',
+  });
+  return window.URL.createObjectURL(response.data as Blob);
+};
+
+/** Genera el PDF de una Nota de Crédito y devuelve una blob URL para previsualizarlo/descargarlo. */
+export const obtenerNotaCreditoPdfBlobUrl = async (notaId: number): Promise<string> => {
+  const response = await apiPrivada.get(`/facturacion/nota-credito-imprimir/${notaId}/`, { responseType: 'blob' });
+  return window.URL.createObjectURL(response.data as Blob);
+};
+
+/** Genera el PDF de una Nota de Débito y devuelve una blob URL para previsualizarlo/descargarlo. */
+export const obtenerNotaDebitoPdfBlobUrl = async (notaId: number): Promise<string> => {
+  const response = await apiPrivada.get(`/facturacion/nota-debito-imprimir/${notaId}/`, { responseType: 'blob' });
+  return window.URL.createObjectURL(response.data as Blob);
+};
+
+/**
  * Obtiene la lista de métodos de pago activos.
  * @returns {Promise<MetodoPago[]>}
  */
 export const getMetodosDePago = async (): Promise<MetodoPago[]> => {
-  return cachedGet('facturacion:metodos-pago', async () => {
+  return cachedGet('facturacion:metodos-pago', () => conRespaldoOffline('metodos_pago', async () => {
     const response = await apiPrivada.get<MetodoPago[]>('/facturacion/metodos-pago/');
     return response.data;
-  });
+  }));
 };
 
 /**
@@ -82,23 +156,52 @@ export const deleteMetodoPago = async (id: number): Promise<void> => {
 };
 
 /**
- * Procesa el pago de una factura, lo que finaliza la venta y ajusta el stock.
+ * Registra uno o varios pagos sobre una factura (soporta pago dividido
+ * entre varios métodos y abonos parciales a crédito -- si la suma de
+ * `pagos` no cubre el total, la factura queda pendiente con el saldo
+ * reducido en vez de exigir el monto completo de una sola vez).
  * @param {number} facturaId - El ID de la factura a pagar.
- * @param {number} metodoPagoId - El ID del método de pago.
- * @param {string} montoRecibido - El monto recibido para el cálculo del cambio.
- * @returns {Promise<any>}
+ * @param {PagoRequestLinea[]} pagos - Una o más líneas de pago.
+ * @returns {Promise<{ mensaje: string; factura: Factura; saldo_pendiente: string }>}
  */
 export const registrarPago = async (
   facturaId: number,
-  metodoPagoId: number,
-  montoRecibido: string,
-): Promise<any> => {
+  pagos: PagoRequestLinea[],
+): Promise<{ mensaje: string; factura: Factura; saldo_pendiente: string }> => {
   const response = await apiPrivada.post('/facturacion/pago/', {
     factura_id: facturaId,
-    metodo_pago: metodoPagoId,
-    monto_recibido: montoRecibido,
+    pagos,
   });
   invalidateCache('facturacion:facturas');
+  return response.data;
+};
+
+/** Marca una factura como "pagar luego" (cuenta pendiente), sin registrar ningún pago todavía. */
+export const marcarFacturaPendiente = async (
+  facturaId: number,
+  metodoPagoId: number | null,
+  datosAdicionales?: { nombre_cliente?: string; comentario?: string },
+): Promise<{ mensaje: string; factura: Factura }> => {
+  const response = await apiPrivada.post('/facturacion/pago/', {
+    factura_id: facturaId,
+    pagos: [],
+    estado: 'pendiente',
+    datos_adicionales: { ...datosAdicionales, metodo_pago_id: metodoPagoId },
+  });
+  invalidateCache('facturacion:facturas');
+  return response.data;
+};
+
+/**
+ * Transacciones de pago registradas desde el POS (efectivo, Pago Móvil,
+ * transferencia, Zelle, tarjeta), opcionalmente filtradas por factura --
+ * para mostrar la referencia junto al pedido en el panel de Pedidos, igual
+ * que `getTransaccionesPasarela` hace para los pedidos del catálogo público.
+ */
+export const getTransaccionesPago = async (facturaId?: number): Promise<Transaccionpago[]> => {
+  const response = await apiPrivada.get<Transaccionpago[]>('/facturacion/transacciones/', {
+    params: facturaId ? { factura: facturaId } : undefined,
+  });
   return response.data;
 };
 
@@ -115,6 +218,19 @@ export const anularFactura = async (facturaId: number): Promise<{ message: strin
   const response = await apiPrivada.post<{ message: string }>(
     `/facturacion/facturas/${facturaId}/anular/`,
   );
+  invalidateCache('facturacion:facturas');
+  return response.data;
+};
+
+/**
+ * Actualiza el estado de una factura (ej. confirmar el pago de un pedido
+ * del catálogo público, que llega con estado 'pendiente').
+ * @param {number} facturaId - ID de la factura.
+ * @param {string} estado - Nuevo estado (ej. 'pagado').
+ * @returns {Promise<Factura>}
+ */
+export const actualizarEstadoFactura = async (facturaId: number, estado: string): Promise<Factura> => {
+  const response = await apiPrivada.patch<Factura>(`/facturacion/lista/${facturaId}/`, { estado });
   invalidateCache('facturacion:facturas');
   return response.data;
 };
@@ -337,6 +453,35 @@ export const getFacturas = async (): Promise<Factura[]> => {
     const response = await apiPrivada.get<Factura[]>('/facturacion/lista/');
     return response.data;
   });
+};
+
+/**
+ * Cuenta las facturas en un estado dado (ej. 'pendiente') sin traer el
+ * listado completo -- usado para el badge de "Pedidos" del panel.
+ * @param {string} estado - Estado a contar.
+ * @returns {Promise<number>}
+ */
+export const contarFacturasPorEstado = async (estado: string): Promise<number> => {
+  const response = await apiRequest<Factura[]>({
+    method: 'GET',
+    url: '/facturacion/lista/',
+    params: { estado, page_size: 1 },
+  });
+  const pagination = response.meta?.pagination as { count?: number } | undefined;
+  return pagination?.count ?? (Array.isArray(response.data) ? response.data.length : 0);
+};
+
+/**
+ * Últimos N pedidos pendientes (para el desplegable de notificaciones del
+ * panel, no solo el contador del badge).
+ */
+export const getFacturasPendientesRecientes = async (limit = 5): Promise<Factura[]> => {
+  const response = await apiRequest<Factura[]>({
+    method: 'GET',
+    url: '/facturacion/lista/',
+    params: { estado: 'pendiente', page_size: limit },
+  });
+  return Array.isArray(response.data) ? response.data : [];
 };
 
 // ---------------------------------------------------------------------------

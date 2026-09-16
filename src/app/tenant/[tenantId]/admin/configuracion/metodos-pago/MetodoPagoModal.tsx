@@ -6,7 +6,8 @@
 
 import { useState, useEffect, type ReactElement } from 'react';
 import { Save, Landmark, CreditCard, Banknote, Wallet, DollarSign } from 'lucide-react';
-import type { MetodoPago, MetodoPagoRequest } from '@/types/api';
+import type { Banco, MetodoPago, MetodoPagoRequest } from '@/types/api';
+import { getBancos } from '@/services/bancosService';
 import { AppModal, ActionButton } from '@/components/ui';
 
 interface MetodoPagoModalProps {
@@ -38,6 +39,12 @@ export default function MetodoPagoModal({
   const [nro_cuenta, setNroCuenta] = useState('');
   const [telefono, setTelefono] = useState('');
   const [activo, setActivo] = useState(true);
+  const [banco, setBanco] = useState('');
+  const [bancos, setBancos] = useState<Banco[]>([]);
+
+  useEffect(() => {
+    getBancos().then(setBancos).catch(() => {/* opcional */});
+  }, []);
 
   useEffect(() => {
     if (metodo) {
@@ -46,14 +53,18 @@ export default function MetodoPagoModal({
       setNroCuenta(metodo.nro_cuenta || '');
       setTelefono(metodo.telefono || '');
       setActivo(metodo.activo);
+      setBanco(metodo.banco != null ? String(metodo.banco) : '');
     } else {
       setNombre('');
       setTipoMetodo('Efectivo');
       setNroCuenta('');
       setTelefono('');
       setActivo(true);
+      setBanco('');
     }
   }, [metodo]);
+
+  const esEfectivo = tipo_metodo.toLowerCase().includes('efectivo');
 
   const submit = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
@@ -62,6 +73,7 @@ export default function MetodoPagoModal({
       tipo_metodo,
       nro_cuenta: nro_cuenta || null,
       telefono: telefono || null,
+      banco: !esEfectivo && banco ? Number(banco) : null,
       activo,
     };
     await onSave(payload, metodo?.id);
@@ -128,6 +140,24 @@ export default function MetodoPagoModal({
             })}
           </div>
         </div>
+
+        {!esEfectivo && (
+          <div>
+            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Banco</label>
+            <select
+              value={banco}
+              onChange={e => setBanco(e.target.value)}
+              className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-primary-600 focus:bg-white"
+            >
+              <option value="">Sin banco asignado</option>
+              {bancos.map(b => <option key={b.id} value={b.id}>{b.nombre}</option>)}
+            </select>
+            <p className="text-[11px] text-slate-400 mt-1">
+              A qué banco entra el dinero de este método -- para cuadrar el reporte de Cobros contra el estado de cuenta real.
+              Los bancos se crean en Configuración &gt; Bancos.
+            </p>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>

@@ -3,15 +3,40 @@
  */
 import { apiPrivada } from '@/services/api';
 
-/** Estructura flexible del dashboard agregado que devuelve el backend. */
+/**
+ * Forma exacta que devuelve `apps.reportes.core.dashboard_service.
+ * obtener_metricas_dashboard` -- antes esto era un tipo "flexible" con
+ * `[key: string]: unknown` y el consumidor adivinaba nombres de campo que
+ * nunca coincidían con los reales, dejando el dashboard siempre en 0.
+ */
 export interface DashboardReporte {
-  userInfo?: Record<string, unknown> | null;
-  resumen?: Record<string, unknown> | null;
-  graficoVentas?: unknown;
-  productosMasVendidos?: Array<Record<string, unknown>>;
-  productosBajoStock?: Array<Record<string, unknown>>;
-  infoGeneral?: Record<string, unknown> | null;
-  [key: string]: unknown;
+  userInfo: { nombre: string };
+  resumen: {
+    total_vendido: string | number;
+    total_pagado: string | number;
+    total_pendiente: string | number;
+    num_transacciones: number;
+    /** % de variación de `total_vendido` vs. el período anterior de igual duración. `null` si no hay base de comparación. */
+    variacion_ventas_pct: number | null;
+  };
+  graficoVentas: {
+    labels: string[];
+    data: number[];
+  };
+  productosMasVendidos: Array<{
+    producto__nombre: string | null;
+    variante__nombre: string | null;
+    cantidad_total: number;
+    ingresos_total: string | number;
+  }>;
+  productosBajoStock: Array<{ nombre: string; cantidad: number }>;
+  infoGeneral: {
+    clientes: number;
+    productos: number;
+    ordenes_periodo: number;
+    valor_inventario: string | number;
+    productos_bajo_stock_count: number;
+  };
 }
 
 /**
@@ -20,5 +45,67 @@ export interface DashboardReporte {
  */
 export const getDashboardReportes = async (): Promise<DashboardReporte> => {
   const response = await apiPrivada.get<DashboardReporte>('/reportes/dashboard/');
+  return response.data;
+};
+
+export interface VentaReporte {
+  id: number;
+  correlativo: string;
+  fecha_operacion: string;
+  cliente_nombre: string;
+  /** Monto en la moneda en que se emitió ESTA factura (puede variar de una fila a otra). */
+  total: string;
+  moneda_codigo: string | null;
+  /** El mismo monto ya convertido a la moneda base del tenant, con la tasa congelada en la factura -- el que se debe sumar/reportar como cifra fiscal. */
+  total_base: string;
+  estado: string;
+}
+
+/**
+ * Obtiene el listado de ventas (facturas) en un rango de fechas.
+ * @param fechaInicio Fecha de inicio en formato YYYY-MM-DD.
+ * @param fechaFin Fecha de fin en formato YYYY-MM-DD.
+ */
+export const getReporteVentas = async (fechaInicio: string, fechaFin: string): Promise<VentaReporte[]> => {
+  const response = await apiPrivada.get<VentaReporte[]>('/reportes/ventas/', {
+    params: { fecha_inicio: fechaInicio, fecha_fin: fechaFin },
+  });
+  return response.data;
+};
+
+export interface CierreCajaTransaccion {
+  id: number;
+  correlativo: string;
+  fecha_operacion: string;
+  cliente_nombre: string;
+  total: string;
+  moneda_codigo: string | null;
+  total_base: string;
+  estado: string;
+  metodo_pago_nombre: string;
+}
+
+/** Total de caja de UNA moneda -- nunca se mezcla con el de otra. */
+export interface TotalCajaPorMoneda {
+  moneda_codigo: string;
+  moneda_simbolo: string;
+  total: string;
+}
+
+export interface CierreCajaReporte {
+  report_date: string;
+  /** Desglosado por moneda -- un cajero necesita saber cuánto debe tener de CADA una en la gaveta, no un solo número mezclándolas. */
+  total_caja: TotalCajaPorMoneda[];
+  transactions: CierreCajaTransaccion[];
+}
+
+/**
+ * Obtiene el cierre de caja de un día específico (hoy si no se especifica fecha).
+ * @param date Fecha en formato YYYY-MM-DD; si se omite, el backend usa el día actual.
+ */
+export const getCierreCaja = async (date?: string): Promise<CierreCajaReporte> => {
+  const response = await apiPrivada.get<CierreCajaReporte>('/reportes/cierre-caja/', {
+    params: date ? { date } : undefined,
+  });
   return response.data;
 };

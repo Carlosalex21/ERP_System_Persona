@@ -24,6 +24,28 @@ export const createManagedUser = async (data: UserManagedRequest): Promise<UserM
 };
 
 /**
+ * Actualiza un usuario gestionado (empleado) existente. La contraseña es
+ * opcional: si se omite, no se toca la existente.
+ * @param {number} id - El ID del `UserMetadata` a actualizar.
+ * @param {Partial<UserManagedRequest>} data - Campos a actualizar.
+ * @returns {Promise<UserManaged>}
+ */
+export const updateManagedUser = async (id: number, data: Partial<UserManagedRequest>): Promise<UserManaged> => {
+  const response = await apiPrivada.patch<UserManaged>(`/auth/management/${id}/`, data);
+  return response.data;
+};
+
+/**
+ * Obtiene los roles reales del tenant (antes el frontend hardcodeaba 3
+ * roles con IDs fijos, sin garantía de que coincidieran con los del backend).
+ * @returns {Promise<Rol[]>}
+ */
+export const getRoles = async (): Promise<Rol[]> => {
+  const response = await apiPrivada.get<Rol[]>('/auth/roles/');
+  return response.data;
+};
+
+/**
  * Obtiene la lista de sucursales del tenant.
  * @returns {Promise<Sucursal[]>}
  */

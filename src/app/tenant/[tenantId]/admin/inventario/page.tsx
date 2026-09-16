@@ -3,65 +3,95 @@
 import { useState, useEffect, use, useMemo, useCallback, type ReactElement } from 'react';
 import { useRouter } from 'next/navigation';
 import Cookies from 'js-cookie';
+import { getSharedCookieDomain } from '@/utils/cookieDomain';
+import type { ColumnDef } from '@tanstack/react-table';
 import {
-  Package, AlertTriangle, Plus, Trash2, Loader2, Search, Boxes, DollarSign, XCircle,
+  Package, AlertTriangle, Plus, Trash2, Pencil, Search, Boxes, DollarSign, XCircle,
 } from 'lucide-react';
+import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { apiPrivada } from '@/services/api';
-import { getNombreById } from '@/utils/helpers';
+import { getApiErrorMessages, getNombreById } from '@/utils/helpers';
 import { roundMoney } from '@/utils/taxCalculator';
+import { DataTable, PageHeader, StatCard, Card, Stagger, StaggerItem, TableSkeleton } from '@/components/ui';
 import ProductModal from '../inventario/components/ProductModal';
-import { Almacen, Categoria, Iva, Producto, ProductoRequest, VariacionproductoRequest } from '@/types/api';
-import { createProducto, createVarianteProducto, deleteProducto, getAlmacenes, getCategorias, getProductos } from '@/services/inventoryService';
+import type { PresentacionForm } from '../inventario/components/PresentacionesFields';
+import { Almacen, Categoria, Iva, Moneda, Producto, ProductoRequest, VariacionproductoRequest } from '@/types/api';
+import {
+  createProducto, updateProducto, createVarianteProducto, deleteProducto, getAlmacenes, getCategorias, getProductos,
+  createPresentacionProducto, updatePresentacionProducto, deletePresentacionProducto,
+} from '@/services/inventoryService';
 import { getIvas } from '@/services/configService';
+import { getMonedas } from '@/services/configuracionService';
 
 export default function InventarioPage({ params }: { params: Promise<{ tenantId: string }> }): ReactElement {
   const { tenantId } = use(params);
   const router = useRouter();
 
-  const [cargando, setCargando] = useState(false);
+  // Arranca en `true` (no `false`): el `useEffect` que carga los datos
+  // corre después del primer render, así que si esto arrancaba en `false`
+  // había un parpadeo de la tabla "vacía" (0 productos) antes de que el
+  // efecto alcanzara a poner `cargando=true` y disparar el spinner.
+  const [cargando, setCargando] = useState(true);
   const [busqueda, setBusqueda] = useState('');
 
   const [productos, setProductos] = useState<Producto[]>([]);
   const [almacenes, setAlmacenes] = useState<Almacen[]>([]);
   const [ivas, setIvas] = useState<Iva[]>([]);
   const [categorias, setCategorias] = useState<Categoria[]>([]);
+  const [monedas, setMonedas] = useState<Moneda[]>([]);
 
   const [modalProducto, setModalProducto] = useState(false);
+  const [editandoId, setEditandoId] = useState<number | null>(null);
 
   const [esProductoConVariantes, setEsProductoConVariantes] = useState(false);
   const [variantes, setVariantes] = useState<any[]>([
     { nombre: '', sku: '', precio: '', cantidad: 0, codigo_barras: '' }
   ]);
+  const [presentaciones, setPresentaciones] = useState<PresentacionForm[]>([]);
+  // Ids de las presentaciones que ya existían al abrir la edición -- para
+  // saber, al guardar, cuáles se quitaron del formulario y hay que borrar.
+  const [presentacionesOriginalIds, setPresentacionesOriginalIds] = useState<number[]>([]);
   const [formProducto, setFormProducto] = useState({
-    nombre: '', descripcion: '', precio: '', cantidad: 0,
+    nombre: '', descripcion: '', precio: '', cantidad: 0, stock_minimo: '', sku: '',
     codigo_barras: '', disponible_online: true, tipo: 'simple' as 'simple' | 'variable',
-    almacen: '', configuracion_iva: '', categoria: '',
+    almacen: '', configuracion_iva: '', categoria: '', moneda: '', imagen: null as File | null,
   });
 
   const cargarDatosMaestros = useCallback(async (): Promise<void> => {
     setCargando(true);
-    try {
-      const [resProd, resAlm, resIva, resCat] = await Promise.all([
-        getProductos(),
-        getAlmacenes(),
-        getIvas(),
-        getCategorias()
-      ]);
-      setProductos(resProd);
-      setAlmacenes(resAlm);
-      setIvas(resIva);
-      setCategorias(resCat);
-    } catch (error) {
-      console.error("Error cargando inventario:", error);
-      if ((error as any).response?.status === 401) {
-        Cookies.remove('access_token', { domain: '.localhost' });
-        Cookies.remove('refresh_token', { domain: '.localhost' });
+    // Promise.allSettled en vez de Promise.all: si un solo endpoint falla
+    // (ej. IVA 500), antes tumbaba TODO el batch y dejaba almacenes/productos
+    // vacíos aunque sus propias peticiones sí hubieran funcionado.
+    const [resProd, resAlm, resIva, resCat, resMon] = await Promise.allSettled([
+      getProductos(),
+      getAlmacenes(),
+      getIvas(),
+      getCategorias(),
+      getMonedas(),
+    ]);
+
+    if (resProd.status === 'fulfilled') setProductos(resProd.value);
+    if (resAlm.status === 'fulfilled') setAlmacenes(resAlm.value);
+    if (resIva.status === 'fulfilled') setIvas(resIva.value);
+    if (resCat.status === 'fulfilled') setCategorias(resCat.value);
+    if (resMon.status === 'fulfilled') setMonedas(resMon.value);
+
+    const fallos = [resProd, resAlm, resIva, resCat, resMon].filter(r => r.status === 'rejected');
+    if (fallos.length > 0) {
+      console.error("Error cargando inventario:", fallos.map(f => (f as PromiseRejectedResult).reason));
+      const error401 = fallos.find(f => (f as PromiseRejectedResult).reason?.response?.status === 401);
+      if (error401) {
+        const domain = getSharedCookieDomain();
+        Cookies.remove('access_token', { domain });
+        Cookies.remove('refresh_token', { domain });
         router.push(`/${tenantId}/login`);
+      } else {
+        toast.error('Algunos datos no se pudieron cargar. Intenta actualizar la página.');
       }
-    } finally {
-      setCargando(false);
     }
+
+    setCargando(false);
   }, [router, tenantId]);
 
   useEffect(() => {
@@ -79,14 +109,76 @@ export default function InventarioPage({ params }: { params: Promise<{ tenantId:
     );
   }, [productos, busqueda]);
 
-  // useMemo: estadísticas del inventario.
+  // useMemo: estadísticas del inventario. "Bajo stock" usa el umbral propio
+  // del producto (`stock_minimo`) cuando está definido -- si no, cae al `5`
+  // general (mismo criterio que el dashboard, que usa `10` como umbral
+  // general propio; cada pantalla puede tener su propio "general" pero
+  // ambas respetan el umbral específico del producto cuando existe).
+  const UMBRAL_BAJO_STOCK_GENERAL = 5;
   const stats = useMemo(() => {
     const total = productos.length;
-    const bajoStock = productos.filter(p => (p.cantidad || 0) <= 5 && (p.cantidad || 0) > 0).length;
+    const bajoStock = productos.filter(p => {
+      const cantidad = p.cantidad || 0;
+      const umbral = p.stock_minimo ?? UMBRAL_BAJO_STOCK_GENERAL;
+      return cantidad > 0 && cantidad <= umbral;
+    }).length;
     const agotados = productos.filter(p => !p.cantidad || p.cantidad <= 0).length;
     const valor = productos.reduce((acc, p) => acc + (parseFloat(p.precio || '0') * (p.cantidad || 0)), 0);
     return { total, bajoStock, agotados, valor };
   }, [productos]);
+
+  const cerrarModalProducto = (): void => {
+    setModalProducto(false);
+    setEditandoId(null);
+    setFormProducto({
+      nombre: '', descripcion: '', precio: '', cantidad: 0, stock_minimo: '', sku: '',
+      codigo_barras: '', disponible_online: true, tipo: 'simple' as 'simple' | 'variable',
+      almacen: '', configuracion_iva: '', categoria: '', moneda: '', imagen: null,
+    });
+    setVariantes([{ nombre: '', sku: '', precio: '', cantidad: 0, codigo_barras: '' }]);
+    setPresentaciones([]);
+    setPresentacionesOriginalIds([]);
+    setEsProductoConVariantes(false);
+  };
+
+  const abrirCreacion = (): void => {
+    setEditandoId(null);
+    setModalProducto(true);
+  };
+
+  // No todos los rubros usan código de barras (mucha mercancía sencillamente
+  // no trae uno) -- por eso el campo NO es obligatorio, ni en el modelo ni
+  // en este formulario. Abre el producto existente para editarlo.
+  const abrirEdicion = (producto: Producto): void => {
+    setEditandoId(producto.id);
+    setFormProducto({
+      nombre: producto.nombre,
+      descripcion: producto.descripcion || '',
+      precio: producto.precio || '',
+      cantidad: producto.cantidad || 0,
+      stock_minimo: producto.stock_minimo != null ? String(producto.stock_minimo) : '',
+      sku: producto.sku || '',
+      codigo_barras: producto.codigo_barras || '',
+      disponible_online: producto.disponible_online ?? true,
+      tipo: producto.tipo,
+      almacen: producto.almacen != null ? String(producto.almacen) : '',
+      configuracion_iva: producto.configuracion_iva != null ? String(producto.configuracion_iva) : '',
+      categoria: producto.categoria != null ? String(producto.categoria) : '',
+      moneda: producto.moneda != null ? String(producto.moneda) : '',
+      imagen: null,
+    });
+    const presentacionesActivas = (producto.presentaciones || []).filter(p => p.activo);
+    setPresentaciones(presentacionesActivas.map(p => ({
+      id: p.id,
+      nombre: p.nombre,
+      factor_conversion: String(p.factor_conversion),
+      precio: p.precio || '',
+      es_default: p.es_default,
+    })));
+    setPresentacionesOriginalIds(presentacionesActivas.map(p => p.id));
+    setEsProductoConVariantes(false);
+    setModalProducto(true);
+  };
 
   const guardarProducto = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
@@ -94,21 +186,40 @@ export default function InventarioPage({ params }: { params: Promise<{ tenantId:
 
     const payload: ProductoRequest = {
       ...formProducto,
+      // Código de barras y SKU son únicos pero opcionales -- si se manda ""
+      // (en vez de omitir el campo) dos productos sin código chocan contra
+      // la restricción de unicidad ("ya existe") aunque ninguno tenga uno
+      // de verdad. `null` sí se trata como "sin valor" y no choca nunca.
+      codigo_barras: formProducto.codigo_barras.trim() || null,
+      sku: formProducto.sku.trim() || null,
+      stock_minimo: formProducto.stock_minimo.trim() !== '' ? Number(formProducto.stock_minimo) : null,
       almacen: Number(formProducto.almacen) || null,
       configuracion_iva: Number(formProducto.configuracion_iva) || null,
       categoria: Number(formProducto.categoria) || null,
+      moneda: Number(formProducto.moneda) || null,
       activo: true,
       tipo: esProductoConVariantes ? 'variable' : 'simple',
     };
+    // Editar solo toca los campos "simples" (por ahora no hay UI para
+    // editar variantes existentes) -- omitir `tipo` en el PATCH evita que
+    // un producto que sí tiene variantes ('variable') se degrade en
+    // silencio a 'simple' solo por abrir y guardar su edición.
+    if (editandoId) {
+      delete (payload as Partial<ProductoRequest>).tipo;
+    }
 
     try {
-      const resProductoPadre = await createProducto(payload);
+      const resProductoPadre = editandoId
+        ? await updateProducto(editandoId, payload)
+        : await createProducto(payload);
       const productoId = resProductoPadre.id;
 
-      if (esProductoConVariantes && productoId) {
+      if (!editandoId && esProductoConVariantes && productoId) {
         const promesasVariantes = variantes.map(variante =>
           createVarianteProducto({
             ...variante,
+            codigo_barras: variante.codigo_barras.trim() || null,
+            sku: variante.sku.trim() || null,
             producto: productoId,
             atributos: [],
           } as VariacionproductoRequest)
@@ -116,19 +227,42 @@ export default function InventarioPage({ params }: { params: Promise<{ tenantId:
         await Promise.all(promesasVariantes);
       }
 
-      setModalProducto(false);
-      setFormProducto({
-        nombre: '', descripcion: '', precio: '', cantidad: 0,
-        codigo_barras: '', disponible_online: true, tipo: 'simple' as 'simple' | 'variable',
-        almacen: '', configuracion_iva: '', categoria: '',
-      });
-      setVariantes([{ nombre: '', sku: '', precio: '', cantidad: 0, codigo_barras: '' }]);
-      setEsProductoConVariantes(false);
-      toast.success('Producto guardado correctamente.');
+      // Presentaciones de venta: se sincronizan aparte (mismo patrón que las
+      // variantes, endpoint propio) tanto al crear como al editar -- a
+      // diferencia de las variantes, sí hay UI para editarlas después.
+      if (productoId) {
+        const presentacionesValidas = presentaciones.filter(p => p.nombre.trim() && Number(p.factor_conversion) > 0);
+        const idsActuales = presentacionesValidas.filter(p => p.id != null).map(p => p.id as number);
+        const idsABorrar = presentacionesOriginalIds.filter(id => !idsActuales.includes(id));
+
+        await Promise.all([
+          ...presentacionesValidas.map(p => {
+            const datos = {
+              producto: productoId,
+              nombre: p.nombre.trim(),
+              factor_conversion: Number(p.factor_conversion),
+              precio: p.precio.trim() || null,
+              es_default: p.es_default,
+            };
+            return p.id != null
+              ? updatePresentacionProducto(p.id, datos)
+              : createPresentacionProducto(datos);
+          }),
+          ...idsABorrar.map(id => deletePresentacionProducto(id)),
+        ]);
+      }
+
+      cerrarModalProducto();
+      toast.success(editandoId ? 'Producto actualizado correctamente.' : 'Producto guardado correctamente.');
       cargarDatosMaestros();
     } catch (error) {
       console.error("Error guardando producto:", error);
-      toast.error("Error al guardar el producto. Revisa que todos los campos obligatorios estén llenos.");
+      const messages = getApiErrorMessages(error);
+      if (messages.length > 0) {
+        messages.forEach((msg) => toast.error(msg));
+      } else {
+        toast.error("Error al guardar el producto. Revisa que todos los campos obligatorios estén llenos.");
+      }
     } finally { setCargando(false); }
   };
 
@@ -147,6 +281,20 @@ export default function InventarioPage({ params }: { params: Promise<{ tenantId:
     setVariantes(nuevasVariantes);
   };
 
+  const handleAñadirPresentacion = (): void => {
+    setPresentaciones([...presentaciones, { nombre: '', factor_conversion: '', precio: '', es_default: false }]);
+  };
+
+  const handleEliminarPresentacion = (index: number): void => {
+    setPresentaciones(presentaciones.filter((_, i) => i !== index));
+  };
+
+  const handleCambioPresentacion = (index: number, campo: string, valor: any): void => {
+    const nuevasPresentaciones = [...presentaciones];
+    nuevasPresentaciones[index] = { ...nuevasPresentaciones[index], [campo]: valor };
+    setPresentaciones(nuevasPresentaciones);
+  };
+
   const eliminarProducto = async (id: number): Promise<void> => {
     if (!confirm("¿Eliminar producto?")) return;
     try {
@@ -159,6 +307,97 @@ export default function InventarioPage({ params }: { params: Promise<{ tenantId:
     }
   };
 
+  // useMemo: columnas de la tabla (orden + paginación reales vía DataTable/TanStack).
+  const columns = useMemo<ColumnDef<Producto>[]>(() => [
+    {
+      accessorKey: 'nombre',
+      header: 'Producto',
+      cell: ({ row }) => (
+        <div className="flex items-center gap-3">
+          {row.original.imagen ? (
+            // eslint-disable-next-line @next/next/no-img-element -- URL dinámica servida por Django (MEDIA_URL), no un asset del bundle.
+            <img
+              src={row.original.imagen}
+              alt={row.original.nombre}
+              className="w-9 h-9 rounded-lg object-cover shrink-0 border border-slate-100"
+            />
+          ) : (
+            <div className="w-9 h-9 rounded-lg bg-primary-50 text-primary-600 flex items-center justify-center shrink-0">
+              <Package size={16} />
+            </div>
+          )}
+          <div className="min-w-0">
+            <p className="font-bold text-slate-900 truncate">{row.original.nombre}</p>
+            <p className="text-[10px] font-mono text-slate-400 truncate">SKU: {row.original.sku || row.original.codigo_barras || 'N/A'}</p>
+          </div>
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'categoria',
+      header: 'Categoría',
+      enableSorting: false,
+      cell: ({ row }) => (
+        <span className="inline-flex px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 text-[10px] font-bold">
+          {getNombreById(categorias, row.original.categoria) || 'Sin categoría'}
+        </span>
+      ),
+    },
+    {
+      accessorKey: 'precio',
+      header: () => <div className="text-right">Precio</div>,
+      cell: ({ row }) => (
+        <div className="text-right font-black text-slate-900">${parseFloat(row.original.precio || '0').toFixed(2)}</div>
+      ),
+      sortingFn: (a, b) => parseFloat(a.original.precio || '0') - parseFloat(b.original.precio || '0'),
+    },
+    {
+      accessorKey: 'cantidad',
+      header: () => <div className="text-center">Stock</div>,
+      cell: ({ row }) => {
+        const cantidad = row.original.cantidad || 0;
+        const umbral = row.original.stock_minimo ?? UMBRAL_BAJO_STOCK_GENERAL;
+        return (
+          <div className="text-center">
+            <span className={`px-2.5 py-1 rounded-lg font-bold text-xs border ${
+              cantidad <= 0
+                ? 'bg-red-50 text-red-600 border-red-200'
+                : cantidad <= umbral
+                  ? 'bg-orange-50 text-orange-600 border-orange-200'
+                  : 'bg-green-50 text-green-700 border-green-200'
+            }`}>
+              {cantidad}
+            </span>
+          </div>
+        );
+      },
+    },
+    {
+      id: 'acciones',
+      header: () => <div className="text-right">Acciones</div>,
+      enableSorting: false,
+      cell: ({ row }) => (
+        <div className="text-right flex justify-end gap-1">
+          <button
+            onClick={() => abrirEdicion(row.original)}
+            className="p-2 text-slate-400 hover:text-primary-600 transition-colors"
+            aria-label="Editar producto"
+          >
+            <Pencil size={16} />
+          </button>
+          <button
+            onClick={() => eliminarProducto(row.original.id)}
+            className="p-2 text-slate-400 hover:text-red-500 transition-colors"
+            aria-label="Eliminar producto"
+          >
+            <Trash2 size={16} />
+          </button>
+        </div>
+      ),
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], [categorias]);
+
   // useMemo: tarjetas de estadísticas.
   const statCards = useMemo(() => [
     { label: 'Total Productos', value: String(stats.total), icon: <Boxes size={20} />, color: 'bg-primary-600' },
@@ -170,20 +409,25 @@ export default function InventarioPage({ params }: { params: Promise<{ tenantId:
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
-        <div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-            <Package size={24} className="text-primary-600" /> Catálogo de Productos
-          </h1>
-          <p className="text-xs text-slate-500 mt-0.5">Gestiona tus productos conectados a la BD de Django.</p>
-        </div>
-        <button
-          onClick={() => setModalProducto(true)}
-          className="bg-primary-600 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-primary-700 flex items-center justify-center gap-2 shadow-md"
-        >
-          <Plus size={18} /> Nuevo Producto
-        </button>
-      </div>
+      <PageHeader
+        icon={<Package size={20} />}
+        title="Catálogo de Productos"
+        description="Gestiona tus productos conectados a la BD de Django."
+        actions={
+          <motion.button
+            whileTap={{ scale: 0.96 }}
+            onClick={() => {
+              const base = monedas.find(m => m.es_predeterminada) ?? monedas[0];
+              setEditandoId(null);
+              setFormProducto(prev => ({ ...prev, moneda: base ? String(base.id) : '' }));
+              setModalProducto(true);
+            }}
+            className="bg-primary-600 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-primary-700 flex items-center justify-center gap-2 shadow-md"
+          >
+            <Plus size={18} /> Nuevo Producto
+          </motion.button>
+        }
+      />
 
       {/* Aviso de configuración inicial */}
       {(almacenes.length === 0 || ivas.length === 0 || categorias.length === 0) && (
@@ -200,19 +444,13 @@ export default function InventarioPage({ params }: { params: Promise<{ tenantId:
       )}
 
       {/* Estadísticas */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <Stagger className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {statCards.map(card => (
-          <div key={card.label} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 flex items-center gap-3">
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-md shrink-0 ${card.color}`}>
-              {card.icon}
-            </div>
-            <div className="min-w-0">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider truncate">{card.label}</p>
-              <p className="text-xl font-black text-slate-900 truncate">{card.value}</p>
-            </div>
-          </div>
+          <StaggerItem key={card.label}>
+            <StatCard {...card} />
+          </StaggerItem>
         ))}
-      </div>
+      </Stagger>
 
       {/* Buscador */}
       <div className="relative">
@@ -227,79 +465,24 @@ export default function InventarioPage({ params }: { params: Promise<{ tenantId:
       </div>
 
       {/* Tabla */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-        {cargando ? (
-          <div className="flex items-center justify-center h-48 text-slate-500 gap-2">
-            <Loader2 size={24} className="animate-spin" /> Cargando inventario...
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase text-[10px] tracking-wider">
-                  <th className="p-4 pl-6">Producto</th>
-                  <th className="p-4">Categoría</th>
-                  <th className="p-4 text-right">Precio</th>
-                  <th className="p-4 text-center">Stock</th>
-                  <th className="p-4 text-right">Acciones</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {productosFiltrados.map(p => (
-                  <tr key={p.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="p-4 pl-6">
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-lg bg-primary-50 text-primary-600 flex items-center justify-center shrink-0">
-                          <Package size={16} />
-                        </div>
-                        <div className="min-w-0">
-                          <p className="font-bold text-slate-900 truncate">{p.nombre}</p>
-                          <p className="text-[10px] font-mono text-slate-400 truncate">SKU: {p.sku || p.codigo_barras || 'N/A'}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="p-4">
-                      <span className="inline-flex px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 text-[10px] font-bold">
-                        {getNombreById(categorias, p.categoria) || 'Sin categoría'}
-                      </span>
-                    </td>
-                    <td className="p-4 text-right font-black text-slate-900">${parseFloat(p.precio || '0').toFixed(2)}</td>
-                    <td className="p-4 text-center">
-                      <span className={`px-2.5 py-1 rounded-lg font-bold text-xs border ${
-                        (p.cantidad || 0) <= 0
-                          ? 'bg-red-50 text-red-600 border-red-200'
-                          : (p.cantidad || 0) <= 5
-                            ? 'bg-orange-50 text-orange-600 border-orange-200'
-                            : 'bg-green-50 text-green-700 border-green-200'
-                      }`}>
-                        {p.cantidad || 0}
-                      </span>
-                    </td>
-                    <td className="p-4 text-right">
-                      <button
-                        onClick={() => eliminarProducto(p.id)}
-                        className="p-2 text-slate-400 hover:text-red-500 transition-colors"
-                        aria-label="Eliminar producto"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-                {productosFiltrados.length === 0 && (
-                  <tr>
-                    <td colSpan={5} className="p-12 text-center text-slate-400">
-                      <Package size={40} className="mx-auto mb-3 text-slate-300" />
-                      <p className="font-bold text-slate-500">No hay productos en el inventario</p>
-                      <p className="text-xs mt-1">Crea tu primer producto o ajusta la búsqueda.</p>
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+      {cargando ? (
+        <TableSkeleton rows={6} cols={4} />
+      ) : (
+        <Card padding="none" className="overflow-hidden">
+          <DataTable
+            columns={columns}
+            data={productosFiltrados}
+            resultLabel="productos"
+            emptyState={
+              <div className="p-12 text-center text-slate-400">
+                <Package size={40} className="mx-auto mb-3 text-slate-300" />
+                <p className="font-bold text-slate-500">No hay productos en el inventario</p>
+                <p className="text-xs mt-1">Crea tu primer producto o ajusta la búsqueda.</p>
+              </div>
+            }
+          />
+        </Card>
+      )}
 
       {modalProducto && (
         <ProductModal
@@ -312,12 +495,18 @@ export default function InventarioPage({ params }: { params: Promise<{ tenantId:
           handleAñadirVariante={handleAñadirVariante}
           handleEliminarVariante={handleEliminarVariante}
           handleCambioVariante={handleCambioVariante}
+          presentaciones={presentaciones}
+          handleAñadirPresentacion={handleAñadirPresentacion}
+          handleEliminarPresentacion={handleEliminarPresentacion}
+          handleCambioPresentacion={handleCambioPresentacion}
           almacenes={almacenes}
           ivas={ivas}
           categorias={categorias}
+          monedas={monedas}
           guardarProducto={guardarProducto}
           cargando={cargando}
-          setModalProducto={setModalProducto}
+          setModalProducto={(abierto) => { if (!abierto) cerrarModalProducto(); }}
+          editando={!!editandoId}
         />
       )}
     </div>

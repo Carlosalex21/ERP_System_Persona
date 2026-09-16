@@ -1,249 +1,293 @@
 "use client"; // Este archivo ya tenía "use client"
 
-import { useState, type ReactElement } from 'react';
-import { Check, HelpCircle, Sparkles } from 'lucide-react';
+import { useState, useEffect, type ReactElement } from 'react';
+import { Check, HelpCircle, Loader2, Sparkles, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
+import { getPlanesPublicos } from '@/services/platformBillingService';
+import { Plan } from '@/types/api';
+import Reveal from '@/components/marketing/Reveal';
+
+/** Descuento anual mostrado en la UI (no hay un precio anual real en el backend todavía). */
+const DESCUENTO_ANUAL = 0.2;
 
 export default function PlanesPage(): ReactElement {
   const [esAnual, setEsAnual] = useState(false);
+  const [planes, setPlanes] = useState<Plan[]>([]);
+  const [cargando, setCargando] = useState(true);
 
-  // Definición de precios dinámicos
-  const precioMensualEmprendedor = 15;
-  const precioAnualEmprendedor = 12; // $144 al año
+  useEffect(() => {
+    getPlanesPublicos()
+      .then(setPlanes)
+      .catch(() => setPlanes([]))
+      .finally(() => setCargando(false));
+  }, []);
 
-  const precioMensualPro = 29;
-  const precioAnualPro = 24; // $288 al año
+  const planEmprendedor = planes.find((p) => p.slug === 'emprendedor');
+  const planPro = planes.find((p) => p.slug === 'pro');
+
+  const precioMensualEmprendedor = planEmprendedor ? parseFloat(planEmprendedor.precio) : 15;
+  const precioAnualEmprendedor = Math.round(precioMensualEmprendedor * (1 - DESCUENTO_ANUAL));
+
+  const precioMensualPro = planPro ? parseFloat(planPro.precio) : 29;
+  const precioAnualPro = Math.round(precioMensualPro * (1 - DESCUENTO_ANUAL));
+
+  if (cargando) {
+    return (
+      <div className="bg-slate-50 min-h-screen flex items-center justify-center">
+        <Loader2 className="animate-spin text-primary-600" size={32} />
+      </div>
+    );
+  }
 
   return (
-    <div className="bg-slate-50 min-h-screen py-16">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        
-        {/* Encabezado */}
-        <div className="text-center max-w-3xl mx-auto mb-12">
-          <h1 className="text-4xl md:text-5xl font-extrabold text-slate-900 tracking-tight">
-            Planes simples y transparentes
-          </h1>
-          <p className="mt-4 text-xl text-slate-600">
-            Elige el plan que mejor se adapte al tamaño de tu negocio. Todos los planes incluyen subdominio dedicado.
-          </p>
-        </div>
-
-        {/* Selector Mensual / Anual */}
-        <div className="flex justify-center items-center gap-4 mb-16">
-          <span className={`font-semibold ${!esAnual ? 'text-primary-700' : 'text-slate-500'}`}>
-            Facturación Mensual
-          </span>
-          <button 
-            onClick={() => setEsAnual(!esAnual)}
-            className="w-14 h-8 bg-primary-200 rounded-full p-1 transition-colors duration-300 relative focus:outline-none"
-            aria-label="Cambiar tipo de facturación"
-          >
-            <div className={`w-6 h-6 bg-primary-700 rounded-full shadow-md transform transition-transform duration-300 ${esAnual ? 'translate-x-6 bg-accent-500' : 'translate-x-0'}`} />
-          </button>
-          <span className={`font-semibold flex items-center gap-2 ${esAnual ? 'text-accent-600' : 'text-slate-500'}`}>
-            Facturación Anual 
-            <span className="bg-green-100 text-green-700 text-xs font-bold px-2 py-0.5 rounded-full">
-              Ahorra 20%
+    <div className="bg-slate-50 min-h-screen">
+      {/* Encabezado -- banda oscura a juego con el home, para que el sitio
+          se sienta como un solo lenguaje visual, no páginas sueltas. */}
+      <div className="relative bg-ink-950 pt-20 pb-28 overflow-hidden bg-[linear-gradient(to_right,rgba(255,255,255,0.06)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.06)_1px,transparent_1px)] bg-[size:44px_44px]">
+        <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-[32rem] h-[32rem] bg-primary-600 rounded-full blur-[130px] opacity-25" />
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-center">
+          <Reveal from="down">
+            <span className="inline-block bg-white/5 border border-white/10 text-slate-300 text-[11px] font-bold uppercase tracking-widest px-4 py-1.5 rounded-full mb-6">
+              Precios simples
             </span>
-          </span>
+          </Reveal>
+          <Reveal delay={0.05}>
+            <h1 className="font-display font-black text-6xl sm:text-7xl leading-[0.88] text-white uppercase">
+              Un plan <span className="text-accent-400">justo</span>
+            </h1>
+          </Reveal>
+          <Reveal delay={0.15}>
+            <p className="mt-6 text-lg text-slate-400">
+              Elige el plan que mejor se adapte al tamaño de tu negocio. Todos los planes incluyen subdominio dedicado.
+            </p>
+          </Reveal>
         </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-16 relative z-10">
+        {/* Selector Mensual / Anual */}
+        <Reveal delay={0.2}>
+          <div className="flex justify-center items-center gap-4 mb-12 bg-white rounded-full border border-slate-200 shadow-lg shadow-slate-900/5 p-2 w-fit mx-auto">
+            <button
+              onClick={() => setEsAnual(false)}
+              className={`px-5 py-2.5 rounded-full font-bold text-sm transition-colors ${!esAnual ? 'bg-primary-600 text-white' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              Mensual
+            </button>
+            <button
+              onClick={() => setEsAnual(true)}
+              className={`px-5 py-2.5 rounded-full font-bold text-sm transition-colors flex items-center gap-2 ${esAnual ? 'bg-primary-600 text-white' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              Anual
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${esAnual ? 'bg-accent-400 text-ink-950' : 'bg-green-100 text-green-700'}`}>
+                -20%
+              </span>
+            </button>
+          </div>
+        </Reveal>
 
         {/* Tarjetas de Precios */}
         <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto mb-24">
-          
+
           {/* Plan Emprendedor */}
-          <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-200 flex flex-col justify-between relative overflow-hidden transition-all hover:shadow-md">
-            <div>
-              <h3 className="text-2xl font-bold text-slate-900 mb-2">Plan Emprendedor</h3>
-              <p className="text-slate-500 text-sm mb-6">Ideal para tiendas independientes y profesionales independientes.</p>
-              
-              <div className="mb-6 flex items-baseline">
-                <span className="text-5xl font-extrabold text-slate-900">
-                  ${esAnual ? precioAnualEmprendedor : precioMensualEmprendedor}
-                </span>
-                <span className="text-slate-500 ml-2">/ mes</span>
+          <Reveal from="left">
+            <div className="h-full bg-white p-8 rounded-3xl shadow-sm border border-slate-200 flex flex-col justify-between relative overflow-hidden transition-all hover:shadow-xl hover:-translate-y-1">
+              <div>
+                <h3 className="text-2xl font-black text-slate-900 mb-2">Plan Emprendedor</h3>
+                <p className="text-slate-500 text-sm mb-6">Ideal para tiendas independientes y profesionales independientes.</p>
+
+                <div className="mb-6 flex items-baseline">
+                  <span className="font-display text-6xl font-black text-slate-900">
+                    ${esAnual ? precioAnualEmprendedor : precioMensualEmprendedor}
+                  </span>
+                  <span className="text-slate-500 ml-2">/ mes</span>
+                </div>
+
+                {esAnual && (
+                  <p className="text-green-600 text-xs font-semibold mb-6">
+                    Se facturan ${precioAnualEmprendedor * 12} al año
+                  </p>
+                )}
+
+                <div className="border-t border-slate-100 my-6"></div>
+
+                <ul className="space-y-4 mb-8">
+                  <li className="flex items-start gap-3 text-slate-600">
+                    <Check className="text-primary-600 shrink-0 mt-0.5" size={18} />
+                    <span>Subdominio personalizado (ej: tuempresa.erpsystem.com)</span>
+                  </li>
+                  <li className="flex items-start gap-3 text-slate-600">
+                    <Check className="text-primary-600 shrink-0 mt-0.5" size={18} />
+                    <span>Catálogo web público optimizado para móviles</span>
+                  </li>
+                  <li className="flex items-start gap-3 text-slate-600">
+                    <Check className="text-primary-600 shrink-0 mt-0.5" size={18} />
+                    <span>Pedidos ilimitados enviados directamente a tu WhatsApp</span>
+                  </li>
+                  <li className="flex items-start gap-3 text-slate-600">
+                    <Check className="text-primary-600 shrink-0 mt-0.5" size={18} />
+                    <span>Módulo de Inventario Básico (Hasta 100 productos)</span>
+                  </li>
+                  <li className="flex items-start gap-3 text-slate-600">
+                    <Check className="text-primary-600 shrink-0 mt-0.5" size={18} />
+                    <span>Facturación no fiscal / Control de Órdenes internas</span>
+                  </li>
+                </ul>
               </div>
-              
-              {esAnual && (
-                <p className="text-green-600 text-xs font-semibold mb-6">
-                  Se facturan ${precioAnualEmprendedor * 12} al año
-                </p>
-              )}
 
-              <div className="border-t border-slate-100 my-6"></div>
-
-              <ul className="space-y-4 mb-8">
-                <li className="flex items-start gap-3 text-slate-600">
-                  <Check className="text-primary-600 shrink-0 mt-0.5" size={18} />
-                  <span>Subdominio personalizado (ej: tuempresa.erpsystem.com)</span>
-                </li>
-                <li className="flex items-start gap-3 text-slate-600">
-                  <Check className="text-primary-600 shrink-0 mt-0.5" size={18} />
-                  <span>Catálogo web público optimizado para móviles</span>
-                </li>
-                <li className="flex items-start gap-3 text-slate-600">
-                  <Check className="text-primary-600 shrink-0 mt-0.5" size={18} />
-                  <span>Pedidos ilimitados enviados directamente a tu WhatsApp</span>
-                </li>
-                <li className="flex items-start gap-3 text-slate-600">
-                  <Check className="text-primary-600 shrink-0 mt-0.5" size={18} />
-                  <span>Módulo de Inventario Básico (Hasta 100 productos)</span>
-                </li>
-                <li className="flex items-start gap-3 text-slate-600">
-                  <Check className="text-primary-600 shrink-0 mt-0.5" size={18} />
-                  <span>Facturación no fiscal / Control de Órdenes internas</span>
-                </li>
-              </ul>
+              {/* ENLACE DINÁMICO AL LOGIN */}
+              <Link
+                href={`/login?plan=emprendedor&facturacion=${esAnual ? 'anual' : 'mensual'}`}
+                className="group w-full bg-slate-900 text-white text-center py-3.5 rounded-full font-bold hover:bg-slate-800 transition-colors shadow-sm flex items-center justify-center gap-2"
+              >
+                Seleccionar plan <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" />
+              </Link>
             </div>
-
-            {/* ENLACE DINÁMICO AL LOGIN */}
-            <Link 
-              href={`/login?plan=emprendedor&facturacion=${esAnual ? 'anual' : 'mensual'}`} 
-              className="w-full bg-primary-600 text-white text-center py-3.5 rounded-xl font-bold hover:bg-primary-700 transition-colors shadow-sm"
-            >
-              Seleccionar Plan Emprendedor
-            </Link>
-          </div>
+          </Reveal>
 
           {/* Plan ERP Pro */}
-          <div className="bg-primary-900 text-white p-8 rounded-3xl shadow-xl border-2 border-primary-700 flex flex-col justify-between relative overflow-hidden transition-all transform hover:scale-[1.02]">
-            <div className="absolute top-0 right-0 bg-accent-500 text-white text-xs font-bold px-4 py-1.5 rounded-bl-xl tracking-wide flex items-center gap-1">
-              <Sparkles size={12} /> RECOMENDADO
-            </div>
-            
-            <div>
-              <h3 className="text-2xl font-bold mb-2 text-white">Plan ERP Pro</h3>
-              <p className="text-primary-200 text-sm mb-6">Para comercios en crecimiento que requieren control total y reportes avanzados.</p>
-              
-              <div className="mb-6 flex items-baseline">
-                <span className="text-5xl font-extrabold text-white">
-                  ${esAnual ? precioAnualPro : precioMensualPro}
-                </span>
-                <span className="text-primary-200 ml-2">/ mes</span>
+          <Reveal from="right" delay={0.1}>
+            <div className="h-full bg-ink-950 text-white p-8 rounded-3xl shadow-2xl shadow-ink-950/20 border-2 border-primary-700 flex flex-col justify-between relative overflow-hidden transition-all hover:-translate-y-1">
+              <div className="absolute -top-16 -right-16 w-48 h-48 bg-primary-600 rounded-full blur-[80px] opacity-40" />
+              <div className="absolute top-0 right-0 bg-accent-400 text-ink-950 text-xs font-bold px-4 py-1.5 rounded-bl-2xl tracking-wide flex items-center gap-1 z-10">
+                <Sparkles size={12} /> RECOMENDADO
               </div>
-              
-              {esAnual && (
-                <p className="text-accent-500 text-xs font-semibold mb-6">
-                  Se facturan ${precioAnualPro * 12} al año
-                </p>
-              )}
 
-              <div className="border-t border-primary-800 my-6"></div>
+              <div className="relative z-10">
+                <h3 className="text-2xl font-black mb-2 text-white">Plan ERP Pro</h3>
+                <p className="text-slate-400 text-sm mb-6">Para comercios en crecimiento que requieren control total y reportes avanzados.</p>
 
-              <ul className="space-y-4 mb-8">
-                <li className="flex items-start gap-3 text-primary-100">
-                  <Check className="text-accent-500 shrink-0 mt-0.5" size={18} />
-                  <span>Todo lo incluido en el Plan Emprendedor</span>
-                </li>
-                <li className="flex items-start gap-3 text-primary-100">
-                  <Check className="text-accent-500 shrink-0 mt-0.5" size={18} />
-                  <span className="font-semibold text-white">Productos y categorías ilimitadas</span>
-                </li>
-                <li className="flex items-start gap-3 text-primary-100">
-                  <Check className="text-accent-500 shrink-0 mt-0.5" size={18} />
-                  <span>Módulo multialmacén y control de stocks críticos</span>
-                </li>
-                <li className="flex items-start gap-3 text-primary-100">
-                  <Check className="text-accent-500 shrink-0 mt-0.5" size={18} />
-                  <span>Panel de analíticas avanzadas y reportes de ventas</span>
-                </li>
-                <li className="flex items-start gap-3 text-primary-100">
-                  <Check className="text-accent-500 shrink-0 mt-0.5" size={18} />
-                  <span>Soporte prioritario por WhatsApp y Correo</span>
-                </li>
-              </ul>
+                <div className="mb-6 flex items-baseline">
+                  <span className="font-display text-6xl font-black text-white">
+                    ${esAnual ? precioAnualPro : precioMensualPro}
+                  </span>
+                  <span className="text-slate-400 ml-2">/ mes</span>
+                </div>
+
+                {esAnual && (
+                  <p className="text-accent-400 text-xs font-semibold mb-6">
+                    Se facturan ${precioAnualPro * 12} al año
+                  </p>
+                )}
+
+                <div className="border-t border-white/10 my-6"></div>
+
+                <ul className="space-y-4 mb-8">
+                  <li className="flex items-start gap-3 text-slate-300">
+                    <Check className="text-accent-400 shrink-0 mt-0.5" size={18} />
+                    <span>Todo lo incluido en el Plan Emprendedor</span>
+                  </li>
+                  <li className="flex items-start gap-3 text-slate-300">
+                    <Check className="text-accent-400 shrink-0 mt-0.5" size={18} />
+                    <span className="font-semibold text-white">Productos y categorías ilimitadas</span>
+                  </li>
+                  <li className="flex items-start gap-3 text-slate-300">
+                    <Check className="text-accent-400 shrink-0 mt-0.5" size={18} />
+                    <span>Módulo multialmacén y control de stocks críticos</span>
+                  </li>
+                  <li className="flex items-start gap-3 text-slate-300">
+                    <Check className="text-accent-400 shrink-0 mt-0.5" size={18} />
+                    <span>Panel de analíticas avanzadas y reportes de ventas</span>
+                  </li>
+                  <li className="flex items-start gap-3 text-slate-300">
+                    <Check className="text-accent-400 shrink-0 mt-0.5" size={18} />
+                    <span>Soporte prioritario por WhatsApp y Correo</span>
+                  </li>
+                </ul>
+              </div>
+
+              {/* ENLACE DINÁMICO AL LOGIN */}
+              <Link
+                href={`/login?plan=pro&facturacion=${esAnual ? 'anual' : 'mensual'}`}
+                className="group w-full bg-accent-400 text-ink-950 text-center py-3.5 rounded-full font-bold hover:bg-accent-300 transition-colors shadow-md relative z-10 flex items-center justify-center gap-2"
+              >
+                Seleccionar plan <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" />
+              </Link>
             </div>
-
-            {/* ENLACE DINÁMICO AL LOGIN */}
-            <Link 
-              href={`/login?plan=pro&facturacion=${esAnual ? 'anual' : 'mensual'}`} 
-              className="w-full bg-accent-500 text-white text-center py-3.5 rounded-xl font-bold hover:bg-accent-600 transition-colors shadow-md"
-            >
-              Seleccionar Plan ERP Pro
-            </Link>
-          </div>
+          </Reveal>
 
         </div>
 
         {/* Sección de Comparación Detallada */}
-        <div className="max-w-4xl mx-auto mb-24 hidden sm:block">
-          <h3 className="text-2xl font-bold text-slate-800 text-center mb-8">Comparación de características</h3>
-          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
-            <table className="w-full border-collapse text-left text-sm">
-              <thead>
-                <tr className="bg-slate-100 border-b border-slate-200 text-slate-700 font-semibold">
-                  <th className="p-4 pl-6">Módulos Básicos</th>
-                  <th className="p-4 text-center">Emprendedor</th>
-                  <th className="p-4 text-center">ERP Pro</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 text-slate-600">
-                <tr>
-                  <td className="p-4 pl-6 font-medium text-slate-800">Catálogo Web Autogestionable</td>
-                  <td className="p-4 text-center text-primary-600">✓</td>
-                  <td className="p-4 text-center text-primary-600">✓</td>
-                </tr>
-                <tr>
-                  <td className="p-4 pl-6 font-medium text-slate-800">Pedidos directo a WhatsApp</td>
-                  <td className="p-4 text-center text-primary-600">✓</td>
-                  <td className="p-4 text-center text-primary-600">✓</td>
-                </tr>
-                <tr>
-                  <td className="p-4 pl-6 font-medium text-slate-800">Límite de Productos en Stock</td>
-                  <td className="p-4 text-center">Hasta 100</td>
-                  <td className="p-4 text-center font-semibold text-primary-700">Ilimitados</td>
-                </tr>
-                <tr>
-                  <td className="p-4 pl-6 font-medium text-slate-800">Facturación No Fiscal (Órdenes de Compra)</td>
-                  <td className="p-4 text-center text-primary-600">✓</td>
-                  <td className="p-4 text-center text-primary-600">✓</td>
-                </tr>
-                <tr>
-                  <td className="p-4 pl-6 font-medium text-slate-800">Gestión de Múltiples Almacenes</td>
-                  <td className="p-4 text-center text-slate-300">✕</td>
-                  <td className="p-4 text-center text-primary-600">✓</td>
-                </tr>
-                <tr>
-                  <td className="p-4 pl-6 font-medium text-slate-800">Reportes de Ventas y Finanzas</td>
-                  <td className="p-4 text-center text-slate-300">Básico</td>
-                  <td className="p-4 text-center font-semibold text-primary-700">Avanzado</td>
-                </tr>
-              </tbody>
-            </table>
+        <Reveal>
+          <div className="max-w-4xl mx-auto mb-24 hidden sm:block">
+            <h3 className="font-display font-extrabold text-3xl text-slate-900 text-center mb-10 uppercase">Cara a cara</h3>
+            <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+              <table className="w-full border-collapse text-left text-sm">
+                <thead>
+                  <tr className="bg-slate-100 border-b border-slate-200 text-slate-700 font-semibold">
+                    <th className="p-4 pl-6">Módulos Básicos</th>
+                    <th className="p-4 text-center">Emprendedor</th>
+                    <th className="p-4 text-center">ERP Pro</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-slate-600">
+                  <tr>
+                    <td className="p-4 pl-6 font-medium text-slate-800">Catálogo Web Autogestionable</td>
+                    <td className="p-4 text-center text-primary-600">✓</td>
+                    <td className="p-4 text-center text-primary-600">✓</td>
+                  </tr>
+                  <tr>
+                    <td className="p-4 pl-6 font-medium text-slate-800">Pedidos directo a WhatsApp</td>
+                    <td className="p-4 text-center text-primary-600">✓</td>
+                    <td className="p-4 text-center text-primary-600">✓</td>
+                  </tr>
+                  <tr>
+                    <td className="p-4 pl-6 font-medium text-slate-800">Límite de Productos en Stock</td>
+                    <td className="p-4 text-center">Hasta 100</td>
+                    <td className="p-4 text-center font-semibold text-primary-700">Ilimitados</td>
+                  </tr>
+                  <tr>
+                    <td className="p-4 pl-6 font-medium text-slate-800">Facturación No Fiscal (Órdenes de Compra)</td>
+                    <td className="p-4 text-center text-primary-600">✓</td>
+                    <td className="p-4 text-center text-primary-600">✓</td>
+                  </tr>
+                  <tr>
+                    <td className="p-4 pl-6 font-medium text-slate-800">Gestión de Múltiples Almacenes</td>
+                    <td className="p-4 text-center text-slate-300">✕</td>
+                    <td className="p-4 text-center text-primary-600">✓</td>
+                  </tr>
+                  <tr>
+                    <td className="p-4 pl-6 font-medium text-slate-800">Reportes de Ventas y Finanzas</td>
+                    <td className="p-4 text-center text-slate-300">Básico</td>
+                    <td className="p-4 text-center font-semibold text-primary-700">Avanzado</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
+        </Reveal>
 
         {/* Sección de Preguntas Frecuentes Corta */}
-        <div id="faq" className="max-w-3xl mx-auto border-t border-slate-200 pt-16">
-          <h3 className="text-3xl font-bold text-slate-900 text-center mb-10">Preguntas frecuentes sobre la suscripción</h3>
+        <div id="faq" className="max-w-3xl mx-auto border-t border-slate-200 pt-16 pb-24">
+          <Reveal>
+            <h3 className="font-display font-extrabold text-3xl text-slate-900 text-center mb-10 uppercase">Preguntas frecuentes</h3>
+          </Reveal>
           <div className="space-y-6">
-            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-              <h4 className="font-bold text-slate-800 flex items-center gap-2 mb-2">
-                <HelpCircle className="text-primary-600 shrink-0" size={18} />
-                ¿Puedo cancelar mi suscripción en cualquier momento?
-              </h4>
-              <p className="text-slate-600 text-sm pl-7">
-                Sí, totalmente. No tenemos cláusulas de permanencia forzosa. Si decides cancelar, mantendrás acceso al sistema hasta que finalice el periodo que ya pagaste.
-              </p>
-            </div>
-            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-              <h4 className="font-bold text-slate-800 flex items-center gap-2 mb-2">
-                <HelpCircle className="text-primary-600 shrink-0" size={18} />
-                ¿El subdominio tiene algún costo extra?
-              </h4>
-              <p className="text-slate-600 text-sm pl-7">
-                No, el subdominio `tunombre.erpsystem.com` está 100% incluido de forma gratuita en cualquiera de nuestros planes operativos.
-              </p>
-            </div>
-            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-              <h4 className="font-bold text-slate-800 flex items-center gap-2 mb-2">
-                <HelpCircle className="text-primary-600 shrink-0" size={18} />
-                ¿Cómo se reciben los PDFs de las órdenes?
-              </h4>
-              <p className="text-slate-600 text-sm pl-7">
-                Cuando tus compradores finales cierran el pedido desde tu catálogo, el sistema genera automáticamente un formato limpio del pedido y abre el WhatsApp del cliente con el texto y link listo para que te lo envíe con un solo toque.
-              </p>
-            </div>
+            {[
+              {
+                q: '¿Puedo cancelar mi suscripción en cualquier momento?',
+                a: 'Sí, totalmente. No tenemos cláusulas de permanencia forzosa. Si decides cancelar, mantendrás acceso al sistema hasta que finalice el periodo que ya pagaste.',
+              },
+              {
+                q: '¿El subdominio tiene algún costo extra?',
+                a: 'No, el subdominio `tunombre.erpsystem.com` está 100% incluido de forma gratuita en cualquiera de nuestros planes operativos.',
+              },
+              {
+                q: '¿Cómo se reciben los PDFs de las órdenes?',
+                a: 'Cuando tus compradores finales cierran el pedido desde tu catálogo, el sistema genera automáticamente un formato limpio del pedido y abre el WhatsApp del cliente con el texto y link listo para que te lo envíe con un solo toque.',
+              },
+            ].map((item, i) => (
+              <Reveal key={item.q} delay={i * 0.06}>
+                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+                  <h4 className="font-bold text-slate-800 flex items-center gap-2 mb-2">
+                    <HelpCircle className="text-primary-600 shrink-0" size={18} />
+                    {item.q}
+                  </h4>
+                  <p className="text-slate-600 text-sm pl-7">{item.a}</p>
+                </div>
+              </Reveal>
+            ))}
           </div>
         </div>
 

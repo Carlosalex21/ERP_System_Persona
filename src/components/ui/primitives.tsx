@@ -2,7 +2,7 @@
  * @file Primitivos UI compartidos: StatCard, EmptyState, Badge, ActionButton.
  */
 import type { ReactElement, ReactNode, MouseEvent as ReactMouseEvent } from 'react';
-import { Loader2 } from 'lucide-react';
+import { Loader2, TrendingUp } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
 // StatCard
@@ -10,14 +10,17 @@ import { Loader2 } from 'lucide-react';
 
 interface StatCardProps {
   label: string;
-  value: string | number;
+  /** String/número ya formateado, o un nodo (ej. `<AnimatedNumber>`) para el conteo animado. */
+  value: ReactNode;
   icon?: ReactNode;
-  color?: string; // clases de color del icono (ej. 'bg-primary-600')
+  color?: string; // clases de color del icono/acento (ej. 'bg-primary-600')
   note?: string;
+  trend?: string;
+  trendUp?: boolean;
 }
 
-/** Tarjeta de métrica compacta (label, valor grande, icono en color). */
-export function StatCard({ label, value, icon, color = 'bg-primary-600', note }: StatCardProps): ReactElement {
+/** Tarjeta de métrica compacta (label, valor grande, icono en color, variación opcional). */
+export function StatCard({ label, value, icon, color = 'bg-primary-600', note, trend, trendUp }: StatCardProps): ReactElement {
   return (
     <div className="group relative bg-white rounded-2xl border border-slate-200 shadow-sm p-5 overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5">
       <div className={`absolute top-0 left-0 right-0 h-1 ${color}`} />
@@ -26,6 +29,11 @@ export function StatCard({ label, value, icon, color = 'bg-primary-600', note }:
           <div className={`w-11 h-11 rounded-xl flex items-center justify-center text-white shadow-md shrink-0 ${color}`}>
             {icon}
           </div>
+        )}
+        {trend && (
+          <span className={`text-[10px] font-bold px-2 py-1 rounded-full flex items-center gap-1 ${trendUp ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600'}`}>
+            <TrendingUp size={12} className={trendUp ? '' : 'rotate-180'} /> {trend}
+          </span>
         )}
       </div>
       <h3 className="mt-4 text-2xl font-black text-slate-900 tracking-tight truncate">{value}</h3>

@@ -7,7 +7,12 @@
  *  - El descuento (porcentual o global) se aplica antes de calcular el impuesto.
  *  - La retención (ISLR) se calcula sobre la base imponible.
  *  - Si la factura es en moneda distinta a la base, se consolidan los montos
- *    ``_base`` dividiendo entre la tasa de cambio (espejo de ``conversion_service.convertir``).
+ *    ``_base`` MULTIPLICANDO por la tasa de cambio (espejo de ``conversion_service.convertir``).
+ *    La tasa significa "1 unidad de esta moneda = tasa unidades de la moneda
+ *    base" -- antes este archivo (y su espejo en el backend) dividían en vez
+ *    de multiplicar, así que cualquier venta en una moneda no-base
+ *    consolidaba un monto absurdamente pequeño en moneda base (ej. $20 a
+ *    900 Bs/$ daba "Bs 0.02" en vez de "Bs 18.000").
  */
 
 /** Redondeo bancario (half-up) a 2 decimales, espejo de ``Decimal.quantize(0.01, ROUND_HALF_UP)``. */
@@ -48,8 +53,13 @@ export function calcularLinea(item: ItemCalculo): ResultadoLinea {
   const totalBrutoLinea = precioFinal * cantidad;
   const totalLineaConDto = totalBrutoLinea * (1 - descuentoPct / 100);
 
+  // Extraer la base imponible del total (que YA incluye IVA) antes de
+  // calcular el impuesto -- ver el mismo comentario en `calcular_linea` del
+  // backend. Aplicar `tasa/100` directamente sobre el total (en vez de
+  // sobre la base extraída) sobreestima el IVA y subestima la base.
   const tasaIva = item.tasa_iva || 0;
-  const montoIva = roundMoney(totalLineaConDto * (tasaIva / 100));
+  const baseExtraida = tasaIva > 0 ? totalLineaConDto / (1 + tasaIva / 100) : totalLineaConDto;
+  const montoIva = roundMoney(baseExtraida * (tasaIva / 100));
 
   // Base imponible = total con descuento - IVA (descontado del precio final).
   const subtotalLinea = roundMoney(totalLineaConDto - montoIva);
@@ -132,9 +142,9 @@ export function calcularTotales(params: ParametrosTotales): TotalesCalculo {
   const moneda = params.moneda;
   const esBase = moneda?.es_base ?? true;
   const tasa = esBase ? 1 : (moneda?.tasa ?? 1);
-  // Consolidación: los montos _base se obtienen dividiendo entre la tasa (espejo de convertir()).
+  // Consolidación: los montos _base se obtienen MULTIPLICANDO por la tasa (espejo de convertir()).
   const aplicarConversion = !esBase && tasa > 0;
-  const conv = (m: number): number => (aplicarConversion ? roundMoney(m / tasa) : roundMoney(m));
+  const conv = (m: number): number => (aplicarConversion ? roundMoney(m * tasa) : roundMoney(m));
 
   return {
     subtotal,
@@ -159,10 +169,15 @@ export function calcularPrecioFinal(baseImponible: number, tasaIva: number): num
   return roundMoney(baseImponible * (1 + (tasaIva || 0) / 100));
 }
 
-/** Extrae la base imponible a partir de un precio final (incluido IVA) y una tasa. */
+/**
+ * Extrae la base imponible a partir de un precio final (incluido IVA) y una
+ * tasa -- `base = final / (1 + tasa/100)`, el mismo cálculo que
+ * `Producto.base_imponible` en el backend. (Antes calculaba el IVA como
+ * `final * tasa/100`, que trata el precio final como si ya fuera la base,
+ * sobreestimando el IVA y subestimando la base.)
+ */
 export function extraerBaseImponible(precioFinal: number, tasaIva: number): number {
   const total = precioFinal || 0;
   if (!tasaIva || tasaIva === 0) return roundMoney(total);
-  const montoIva = roundMoney(total * (tasaIva / 100));
-  return roundMoney(total - montoIva);
+  return roundMoney(total / (1 + tasaIva / 100));
 }

@@ -28,3 +28,22 @@ export const activateB2bAccount = async (tenantId: string, token: string, passwo
   );
   return response.data;
 };
+
+/**
+ * Pide el correo de recuperación de contraseña para un usuario del tenant
+ * actual (empleado o admin). `apiPublica` ya resuelve el subdominio correcto
+ * a partir de `window.location.hostname`, así que solo funciona llamada
+ * desde el propio subdominio del tenant.
+ */
+export const solicitarResetPassword = async (email: string): Promise<{ message: string }> => {
+  const response = await apiPublica.post<{ message: string }>('/auth/password-reset/', { email });
+  return response.data;
+};
+
+/** Confirma el reset con el uid/token del enlace del correo y establece la nueva contraseña. */
+export const confirmarResetPassword = async (uid: string, token: string, newPassword: string): Promise<{ message: string }> => {
+  const response = await apiPublica.post<{ message: string }>('/auth/password-reset/confirm/', {
+    uid, token, new_password: newPassword,
+  });
+  return response.data;
+};

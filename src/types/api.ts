@@ -15,6 +15,31 @@ export interface User {
   sucursal?: string | null;
 }
 
+// --- Carga masiva (productos, clientes) ---
+
+/** Una fila del archivo que no se pudo procesar, con el motivo. */
+export interface BulkUploadErrorRow {
+  fila: number;
+  codigo_barras?: string | null;
+  error: string;
+}
+
+export interface ProductoBulkUploadResult {
+  total_filas: number;
+  productos_creados: number;
+  productos_actualizados: number;
+  errores: BulkUploadErrorRow[];
+  message: string;
+}
+
+export interface ClienteBulkUploadResult {
+  total_filas: number;
+  clientes_creados: number;
+  clientes_actualizados: number;
+  errores: BulkUploadErrorRow[];
+  message: string;
+}
+
 // --- Tipos de Clientes ---
 
 export interface Cliente {
@@ -31,12 +56,42 @@ export interface Cliente {
 
 export type ClienteRequest = Omit<Cliente, 'id' | 'fecha_registro'>;
 
-/**
- * Tipo de conveniencia para la red de clientes B2B (mayoristas/distribuidores).
- * El backend expone los clientes bajo `/clientes/`, por lo que se reutiliza
- * la estructura base de `Cliente`.
- */
-export type ClienteB2B = Cliente;
+// --- Tipos B2B (mayoristas/distribuidores) ---
+// Ver `apps/clientes/models.py` en el backend: `ClienteB2B` es un modelo
+// aparte de `Cliente` (retail), con su propio nivel de precio y línea de
+// crédito -- antes se reutilizaba (mal) el tipo `Cliente` aquí.
+
+export interface NivelPrecio {
+  id: number;
+  nombre: string;
+  porcentaje_descuento: string;
+  monto_minimo_periodo: string;
+  activo: boolean;
+}
+
+export type NivelPrecioRequest = Omit<NivelPrecio, 'id'>;
+export type PatchedNivelPrecioRequest = Partial<NivelPrecioRequest>;
+
+export interface ClienteB2B {
+  id: number;
+  razon_social: string;
+  rif: string;
+  email_contacto: string;
+  telefono_contacto: string;
+  direccion_fiscal: string;
+  nivel_precio: number | null;
+  nivel_precio_nombre: string | null;
+  nivel_precio_actualizado_en: string | null;
+  total_comprado_periodo: string;
+  limite_credito: string;
+  credito_usado: string;
+  estado: 'pendiente' | 'activo' | 'inactivo' | 'bloqueado';
+  fecha_creacion: string;
+}
+
+export type ClienteB2BRequest = Partial<
+  Pick<ClienteB2B, 'razon_social' | 'rif' | 'telefono_contacto' | 'direccion_fiscal' | 'nivel_precio' | 'limite_credito' | 'estado'>
+>;
 
 // --- Tipos de Inventario ---
 
@@ -50,6 +105,20 @@ export interface Almacen {
 }
 
 export type AlmacenRequest = Omit<Almacen, 'id'>;
+
+export interface Proveedor {
+  id: number;
+  identificador_fiscal: string;
+  nombre: string;
+  direccion: string;
+  telefono?: string | null;
+  email: string;
+  plazo_pago?: number | null;
+  es_contribuyente_especial: boolean;
+  activo: boolean;
+}
+
+export type ProveedorRequest = Omit<Proveedor, 'id'>;
 
 export interface Categoria {
   id: number;
@@ -116,13 +185,34 @@ export interface Iva {
  */
 export type IvaRequest = Omit<Iva, 'id' | 'fecha_creacion'>;
 
+export interface PresentacionProducto {
+  id: number;
+  producto: number;
+  nombre: string;
+  factor_conversion: number;
+  precio?: string | null;
+  es_default: boolean;
+  activo: boolean;
+}
+
+export interface PresentacionProductoRequest {
+  producto: number;
+  nombre: string;
+  factor_conversion: number;
+  precio?: string | null;
+  es_default?: boolean;
+}
+
 export interface Producto {
   id: number;
   variantes: Variacionproducto[];
+  presentaciones: PresentacionProducto[];
   nombre: string;
   descripcion?: string | null;
   precio?: string | null;
   cantidad?: number | null;
+  /** Umbral de "bajo stock" propio de este producto. Vacío = usa el umbral general. */
+  stock_minimo?: number | null;
   codigo_barras?: string | null;
   disponible_online?: boolean | null;
   descuento?: string | null;
@@ -136,15 +226,81 @@ export interface Producto {
   almacen?: number | null;
   configuracion_iva?: number | null;
   categoria?: number | null;
+  /** Moneda en la que está expresado `precio`. Si se omite, se asume la moneda base del tenant. */
+  moneda?: number | null;
+  moneda_codigo?: string | null;
+  moneda_simbolo?: string | null;
 }
 
 /**
  * Para la creación y actualización de productos.
  * Omitimos campos de solo lectura y manejamos la imagen como un archivo.
  */
-export type ProductoRequest = Omit<Producto, 'id' | 'variantes' | 'slug' | 'imagen'> & {
+export type ProductoRequest = Omit<Producto, 'id' | 'variantes' | 'presentaciones' | 'slug' | 'imagen' | 'moneda_codigo' | 'moneda_simbolo'> & {
   imagen?: File | null;
 };
+
+// ---------------------------------------------------------------------------
+// Ajustes de inventario (entrada/salida manual de stock: notas de entrega
+// sin factura, correcciones de conteo físico, mermas, devoluciones a
+// proveedor). Un ajuste, igual que una factura confirmada, no se edita.
+// ---------------------------------------------------------------------------
+
+export type TipoAjusteInventario = 'entrada' | 'salida';
+
+export type MotivoAjusteInventario =
+  | 'compra_con_factura'
+  | 'compra_sin_factura'
+  | 'conteo_fisico'
+  | 'devolucion_proveedor'
+  | 'merma'
+  | 'otro';
+
+export interface AjusteInventarioDetalle {
+  id: number;
+  nombre: string | null;
+  producto: number | null;
+  variante: number | null;
+  cantidad: number;
+  costo_unitario?: string | null;
+  stock_resultante: number | null;
+}
+
+export interface AjusteInventarioDetalleRequest {
+  producto: number;
+  variante?: number | null;
+  cantidad: number;
+  costo_unitario?: string | null;
+}
+
+export interface AjusteInventario {
+  id: number;
+  tipo: TipoAjusteInventario;
+  tipo_display: string;
+  motivo: MotivoAjusteInventario;
+  motivo_display: string;
+  almacen: number | null;
+  proveedor: number | null;
+  numero_documento: string;
+  numero_control: string;
+  observaciones: string;
+  usuario: number | null;
+  usuario_nombre: string | null;
+  fecha_creacion: string;
+  activo: boolean;
+  detalles: AjusteInventarioDetalle[];
+}
+
+export interface AjusteInventarioRequest {
+  tipo: TipoAjusteInventario;
+  motivo: MotivoAjusteInventario;
+  almacen?: number | null;
+  proveedor?: number | null;
+  numero_documento?: string;
+  numero_control?: string;
+  observaciones?: string;
+  detalles_para_crear: AjusteInventarioDetalleRequest[];
+}
 
 export interface Variacionproducto {
   id: number;
@@ -236,6 +392,9 @@ export interface Factura {
   nombre_cliente_pendiente?: string | null;
   comentario_pendiente?: string | null;
   usuario?: number | null;
+  vendedor?: number | null;
+  vendedor_nombre?: string | null;
+  condicion_pago?: 'contado' | 'credito';
   cliente?: number | null;
   orden?: number | null;
   almacen?: number | null;
@@ -256,6 +415,8 @@ export interface FacturaRequest {
   nombre_cliente_pendiente?: string | null;
   comentario_pendiente?: string | null;
   usuario?: number | null;
+  vendedor?: number | null;
+  condicion_pago?: 'contado' | 'credito';
   cliente?: number | null;
   orden?: number | null;
   almacen?: number | null;
@@ -268,10 +429,20 @@ export interface MetodoPago {
   nro_cuenta: string | null;
   telefono: string | null;
   tipo_metodo: string | null;
+  /** Banco fijo al que entra el dinero de este método (vacío para efectivo). */
+  banco: number | null;
+  banco_nombre?: string | null;
   activo: boolean;
 }
 
-export type MetodoPagoRequest = Omit<MetodoPago, 'id'>;
+export type MetodoPagoRequest = Omit<MetodoPago, 'id' | 'banco_nombre'>;
+
+export interface Banco {
+  id: number;
+  nombre: string;
+  activo: boolean;
+}
+export type BancoRequest = Omit<Banco, 'id'>;
 
 // --- Tipos de Multi-Moneda (Configuración) ---
 
@@ -326,6 +497,8 @@ export interface TaxStrategyInfo {
 export interface NotaCredito {
   id: number;
   factura: number | null;
+  /** Moneda en la que están expresados base_imponible/iva_total/retencion_total/total (la de la factura asociada). */
+  factura_moneda_codigo?: string | null;
   numero_nota: string;
   numero_control?: string | null;
   fecha_emision: string;
@@ -334,6 +507,11 @@ export interface NotaCredito {
   iva_total: string;
   retencion_total: string;
   total: string;
+  /** Consolidación en la moneda base del tenant (mismo patrón que Factura.total_base). */
+  base_imponible_base: string;
+  iva_base: string;
+  retencion_base: string;
+  total_base: string;
   activo: boolean;
 }
 
@@ -347,6 +525,8 @@ export type PatchedNotaCreditoRequest = Partial<NotaCreditoRequest>;
 export interface NotaDebito {
   id: number;
   factura: number | null;
+  /** Moneda en la que están expresados base_imponible/iva_total/total (la de la factura asociada). */
+  factura_moneda_codigo?: string | null;
   numero_nota: string;
   numero_control?: string | null;
   fecha_emision: string;
@@ -354,6 +534,9 @@ export interface NotaDebito {
   base_imponible: string;
   iva_total: string;
   total: string;
+  base_imponible_base: string;
+  iva_base: string;
+  total_base: string;
   activo: boolean;
 }
 
@@ -386,12 +569,16 @@ export type PatchedLibroCompraVentaRequest = Partial<LibroCompraVentaRequest>;
 export interface Retencion {
   id: number;
   factura: number | null;
+  /** Moneda en la que están expresados base/monto (la de la factura asociada, si hay una). */
+  factura_moneda_codigo?: string | null;
   proveedor: number | null;
   tipo_retencion: 'islr' | 'iva' | 'otros';
   numero_comprobante?: string | null;
   porcentaje: string;
   base: string;
   monto: string;
+  /** Periodo fiscal que declara el proveedor (ej: "2026", "01/2026"). Texto libre. */
+  periodo_imposicion?: string | null;
   fecha_emision: string;
   activo: boolean;
 }
@@ -402,6 +589,7 @@ export interface RetencionRequest {
   tipo_retencion: 'islr' | 'iva' | 'otros';
   porcentaje: string;
   base: string;
+  periodo_imposicion?: string | null;
 }
 export type PatchedRetencionRequest = Partial<RetencionRequest>;
 
@@ -443,4 +631,261 @@ export interface ApiEnvelope<T = unknown> {
   data: T | null;
   meta: ApiMeta | null;
   errors: ApiError[] | null;
+}
+
+// ---------------------------------------------------------------------------
+// Pagos en línea (Pago Móvil / Zelle) -- checkout manual del catálogo público
+// ---------------------------------------------------------------------------
+
+export interface PagoMovilConfig {
+  id: number;
+  metodo_pago: number;
+  banco: string;
+  cedula: string;
+  telefono: string;
+}
+
+export type PagoMovilConfigRequest = Omit<PagoMovilConfig, 'id'>;
+
+export interface ZelleConfig {
+  id: number;
+  metodo_pago: number;
+  email_zelle: string;
+  nombre_beneficiario: string;
+}
+
+export type ZelleConfigRequest = Omit<ZelleConfig, 'id'>;
+
+export interface StripeConfig {
+  id: number;
+  metodo_pago: number;
+  publishable_key: string;
+  moneda: string;
+  tiene_secret_key: boolean;
+  modo_test: boolean;
+}
+
+export interface StripeConfigRequest {
+  metodo_pago: number;
+  publishable_key: string;
+  secret_key: string;
+  webhook_secret?: string;
+  moneda: string;
+}
+
+export interface MetodoPagoConfig {
+  id: number;
+  nombre: string;
+  activo: boolean;
+  es_manual: boolean;
+  instrucciones?: string | null;
+  pago_movil_config: PagoMovilConfig | null;
+  zelle_config: ZelleConfig | null;
+  stripe_config: StripeConfig | null;
+}
+
+export type MetodoPagoConfigRequest = Pick<MetodoPagoConfig, 'nombre' | 'activo' | 'es_manual' | 'instrucciones'>;
+
+export interface ConfiguracionEmpresa {
+  nombre_comercial: string;
+  razon_social?: string | null;
+  rif?: string | null;
+  telefono?: string | null;
+  direccion?: string | null;
+  logo?: string | null;
+}
+
+export type ConfiguracionEmpresaRequest = Omit<ConfiguracionEmpresa, 'logo'> & {
+  logo?: File | null;
+};
+
+/** Numeración de facturas (correlativo SENIAT-style: prefijo + número). */
+export interface ConfiguracionCorrelativo {
+  prefijo: string;
+  /** Último número de factura utilizado (la próxima factura usará este + 1). */
+  current_number: number;
+  /** Cantidad de dígitos del correlativo (ej. 3 para "001"). */
+  number_length: number;
+}
+
+export interface ConfiguracionCorrelativoRequest {
+  prefijo?: string;
+  current_number?: number;
+  number_length?: number;
+  /** Contraseña del usuario logueado, requerida para confirmar el cambio. */
+  password: string;
+}
+
+export interface TransaccionPasarela {
+  id: number;
+  factura: number;
+  metodo_pago: number;
+  metodo_pago_nombre: string;
+  monto: string;
+  referencia_externa?: string | null;
+  estado: string;
+  fecha_creacion: string;
+}
+
+/** Registro de pago desde el POS (efectivo, Pago Móvil, transferencia, Zelle, tarjeta). */
+export interface Transaccionpago {
+  id: number;
+  factura?: number | null;
+  metodo_pago?: number | null;
+  metodo_pago_nombre?: string | null;
+  monto: string;
+  /** Lo que el cliente entregó de verdad (para efectivo, puede ser mayor a `monto`; ver `vuelto`). */
+  monto_recibido?: string | null;
+  /** Cambio devuelto (solo aplica a efectivo). */
+  vuelto?: string;
+  /** Turno de caja del cajero que cobró (null si no pasó por el POS). */
+  caja_sesion?: number | null;
+  estado: string;
+  codigo_transaccion?: string | null;
+  /** N° de Pago Móvil/transferencia/Zelle que el cajero anotó a mano, si aplica. */
+  referencia?: string | null;
+  fecha?: string | null;
+  activo: boolean;
+}
+
+/** Una línea de pago a enviar al confirmar una venta (soporta pago dividido entre varios métodos). */
+export interface PagoRequestLinea {
+  metodo_pago_id: number;
+  monto: string;
+  monto_recibido?: string;
+  referencia?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Cobro de suscripciones SaaS (el dueño del tenant le paga A LA PLATAFORMA).
+// No confundir con MetodoPagoConfig/StripeConfig/TransaccionPasarela de
+// arriba: esos son para que CADA TENANT le cobre a SUS PROPIOS clientes en
+// su catálogo público. Aquí el dinero fluye en la dirección opuesta.
+// ---------------------------------------------------------------------------
+
+export interface Plan {
+  id: number;
+  nombre: string;
+  slug: string | null;
+  precio: string;
+  limite_usuarios: number;
+  limite_sucursales: number;
+  limite_productos: number | null;
+  descripcion: string;
+  activo: boolean;
+}
+
+/** Versión resumida de `Plan` embebida en la suscripción del cliente (sin `descripcion`/`activo`). */
+export interface PlanResumen {
+  id: number;
+  nombre: string;
+  slug: string | null;
+  precio: string;
+  limite_usuarios: number;
+  limite_sucursales: number;
+  limite_productos: number | null;
+}
+
+export interface MiSubscripcion {
+  plan: PlanResumen;
+  estado: string;
+  fecha_fin: string | null;
+  is_active: boolean;
+  es_prueba: boolean;
+}
+
+export type PeriodoSuscripcion = 'mensual' | 'trimestral' | 'anual';
+
+export interface PeriodoSuscripcionInfo {
+  codigo: PeriodoSuscripcion;
+  nombre: string;
+  meses: number;
+  dias: number;
+  descuento_pct: number;
+}
+
+export interface MiCliente {
+  id: number;
+  nombre_empresa: string;
+  schema_name: string;
+  pais_codigo: 'VE' | 'CO' | 'PE';
+  subscription: MiSubscripcion | null;
+}
+
+export interface PlatformPaymentInfo {
+  pago_movil_banco: string;
+  pago_movil_cedula: string;
+  pago_movil_telefono: string;
+  zelle_email: string;
+  zelle_titular: string;
+  stripe_publishable_key: string;
+}
+
+export interface PlatformPaymentConfig extends PlatformPaymentInfo {
+  stripe_secret_key?: string;
+  stripe_webhook_secret?: string;
+  tiene_stripe_secret_key: boolean;
+}
+
+export type PlatformPaymentConfigRequest = Partial<Omit<PlatformPaymentConfig, 'tiene_stripe_secret_key'>>;
+
+export type MetodoPagoSuscripcion = 'pago_movil' | 'zelle' | 'stripe';
+
+export interface CrearPagoSuscripcionRequest {
+  client_id: number;
+  plan_id: number;
+  metodo: MetodoPagoSuscripcion;
+  periodo?: PeriodoSuscripcion;
+  referencia?: string;
+}
+
+export interface CrearPagoSuscripcionResponse {
+  pago_id: number;
+  estado: string;
+  metodo: MetodoPagoSuscripcion;
+  periodo: PeriodoSuscripcion;
+  monto: string;
+  checkout_url: string | null;
+}
+
+export interface PlatformSettings {
+  limite_registros_gratis: number | null;
+  dias_gracia_tras_vencimiento: number;
+}
+
+export type PlatformSettingsRequest = Partial<PlatformSettings>;
+
+export interface SubscriptionPayment {
+  id: number;
+  client: { id: number; nombre_empresa: string; schema_name: string; pais_codigo: string };
+  plan: PlanResumen;
+  periodo: PeriodoSuscripcion;
+  monto: string;
+  metodo: MetodoPagoSuscripcion;
+  referencia: string;
+  estado: 'pendiente' | 'confirmado' | 'rechazado';
+  fecha_creacion: string;
+  fecha_confirmacion: string | null;
+  confirmado_por_username: string | null;
+  notas: string;
+}
+
+/** Un cambio individual dentro de un registro de auditoría: {"antes": x, "despues": y}. */
+export interface CambioAuditoria {
+  antes: unknown;
+  despues: unknown;
+}
+
+/** Entrada del registro de auditoría -- quién hizo qué, cuándo, y con qué valores antes/después. */
+export interface RegistroAuditoria {
+  id: number;
+  fecha: string;
+  usuario: number | null;
+  usuario_nombre: string;
+  accion: 'crear' | 'actualizar' | 'eliminar' | 'reactivar';
+  modelo: string;
+  objeto_id: string;
+  objeto_repr: string;
+  cambios: Record<string, CambioAuditoria> | null;
+  ip_address: string | null;
 }

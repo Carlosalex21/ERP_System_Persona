@@ -1,65 +1,22 @@
 "use client";
 
-import { useState, useEffect, useCallback, memo, type ReactElement } from 'react';
-import { Plus, Loader2, Pencil, Trash2, FileText } from 'lucide-react';
+import { useState, useEffect, useCallback, useMemo, type ReactElement } from 'react';
+import type { ColumnDef } from '@tanstack/react-table';
+import { Plus, Pencil, Trash2, Receipt, Printer } from 'lucide-react';
+import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { Factura, NotaCredito } from '@/types/api';
 import { getNotasCredito, getFacturas, deleteNotaCredito } from '@/services/facturacionService';
+import { getMonedas } from '@/services/configuracionService';
 import { getApiErrorMessages, parseDecimal } from '@/utils/helpers';
+import { DataTable, PageHeader, Card, TableSkeleton } from '@/components/ui';
 import NotaCreditoModal from './NotaCreditoModal';
+import NotaPdfModal from '@/components/facturacion/NotaPdfModal';
 
-interface NotaRowProps {
-  nota: NotaCredito;
-  facturas: Factura[];
-  onEditar: (nota: NotaCredito) => void;
-  onEliminar: (nota: NotaCredito) => void;
+function montoSortingFn(campo: keyof NotaCredito) {
+  return (a: { original: NotaCredito }, b: { original: NotaCredito }) =>
+    parseDecimal(a.original[campo] as string) - parseDecimal(b.original[campo] as string);
 }
-
-const NotaRow = memo(function NotaRow({
-  nota,
-  facturas,
-  onEditar,
-  onEliminar,
-}: NotaRowProps): ReactElement {
-  const factura = facturas.find((f) => f.id === nota.factura);
-  return (
-    <tr className="hover:bg-slate-50 transition-colors">
-      <td className="p-4 pl-6 font-bold text-slate-900">{nota.numero_nota}</td>
-      <td className="p-4 font-mono text-slate-500">{nota.numero_control || '—'}</td>
-      <td className="p-4 text-slate-600">
-        {factura ? `#${factura.correlativo || factura.id}` : `#${nota.factura}`}
-      </td>
-      <td className="p-4 text-slate-600">{new Date(nota.fecha_emision).toLocaleDateString('es-VE')}</td>
-      <td className="p-4 text-slate-700 max-w-[220px] truncate" title={nota.motivo}>
-        {nota.motivo}
-      </td>
-      <td className="p-4 text-right font-mono">{parseDecimal(nota.base_imponible).toFixed(2)}</td>
-      <td className="p-4 text-right font-mono">{parseDecimal(nota.iva_total).toFixed(2)}</td>
-      <td className="p-4 text-right font-mono">{parseDecimal(nota.retencion_total).toFixed(2)}</td>
-      <td className="p-4 text-right font-black text-primary-700 font-mono">
-        {parseDecimal(nota.total).toFixed(2)}
-      </td>
-      <td className="p-4 text-right">
-        <div className="flex justify-end gap-1">
-          <button
-            onClick={() => onEditar(nota)}
-            className="p-2 text-slate-400 hover:text-primary-600 transition-colors"
-            aria-label={`Editar nota ${nota.numero_nota}`}
-          >
-            <Pencil size={16} />
-          </button>
-          <button
-            onClick={() => onEliminar(nota)}
-            className="p-2 text-slate-400 hover:text-red-500 transition-colors"
-            aria-label={`Eliminar nota ${nota.numero_nota}`}
-          >
-            <Trash2 size={16} />
-          </button>
-        </div>
-      </td>
-    </tr>
-  );
-});
 
 export default function NotasCreditoPage(): ReactElement {
   const [notas, setNotas] = useState<NotaCredito[]>([]);
@@ -67,19 +24,28 @@ export default function NotasCreditoPage(): ReactElement {
   const [cargando, setCargando] = useState(true);
   const [modalAbierto, setModalAbierto] = useState(false);
   const [editando, setEditando] = useState<NotaCredito | null>(null);
+  const [monedaBaseCodigo, setMonedaBaseCodigo] = useState('');
+  const [notaImprimir, setNotaImprimir] = useState<NotaCredito | null>(null);
 
   const loadData = useCallback(async () => {
     setCargando(true);
     try {
-      const [notasData, facturasData] = await Promise.all([getNotasCredito(), getFacturas()]);
-      setNotas(notasData);
-      setFacturas(facturasData);
-    } catch (error) {
-      const messages = getApiErrorMessages(error);
-      if (messages.length > 0) {
-        messages.forEach((msg) => toast.error(msg));
-      } else {
-        toast.error('Error al cargar las notas de crédito.');
+      const [notasRes, facturasRes, monedasRes] = await Promise.allSettled([getNotasCredito(), getFacturas(), getMonedas()]);
+      if (notasRes.status === 'fulfilled') setNotas(notasRes.value);
+      if (facturasRes.status === 'fulfilled') setFacturas(facturasRes.value);
+      if (monedasRes.status === 'fulfilled') {
+        setMonedaBaseCodigo(monedasRes.value.find(m => m.es_predeterminada)?.codigo || '');
+      }
+      const fallo = [notasRes, facturasRes].find(
+        (r): r is PromiseRejectedResult => r.status === 'rejected',
+      );
+      if (fallo) {
+        const messages = getApiErrorMessages(fallo.reason);
+        if (messages.length > 0) {
+          messages.forEach((msg) => toast.error(msg));
+        } else {
+          toast.error('Algunos datos no se pudieron cargar. Intenta actualizar la página.');
+        }
       }
     } finally {
       setCargando(false);
@@ -119,67 +85,93 @@ export default function NotasCreditoPage(): ReactElement {
     [loadData],
   );
 
+  const columns = useMemo<ColumnDef<NotaCredito>[]>(() => [
+    { accessorKey: 'numero_nota', header: 'N° Nota', cell: ({ row }) => <span className="font-bold text-slate-900">{row.original.numero_nota}</span> },
+    { accessorKey: 'numero_control', header: 'Control', enableSorting: false, cell: ({ row }) => <span className="font-mono text-slate-500">{row.original.numero_control || '—'}</span> },
+    {
+      id: 'factura',
+      header: 'Factura',
+      enableSorting: false,
+      cell: ({ row }) => {
+        const factura = facturas.find(f => f.id === row.original.factura);
+        return <span className="text-slate-600">{factura ? `#${factura.correlativo || factura.id}` : `#${row.original.factura}`}</span>;
+      },
+    },
+    { accessorKey: 'fecha_emision', header: 'Fecha', cell: ({ row }) => <span className="text-slate-600">{new Date(row.original.fecha_emision).toLocaleDateString('es-VE')}</span> },
+    { accessorKey: 'motivo', header: 'Motivo', enableSorting: false, cell: ({ row }) => <span className="text-slate-700 max-w-[220px] truncate block" title={row.original.motivo}>{row.original.motivo}</span> },
+    { accessorKey: 'base_imponible', header: () => <div className="text-right">Base</div>, sortingFn: montoSortingFn('base_imponible'), cell: ({ row }) => <div className="text-right font-mono">{parseDecimal(row.original.base_imponible).toFixed(2)}</div> },
+    { accessorKey: 'iva_total', header: () => <div className="text-right">IVA</div>, sortingFn: montoSortingFn('iva_total'), cell: ({ row }) => <div className="text-right font-mono">{parseDecimal(row.original.iva_total).toFixed(2)}</div> },
+    { accessorKey: 'retencion_total', header: () => <div className="text-right">Retención</div>, sortingFn: montoSortingFn('retencion_total'), cell: ({ row }) => <div className="text-right font-mono">{parseDecimal(row.original.retencion_total).toFixed(2)}</div> },
+    {
+      accessorKey: 'total',
+      header: () => <div className="text-right">Total</div>,
+      sortingFn: montoSortingFn('total'),
+      cell: ({ row }) => (
+        <div className="text-right font-black text-primary-700 font-mono">
+          {row.original.factura_moneda_codigo ? `${row.original.factura_moneda_codigo} ` : ''}{parseDecimal(row.original.total).toFixed(2)}
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'total_base',
+      header: () => <div className="text-right">Total ({monedaBaseCodigo || 'base'})</div>,
+      sortingFn: montoSortingFn('total_base'),
+      cell: ({ row }) => (
+        <div className="text-right font-mono text-slate-600">
+          {monedaBaseCodigo} {parseDecimal(row.original.total_base).toFixed(2)}
+        </div>
+      ),
+    },
+    {
+      id: 'acciones',
+      header: () => <div className="text-right">Acciones</div>,
+      enableSorting: false,
+      cell: ({ row }) => (
+        <div className="flex justify-end gap-1">
+          <button onClick={() => setNotaImprimir(row.original)} className="p-2 text-slate-400 hover:text-primary-600 transition-colors" aria-label={`Imprimir nota ${row.original.numero_nota}`}>
+            <Printer size={16} />
+          </button>
+          <button onClick={() => abrirEditar(row.original)} className="p-2 text-slate-400 hover:text-primary-600 transition-colors" aria-label={`Editar nota ${row.original.numero_nota}`}>
+            <Pencil size={16} />
+          </button>
+          <button onClick={() => eliminar(row.original)} className="p-2 text-slate-400 hover:text-red-500 transition-colors" aria-label={`Eliminar nota ${row.original.numero_nota}`}>
+            <Trash2 size={16} />
+          </button>
+        </div>
+      ),
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], [facturas, abrirEditar, eliminar, monedaBaseCodigo]);
+
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
-        <div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight">Notas de Crédito</h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Registra notas de crédito asociadas a facturas (el backend calcula el desglose).
-          </p>
-        </div>
-        <button
-          onClick={abrirCrear}
-          className="bg-primary-600 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-primary-700 flex items-center justify-center gap-2 shadow-md"
-        >
-          <Plus size={18} /> Nueva Nota de Crédito
-        </button>
-      </div>
+      <PageHeader
+        icon={<Receipt size={20} />}
+        title="Notas de Crédito"
+        description="Registra notas de crédito asociadas a facturas (el backend calcula el desglose)."
+        actions={
+          <motion.button
+            whileTap={{ scale: 0.96 }}
+            onClick={abrirCrear}
+            className="bg-primary-600 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-primary-700 flex items-center justify-center gap-2 shadow-md"
+          >
+            <Plus size={18} /> Nueva Nota de Crédito
+          </motion.button>
+        }
+      />
 
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-        {cargando ? (
-          <div className="flex items-center justify-center h-48 text-slate-500">
-            <Loader2 size={24} className="animate-spin mr-2" /> Cargando notas de crédito...
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase text-[10px] tracking-wider">
-                  <th className="p-4 pl-6">N° Nota</th>
-                  <th className="p-4">Control</th>
-                  <th className="p-4">Factura</th>
-                  <th className="p-4">Fecha</th>
-                  <th className="p-4">Motivo</th>
-                  <th className="p-4 text-right">Base</th>
-                  <th className="p-4 text-right">IVA</th>
-                  <th className="p-4 text-right">Retención</th>
-                  <th className="p-4 text-right">Total</th>
-                  <th className="p-4 text-right">Acciones</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {notas.map((nota) => (
-                  <NotaRow
-                    key={nota.id}
-                    nota={nota}
-                    facturas={facturas}
-                    onEditar={abrirEditar}
-                    onEliminar={eliminar}
-                  />
-                ))}
-                {notas.length === 0 && (
-                  <tr>
-                    <td colSpan={10} className="p-8 text-center text-slate-400 text-sm">
-                      No hay notas de crédito registradas.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+      {cargando ? (
+        <TableSkeleton rows={6} />
+      ) : (
+        <Card padding="none" className="overflow-hidden">
+          <DataTable
+            columns={columns}
+            data={notas}
+            resultLabel="notas"
+            emptyState={<div className="p-8 text-center text-slate-400 text-sm">No hay notas de crédito registradas.</div>}
+          />
+        </Card>
+      )}
 
       {modalAbierto && (
         <NotaCreditoModal
@@ -192,6 +184,13 @@ export default function NotasCreditoPage(): ReactElement {
           }}
         />
       )}
+
+      <NotaPdfModal
+        isOpen={!!notaImprimir}
+        onClose={() => setNotaImprimir(null)}
+        notaId={notaImprimir?.id ?? null}
+        tipo="credito"
+      />
     </div>
   );
 }
