@@ -8,7 +8,7 @@ import toast from 'react-hot-toast';
 import { Moneda } from '@/types/api';
 import { getMonedas, deleteMoneda } from '@/services/configuracionService';
 import { getApiErrorMessages } from '@/utils/helpers';
-import { DataTable, PageHeader, Card, TableSkeleton } from '@/components/ui';
+import { DataTable, PageHeader, Card, TableSkeleton, ConfirmDialog } from '@/components/ui';
 import MonedaModal from './MonedaModal';
 
 export default function MonedasPage(): ReactElement {
@@ -48,12 +48,19 @@ export default function MonedasPage(): ReactElement {
     setModalAbierto(true);
   }, []);
 
-  const eliminar = useCallback(
-    async (moneda: Moneda) => {
-      if (!window.confirm(`¿Eliminar la moneda ${moneda.codigo} (${moneda.nombre})?`)) return;
+  const [monedaAEliminar, setMonedaAEliminar] = useState<Moneda | null>(null);
+  const [eliminandoMoneda, setEliminandoMoneda] = useState(false);
+
+  const eliminar = useCallback((moneda: Moneda) => setMonedaAEliminar(moneda), []);
+
+  const confirmarEliminarMoneda = useCallback(
+    async () => {
+      if (!monedaAEliminar) return;
+      setEliminandoMoneda(true);
       try {
-        await deleteMoneda(moneda.id);
+        await deleteMoneda(monedaAEliminar.id);
         toast.success('Moneda eliminada.');
+        setMonedaAEliminar(null);
         loadData();
       } catch (error) {
         const messages = getApiErrorMessages(error);
@@ -62,9 +69,11 @@ export default function MonedasPage(): ReactElement {
         } else {
           toast.error('Error al eliminar la moneda.');
         }
+      } finally {
+        setEliminandoMoneda(false);
       }
     },
-    [loadData],
+    [monedaAEliminar, loadData],
   );
 
   const monedaBase = useMemo(() => monedas.find((m) => m.es_predeterminada), [monedas]);
@@ -178,6 +187,16 @@ export default function MonedasPage(): ReactElement {
           }}
         />
       )}
+
+      <ConfirmDialog
+        isOpen={!!monedaAEliminar}
+        title="Eliminar Moneda"
+        message={`¿Eliminar la moneda ${monedaAEliminar?.codigo} (${monedaAEliminar?.nombre})? Esta acción no se puede deshacer.`}
+        confirmLabel="Eliminar"
+        loading={eliminandoMoneda}
+        onConfirm={confirmarEliminarMoneda}
+        onCancel={() => setMonedaAEliminar(null)}
+      />
     </div>
   );
 }

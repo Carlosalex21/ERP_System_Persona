@@ -16,7 +16,7 @@ import {
 } from '@/services/configuracionService';
 import { getApiErrorMessages, parseDecimal } from '@/utils/helpers';
 import { toastApiError } from '@/utils/errors';
-import { DataTable, PageHeader, Card, CardHeader, TableSkeleton, Stagger, StaggerItem } from '@/components/ui';
+import { DataTable, PageHeader, Card, CardHeader, TableSkeleton, Stagger, StaggerItem, ConfirmDialog } from '@/components/ui';
 import TasaCambioModal from './TasaCambioModal';
 
 export default function TasasCambioPage(): ReactElement {
@@ -69,17 +69,19 @@ export default function TasasCambioPage(): ReactElement {
     setModalAbierto(true);
   }, []);
 
-  const eliminar = useCallback(
-    async (tasa: TasaCambio) => {
-      if (
-        !window.confirm(
-          `¿Eliminar la tasa de ${tasa.codigo_moneda || tasa.moneda} del ${new Date(tasa.fecha).toLocaleDateString('es-VE')}?`,
-        )
-      )
-        return;
+  const [tasaAEliminar, setTasaAEliminar] = useState<TasaCambio | null>(null);
+  const [eliminandoTasa, setEliminandoTasa] = useState(false);
+
+  const eliminar = useCallback((tasa: TasaCambio) => setTasaAEliminar(tasa), []);
+
+  const confirmarEliminarTasa = useCallback(
+    async () => {
+      if (!tasaAEliminar) return;
+      setEliminandoTasa(true);
       try {
-        await deleteTasaCambio(tasa.id);
+        await deleteTasaCambio(tasaAEliminar.id);
         toast.success('Tasa de cambio eliminada.');
+        setTasaAEliminar(null);
         loadData();
       } catch (error) {
         const messages = getApiErrorMessages(error);
@@ -88,9 +90,11 @@ export default function TasasCambioPage(): ReactElement {
         } else {
           toast.error('Error al eliminar la tasa de cambio.');
         }
+      } finally {
+        setEliminandoTasa(false);
       }
     },
-    [loadData],
+    [tasaAEliminar, loadData],
   );
 
   const actualizarDesdeBcv = useCallback(async () => {
@@ -296,6 +300,16 @@ export default function TasasCambioPage(): ReactElement {
           }}
         />
       )}
+
+      <ConfirmDialog
+        isOpen={!!tasaAEliminar}
+        title="Eliminar Tasa de Cambio"
+        message={`¿Eliminar la tasa de ${tasaAEliminar?.codigo_moneda || tasaAEliminar?.moneda} del ${tasaAEliminar ? new Date(tasaAEliminar.fecha).toLocaleDateString('es-VE') : ''}? Esta acción no se puede deshacer.`}
+        confirmLabel="Eliminar"
+        loading={eliminandoTasa}
+        onConfirm={confirmarEliminarTasa}
+        onCancel={() => setTasaAEliminar(null)}
+      />
     </div>
   );
 }

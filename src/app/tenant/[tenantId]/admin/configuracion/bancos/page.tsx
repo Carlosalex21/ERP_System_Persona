@@ -7,7 +7,7 @@ import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 
 import BancoModal from './BancoModal';
-import { DataTable, TableSkeleton, PageHeader, Card, EmptyState } from '@/components/ui';
+import { DataTable, TableSkeleton, PageHeader, Card, EmptyState, ConfirmDialog } from '@/components/ui';
 import { getBancos, createBanco, updateBanco, deleteBanco } from '@/services/bancosService';
 import type { Banco, BancoRequest } from '@/types/api';
 
@@ -64,15 +64,22 @@ export default function BancosPage(): ReactElement {
     }
   };
 
-  const eliminar = async (banco: Banco): Promise<void> => {
-    if (!confirm(`¿Eliminar el banco "${banco.nombre}"?`)) return;
+  const [bancoAEliminar, setBancoAEliminar] = useState<Banco | null>(null);
+  const [eliminandoBanco, setEliminandoBanco] = useState(false);
+
+  const confirmarEliminarBanco = async (): Promise<void> => {
+    if (!bancoAEliminar) return;
+    setEliminandoBanco(true);
     try {
-      await deleteBanco(banco.id);
+      await deleteBanco(bancoAEliminar.id);
       toast.success('Banco eliminado.');
+      setBancoAEliminar(null);
       await cargar();
     } catch (error) {
       console.error('Error eliminando banco:', error);
       toast.error('No se pudo eliminar el banco.');
+    } finally {
+      setEliminandoBanco(false);
     }
   };
 
@@ -111,7 +118,7 @@ export default function BancosPage(): ReactElement {
           <button onClick={() => abrirEdicion(row.original)} className="p-2 text-slate-400 hover:text-primary-600 transition-colors" aria-label="Editar banco">
             <Pencil size={16} />
           </button>
-          <button onClick={() => eliminar(row.original)} className="p-2 text-slate-400 hover:text-red-500 transition-colors" aria-label="Eliminar banco">
+          <button onClick={() => setBancoAEliminar(row.original)} className="p-2 text-slate-400 hover:text-red-500 transition-colors" aria-label="Eliminar banco">
             <Trash2 size={16} />
           </button>
         </div>
@@ -162,6 +169,16 @@ export default function BancosPage(): ReactElement {
       {modalAbierto && (
         <BancoModal banco={editando} onClose={() => setModalAbierto(false)} onSave={guardar} cargando={saving} />
       )}
+
+      <ConfirmDialog
+        isOpen={!!bancoAEliminar}
+        title="Eliminar Banco"
+        message={`¿Eliminar el banco "${bancoAEliminar?.nombre}"? Esta acción no se puede deshacer.`}
+        confirmLabel="Eliminar"
+        loading={eliminandoBanco}
+        onConfirm={confirmarEliminarBanco}
+        onCancel={() => setBancoAEliminar(null)}
+      />
     </div>
   );
 }

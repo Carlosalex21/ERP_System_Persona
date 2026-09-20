@@ -27,6 +27,7 @@ import { conRespaldoOffline } from '@/utils/offlineCache';
 function resolveApiBaseUrl(): string {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
   if (typeof window === 'undefined') return `${apiUrl}/api/v1`;
+  if (process.env.NEXT_PUBLIC_API_SAME_ORIGIN === 'true') return '/api/v1';
   const tenant = window.location.hostname.split('.')[0];
   if (tenant && tenant !== 'www' && tenant !== 'localhost') {
     return `http://${tenant}.localhost:8000/api/v1`;

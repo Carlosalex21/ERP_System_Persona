@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo, useEffect, type ReactElement } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef, type ReactElement } from 'react';
 import toast from 'react-hot-toast';
 import { Package } from 'lucide-react';
 
@@ -15,10 +15,12 @@ import {
   type PublicOrderItemRequest,
   type PublicMetodoPago,
   type PublicTasaMoneda,
+  type PublicEmpresaInfo,
 } from '@/services/publicCatalogService';
 
 import StorefrontHero from './storefront/StorefrontHero';
 import ProductGrid from './storefront/ProductGrid';
+import CategoryFilter from './storefront/CategoryFilter';
 import CartDrawer from './storefront/CartDrawer';
 import CheckoutModal from './storefront/CheckoutModal';
 import FloatingCartButton from './storefront/FloatingCartButton';
@@ -49,6 +51,10 @@ export default function StorefrontClient({ subdominio, productosIniciales }: Sto
   const [filtro, setFiltro] = useState('');
   const [checkoutAbierto, setCheckoutAbierto] = useState(false);
   const [enviando, setEnviando] = useState(false);
+  // Guarda síncrono contra doble envío: `enviando` (useState) no se
+  // actualiza a tiempo si un segundo submit dispara antes de que React
+  // re-renderice el botón deshabilitado -- este ref sí bloquea de inmediato.
+  const enviandoRef = useRef(false);
   const [exito, setExito] = useState(false);
   const [nombreCliente, setNombreCliente] = useState('');
   const [telefonoCliente, setTelefonoCliente] = useState('');
@@ -58,11 +64,27 @@ export default function StorefrontClient({ subdominio, productosIniciales }: Sto
   const [referenciaPago, setReferenciaPago] = useState('');
   const [telefonoNegocio, setTelefonoNegocio] = useState<string | null>(null);
   const [nombreComercial, setNombreComercial] = useState<string | null>(null);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [tipoNegocio, setTipoNegocio] = useState<PublicEmpresaInfo['tipo_negocio']>(null);
   const [tasas, setTasas] = useState<Record<string, PublicTasaMoneda>>({});
+  // null = "todas las categorías" (sin filtrar).
+  const [categoriaSeleccionada, setCategoriaSeleccionada] = useState<number | null>(null);
 
   // Nombre real de la tienda para el navbar/hero: mejor primera impresión
   // que el slug crudo del subdominio ("mi-tienda-2" -> "MI TIENDA 2").
   const nombreTienda = nombreComercial || subdominio.replace('-', ' ');
+
+  // Reintento real del catálogo si el precargado en el servidor vino vacío
+  // (`page.tsx` se degrada así ante cualquier fallo de red/DNS al armar la
+  // página) -- antes esto se dejaba en manos de un comentario que decía
+  // "reintenta desde el cliente" pero ningún código lo hacía: un fallo en
+  // el servidor dejaba el catálogo vacío para siempre hasta recargar.
+  useEffect(() => {
+    if (productosIniciales.length === 0) {
+      cargarCatalogo();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Métodos de pago manuales (Pago Móvil/Zelle) y teléfono de contacto real
   // del negocio: se cargan una vez, no dependen del carrito. Si el tenant no
@@ -76,10 +98,14 @@ export default function StorefrontClient({ subdominio, productosIniciales }: Sto
       .then((info) => {
         setTelefonoNegocio(info.telefono);
         setNombreComercial(info.nombre_comercial || null);
+        setLogoUrl(info.logo_url || null);
+        setTipoNegocio(info.tipo_negocio || null);
       })
       .catch(() => {
         setTelefonoNegocio(null);
         setNombreComercial(null);
+        setLogoUrl(null);
+        setTipoNegocio(null);
       });
     getTasasPublico(subdominio)
       .then(setTasas)
@@ -115,6 +141,16 @@ export default function StorefrontClient({ subdominio, productosIniciales }: Sto
   const simboloProducto = useCallback(
     (producto: PublicProducto): string => producto.moneda_simbolo || monedaBaseSimbolo,
     [monedaBaseSimbolo],
+  );
+
+  // Precio de un producto ya convertido a la moneda base -- para poder
+  // ordenar el catálogo por precio de forma coherente aunque cada producto
+  // esté cargado en una moneda distinta (comparar los números crudos de
+  // `precio_venta` sin convertir mezclaría, por ejemplo, Bs. 20 con $ 30).
+  const precioProductoEnBase = useCallback(
+    (producto: PublicProducto): number =>
+      aMonedaBase(parseFloat(producto.precio_venta), producto.moneda_codigo),
+    [aMonedaBase],
   );
 
   // "La otra moneda" a mostrar como equivalente: la primera que no sea la
@@ -191,6 +227,37 @@ export default function StorefrontClient({ subdominio, productosIniciales }: Sto
     setCarrito(prev => prev.filter(item => item.producto.id !== id));
   }, []);
 
+  // Cuántas unidades de cada producto hay ya en el carrito -- alimenta el
+  // stepper (- cantidad +) que `ProductCard` muestra en vez del botón
+  // "Agregar" una vez el producto ya está en el carrito.
+  const cantidadPorProducto = useMemo(
+    () => new Map(carrito.map(item => [item.producto.id, item.cantidad])),
+    [carrito],
+  );
+
+  // Variantes de `agregarAlCarrito`/`eliminarItem` para el stepper de la
+  // tarjeta de producto: a diferencia de `agregarAlCarrito`, no abren el
+  // drawer del carrito -- el cliente ya está viendo el catálogo y sumar/restar
+  // ahí mismo no debería sacarlo de esa vista.
+  const incrementarDesdeCard = useCallback((id: number): void => {
+    setCarrito(prev =>
+      prev.map(item =>
+        item.producto.id === id
+          ? { ...item, cantidad: Math.min(item.cantidad + 1, item.producto.stock_disponible) }
+          : item,
+      ),
+    );
+  }, []);
+
+  const decrementarDesdeCard = useCallback((id: number): void => {
+    setCarrito(prev => {
+      const item = prev.find(i => i.producto.id === id);
+      if (!item) return prev;
+      if (item.cantidad <= 1) return prev.filter(i => i.producto.id !== id);
+      return prev.map(i => (i.producto.id === id ? { ...i, cantidad: i.cantidad - 1 } : i));
+    });
+  }, []);
+
   // Totales -- consolidados en la moneda BASE del tenant, convirtiendo cada
   // línea desde la moneda propia de su producto: antes se sumaba el precio
   // crudo de cada producto sin importar en qué moneda estaba cargado, así
@@ -217,15 +284,37 @@ export default function StorefrontClient({ subdominio, productosIniciales }: Sto
   );
   const baseImponibleCarrito = totalCarrito - ivaTotalCarrito;
 
-  // Filtrado
+  // Categorías con al menos un producto visible, derivadas del catálogo ya
+  // cargado (mismo patrón que el buscador de texto: todo client-side, sin
+  // pedirle una lista aparte al backend) -- ordenadas por cuántos productos
+  // tienen, así las más relevantes para ESTE catálogo aparecen primero.
+  const categoriasDisponibles = useMemo(() => {
+    const conteo = new Map<number, { nombre: string; cantidad: number }>();
+    for (const p of productos) {
+      if (p.categoria_id == null) continue;
+      const actual = conteo.get(p.categoria_id);
+      if (actual) actual.cantidad += 1;
+      else conteo.set(p.categoria_id, { nombre: p.categoria_nombre || 'Sin nombre', cantidad: 1 });
+    }
+    return Array.from(conteo.entries())
+      .map(([id, { nombre, cantidad }]) => ({ id, nombre, cantidad }))
+      .sort((a, b) => b.cantidad - a.cantidad);
+  }, [productos]);
+
+  // Filtrado (texto + categoría, ambos client-side sobre el catálogo ya cargado)
   const productosFiltrados = useMemo(
-    () => productos.filter(p => p.nombre.toLowerCase().includes(filtro.toLowerCase())),
-    [productos, filtro],
+    () =>
+      productos
+        .filter(p => p.nombre.toLowerCase().includes(filtro.toLowerCase()))
+        .filter(p => categoriaSeleccionada === null || p.categoria_id === categoriaSeleccionada),
+    [productos, filtro, categoriaSeleccionada],
   );
 
   // Enviar pedido a la API pública
   const enviarPedido = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
+    if (enviandoRef.current) return;
+    enviandoRef.current = true;
     setEnviando(true);
     try {
       const items: PublicOrderItemRequest[] = carrito.map(item => ({
@@ -248,7 +337,11 @@ export default function StorefrontClient({ subdominio, productosIniciales }: Sto
       // pago en el backend -- esta pestaña no necesita hacer nada más.
       if (metodoElegido?.es_stripe && resultado.factura_id) {
         try {
-          const { checkout_url } = await crearSesionStripe(subdominio, resultado.factura_id as number);
+          const { checkout_url } = await crearSesionStripe(
+            subdominio,
+            resultado.factura_id as number,
+            resultado.access_token as string,
+          );
           window.location.href = checkout_url;
           return;
         } catch (stripeErr) {
@@ -265,10 +358,21 @@ export default function StorefrontClient({ subdominio, productosIniciales }: Sto
         }
       }
 
+      // OJO: NO se cierra `checkoutAbierto` aquí. El modal de checkout
+      // renderiza la vista de éxito solo mientras sigue `abierto` (ver
+      // `CheckoutModal`, gateado por `{abierto && (...)}`) -- si aquí mismo
+      // lo hubiéramos cerrado, la vista de "¡Pedido enviado!" nunca llegaba
+      // a mostrarse (el modal entero desaparecía) y `exito` quedaba en
+      // `true` colgado hasta el PRÓXIMO pedido: ese siguiente pedido abría
+      // el modal y, en vez de mostrar el formulario, mostraba de entrada el
+      // mensaje de éxito del pedido ANTERIOR -- exactamente el bug
+      // reportado ("me sale un modal de pedido enviado pero es de otro
+      // pedido, y el que acabo de mandar no se envía"). El modal se cierra
+      // recién cuando el cliente hace clic en "Seguir comprando"
+      // (`onSeguirComprando`, más abajo).
       setExito(true);
       setCarrito([]);
       setCarritoAbierto(false);
-      setCheckoutAbierto(false);
       setMetodoPagoId(null);
       setReferenciaPago('');
       // El pedido ya descontó stock en el backend: refresca en segundo plano
@@ -278,6 +382,7 @@ export default function StorefrontClient({ subdominio, productosIniciales }: Sto
       console.error('Error enviando pedido:', err);
       toast.error('No se pudo registrar el pedido. Revisa que el comercio esté activo.');
     } finally {
+      enviandoRef.current = false;
       setEnviando(false);
     }
   };
@@ -328,24 +433,51 @@ export default function StorefrontClient({ subdominio, productosIniciales }: Sto
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 overflow-x-hidden relative">
       <StorefrontHero
         nombreTienda={nombreTienda}
+        logoUrl={logoUrl}
         totalItems={totalItems}
         onCartClick={() => setCarritoAbierto(true)}
         filtro={filtro}
         onFiltroChange={setFiltro}
       />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="flex items-center justify-between mb-8">
-          <h3 className="text-xl font-bold text-slate-800">Todos los productos</h3>
-          <span className="text-sm font-medium text-slate-500">{productosFiltrados.length} resultados</span>
+      {/* Fondo decorativo sutil detrás de la grilla -- para que el catálogo no
+          se sienta plano justo después del hero animado de arriba. */}
+      <main className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 overflow-hidden">
+        <div
+          aria-hidden
+          className="absolute -top-10 right-0 w-72 h-72 bg-primary-100/60 rounded-full blur-3xl -z-10"
+        />
+        <div
+          aria-hidden
+          className="absolute top-1/3 -left-16 w-64 h-64 bg-accent-100/50 rounded-full blur-3xl -z-10"
+        />
+
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h3 className="text-xl font-bold text-slate-800">
+              {tipoNegocio === 'restaurante' ? 'Nuestro Menú' : 'Todos los productos'}
+            </h3>
+            <p className="text-sm text-slate-400">{productosFiltrados.length} resultados</p>
+          </div>
         </div>
+
+        <CategoryFilter
+          categorias={categoriasDisponibles}
+          seleccionada={categoriaSeleccionada}
+          onSeleccionar={setCategoriaSeleccionada}
+          totalProductos={productos.length}
+        />
 
         <ProductGrid
           productos={productosFiltrados}
           cargando={cargando}
           simbolo={simboloProducto}
           equivalente={formatearEquivalenteProducto}
+          precioEnBase={precioProductoEnBase}
+          cantidadPorProducto={cantidadPorProducto}
           onAdd={agregarAlCarrito}
+          onIncrement={incrementarDesdeCard}
+          onDecrement={decrementarDesdeCard}
         />
       </main>
 
@@ -368,7 +500,7 @@ export default function StorefrontClient({ subdominio, productosIniciales }: Sto
 
       <CheckoutModal
         abierto={checkoutAbierto}
-        onClose={() => setCheckoutAbierto(false)}
+        onClose={() => { setCheckoutAbierto(false); setExito(false); }}
         exito={exito}
         onSeguirComprando={() => { setExito(false); setCheckoutAbierto(false); }}
         onSubmit={enviarPedido}

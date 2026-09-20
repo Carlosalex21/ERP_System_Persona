@@ -25,6 +25,9 @@ import {
   AlertTriangle,
   RefreshCw,
   Crown,
+  Building2,
+  BookOpen,
+  Lock,
 } from 'lucide-react';
 
 import { getDashboardReportes, type DashboardReporte } from '@/services/reportesService';
@@ -34,12 +37,14 @@ import { roundMoney } from '@/utils/taxCalculator';
 import { StatCard, AnimatedNumber, Stagger, StaggerItem } from '@/components/ui';
 import { useTenant } from '@/hooks/useTenant';
 import { getPaisInfo } from '@/utils/paises';
+import { TIPOS_CON_INVENTARIO } from '@/utils/modulosPanel';
 
 import SalesChart from './SalesChart';
 import TopProductsPanel from './TopProductsPanel';
 import LowStockPanel from './LowStockPanel';
+import StockoutPredictionPanel from './StockoutPredictionPanel';
 import DashboardSkeleton from './DashboardSkeleton';
-import type { VentasChartPoint, ProductoVendido, ProductoBajoStock } from './types';
+import type { VentasChartPoint, ProductoVendido, ProductoBajoStock, PrediccionQuiebreStock } from './types';
 
 interface DashboardViewProps {
   tenantId: string;
@@ -74,7 +79,17 @@ export default function DashboardView({ tenantId }: DashboardViewProps): ReactEl
   const [chartData, setChartData] = useState<VentasChartPoint[]>([]);
   const [topProductos, setTopProductos] = useState<ProductoVendido[]>([]);
   const [lowStockList, setLowStockList] = useState<ProductoBajoStock[]>([]);
+  const [prediccionQuiebre, setPrediccionQuiebre] = useState<PrediccionQuiebreStock[]>([]);
   const [ultimaActualizacion, setUltimaActualizacion] = useState<Date | null>(null);
+  const [metricasContabilidad, setMetricasContabilidad] = useState<DashboardReporte['contabilidad'] | null>(null);
+
+  // Las tarjetas de inventario/stock (Productos, Valor de Inventario, Bajo
+  // Stock) y los paneles de Top Productos/Predicción de Quiebre no le dicen
+  // nada a un vertical que no vende bienes físicos (ej. contador) -- se
+  // reemplazan por las métricas de `metricasContabilidad` en su lugar.
+  const tieneInventario = tenant?.tipo_negocio
+    ? (TIPOS_CON_INVENTARIO as string[]).includes(tenant.tipo_negocio)
+    : true;
 
   const cargarMetricas = useCallback(async (esRefresco = false): Promise<void> => {
     if (esRefresco) setRefreshing(true);
@@ -109,6 +124,17 @@ export default function DashboardView({ tenantId }: DashboardViewProps): ReactEl
       setLowStockList(listaBajoStock.slice(0, 5));
       setTotalClientes(infoGeneral?.clientes ?? 0);
 
+      const prediccionRaw = Array.isArray(reporte?.prediccionQuiebreStock) ? reporte.prediccionQuiebreStock : [];
+      setPrediccionQuiebre(
+        prediccionRaw.map((p) => ({
+          nombre: String(p.nombre ?? 'Producto'),
+          sku: p.sku ?? null,
+          cantidad: Number(p.cantidad ?? 0),
+          venta_diaria_promedio: Number(p.venta_diaria_promedio ?? 0),
+          dias_restantes: Number(p.dias_restantes ?? 0),
+        })),
+      );
+
       // 3) Ventas / facturas / chart / top productos desde el reporte (si existe)
       if (reporte?.resumen) {
         setVentasMes(Number(reporte.resumen.total_vendido ?? 0));
@@ -141,6 +167,7 @@ export default function DashboardView({ tenantId }: DashboardViewProps): ReactEl
         setTopProductos([]);
       }
 
+      setMetricasContabilidad(reporte?.contabilidad ?? null);
       setUltimaActualizacion(new Date());
     } catch (error) {
       console.error('Error cargando dashboard:', error);
@@ -203,32 +230,63 @@ export default function DashboardView({ tenantId }: DashboardViewProps): ReactEl
         note: 'Base de clientes activa en tu tienda.',
         color: 'bg-indigo-600',
       },
-      {
-        id: 'productos',
-        icon: <Package size={22} />,
-        label: 'Productos en Catálogo',
-        value: <AnimatedNumber value={catalogoProductos} />,
-        note: 'SKUs únicos disponibles para la venta.',
-        color: 'bg-sky-500',
-      },
-      {
-        id: 'inventario',
-        icon: <TrendingUp size={22} />,
-        label: 'Valor del Inventario',
-        value: <AnimatedNumber value={valorInventario} prefix="$" decimals={2} />,
-        note: 'Costo total de tu stock actual.',
-        color: 'bg-green-600',
-      },
-      {
-        id: 'bajostock',
-        icon: <AlertTriangle size={22} />,
-        label: 'Bajo Stock',
-        value: <AnimatedNumber value={bajoStock} />,
-        note: 'Productos con 5 unidades o menos.',
-        color: 'bg-orange-500',
-      },
+      ...(tieneInventario
+        ? [
+            {
+              id: 'productos',
+              icon: <Package size={22} />,
+              label: 'Productos en Catálogo',
+              value: <AnimatedNumber value={catalogoProductos} />,
+              note: 'SKUs únicos disponibles para la venta.',
+              color: 'bg-sky-500',
+            },
+            {
+              id: 'inventario',
+              icon: <TrendingUp size={22} />,
+              label: 'Valor del Inventario',
+              value: <AnimatedNumber value={valorInventario} prefix="$" decimals={2} />,
+              note: 'Costo total de tu stock actual.',
+              color: 'bg-green-600',
+            },
+            {
+              id: 'bajostock',
+              icon: <AlertTriangle size={22} />,
+              label: 'Bajo Stock',
+              value: <AnimatedNumber value={bajoStock} />,
+              note: 'Productos con 5 unidades o menos.',
+              color: 'bg-orange-500',
+            },
+          ]
+        : metricasContabilidad
+        ? [
+            {
+              id: 'empresas_activas',
+              icon: <Building2 size={22} />,
+              label: 'Empresas Activas',
+              value: <AnimatedNumber value={metricasContabilidad.empresas_activas} />,
+              note: 'Clientes contables que llevas actualmente.',
+              color: 'bg-sky-500',
+            },
+            {
+              id: 'asientos_mes',
+              icon: <BookOpen size={22} />,
+              label: 'Asientos del Mes',
+              value: <AnimatedNumber value={metricasContabilidad.asientos_contabilizados_mes} />,
+              note: 'Asientos contabilizados en el período actual.',
+              color: 'bg-green-600',
+            },
+            {
+              id: 'cierres',
+              icon: <Lock size={22} />,
+              label: 'Cierres Realizados',
+              value: <AnimatedNumber value={metricasContabilidad.cierres_realizados} />,
+              note: 'Ejercicios cerrados hasta la fecha.',
+              color: 'bg-orange-500',
+            },
+          ]
+        : []),
     ],
-    [ventasMes, facturasMes, totalClientes, catalogoProductos, valorInventario, bajoStock, variacionVentasPct],
+    [ventasMes, facturasMes, totalClientes, catalogoProductos, valorInventario, bajoStock, variacionVentasPct, tieneInventario, metricasContabilidad],
   );
 
   return (
@@ -276,13 +334,23 @@ export default function DashboardView({ tenantId }: DashboardViewProps): ReactEl
             ))}
           </Stagger>
 
-          {/* Gráfico + Listas */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <SalesChart data={chartData} />
-            <TopProductsPanel productos={topProductos} />
-          </div>
+          {/* Gráfico + Listas -- Top Productos/Bajo Stock/Predicción de Quiebre
+              solo aplican a verticales que venden bienes físicos. */}
+          {tieneInventario ? (
+            <>
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <SalesChart data={chartData} />
+                <TopProductsPanel productos={topProductos} />
+              </div>
 
-          <LowStockPanel productos={lowStockList} total={bajoStock} />
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <LowStockPanel productos={lowStockList} total={bajoStock} />
+                <StockoutPredictionPanel productos={prediccionQuiebre} />
+              </div>
+            </>
+          ) : (
+            <SalesChart data={chartData} />
+          )}
         </>
       )}
     </div>

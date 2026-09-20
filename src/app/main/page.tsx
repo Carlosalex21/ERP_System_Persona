@@ -7,9 +7,9 @@ import ProductDemo from '@/components/marketing/ProductDemo';
 import CursorGlow from '@/components/marketing/CursorGlow';
 import MagneticButton from '@/components/marketing/MagneticButton';
 import StatsStrip from '@/components/marketing/StatsStrip';
-import DemoWindow from '@/components/marketing/DemoWindow';
-import { ADMIN_SCENES } from '@/components/marketing/adminScenes';
-import { CATALOGO_SCENES } from '@/components/marketing/catalogoScenes';
+import LiveDemoButton from '@/components/marketing/LiveDemoButton';
+import LiveCatalogWindow from '@/components/marketing/LiveCatalogWindow';
+import RealDemoMedia from '@/components/marketing/RealDemoMedia';
 
 const GRID_BG =
   'bg-[linear-gradient(to_right,rgba(255,255,255,0.06)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.06)_1px,transparent_1px)] bg-[size:44px_44px]';
@@ -76,6 +76,14 @@ export default function LandingPage() {
         <Reveal delay={0.3} from="scale">
           <div id="demo" className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 mt-16 scroll-mt-24">
             <ProductDemo />
+            <div className="mt-8 flex flex-col items-center gap-2">
+              <MagneticButton>
+                <LiveDemoButton className="group bg-white text-ink-950 px-8 py-4 rounded-full font-bold text-base shadow-lg hover:bg-slate-100 transition-colors flex items-center justify-center gap-2">
+                  Probar demo en vivo <ArrowRight size={18} className="transition-transform group-hover:translate-x-1" />
+                </LiveDemoButton>
+              </MagneticButton>
+              <p className="text-xs text-slate-500">El panel real, con datos de ejemplo -- sin registrarte.</p>
+            </div>
           </div>
         </Reveal>
       </CursorGlow>
@@ -219,13 +227,13 @@ export default function LandingPage() {
         </div>
       </ModuleSection>
 
-      {/* 7.5 MÍRALO EN ACCIÓN -- dos demos grandes y controlables: el panel
-          administrativo y el catálogo público que ve tu cliente final. Cada
-          una se reproduce sola, pero se puede pausar, adelantar o retroceder
-          a mano (pestañas + flechas + botón de pausa en DemoWindow). */}
+      {/* 7.5 MÍRALO EN ACCIÓN -- una grabación real del panel administrativo
+          (no un mockup dibujado, ver `RealDemoMedia`) y el catálogo público
+          incrustado en vivo (`LiveCatalogWindow`, mismo tenant demo que usa
+          el botón "Probar demo en vivo" del hero). */}
       <section className={`relative bg-ink-950 py-24 overflow-hidden ${GRID_BG}`}>
         <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[40rem] h-[40rem] bg-primary-700 rounded-full blur-[150px] opacity-20 pointer-events-none" />
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <Reveal>
             <div className="text-center mb-14">
               <span className="inline-block bg-white/5 border border-white/10 text-slate-300 text-[11px] font-bold uppercase tracking-widest px-4 py-1.5 rounded-full mb-4">
@@ -240,7 +248,13 @@ export default function LandingPage() {
             </div>
           </Reveal>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+          {/* Apiladas a ancho completo (no lado a lado): la grabación real
+              tiene una relación de aspecto bien ancha (todo el escritorio,
+              sidebar + contenido + carrito en una sola toma) -- forzarla a
+              un recuadro más cuadrado como el del catálogo la recortaba y
+              se perdían justo el sidebar y el carrito. A ancho completo
+              cabe sin recortar (ver `aspect-[1536/639]` en `RealDemoMedia`). */}
+          <div className="space-y-14">
             <Reveal from="left">
               <div>
                 <div className="flex items-center gap-2 mb-4">
@@ -252,7 +266,7 @@ export default function LandingPage() {
                     <p className="text-xs text-slate-400">Dashboard, POS, inventario y pedidos</p>
                   </div>
                 </div>
-                <DemoWindow urlLabel="tutienda.erpsystem.com/admin" scenes={ADMIN_SCENES} contentHeight="h-[320px] sm:h-[360px]" />
+                <RealDemoMedia />
               </div>
             </Reveal>
 
@@ -267,7 +281,7 @@ export default function LandingPage() {
                     <p className="text-xs text-slate-400">Lo que ve y compra tu cliente final</p>
                   </div>
                 </div>
-                <DemoWindow urlLabel="tunegocio.erpsystem.com" scenes={CATALOGO_SCENES} contentHeight="h-[320px] sm:h-[360px]" />
+                <LiveCatalogWindow />
               </div>
             </Reveal>
           </div>

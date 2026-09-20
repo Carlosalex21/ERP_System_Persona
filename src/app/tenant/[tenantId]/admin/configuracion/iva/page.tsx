@@ -8,7 +8,7 @@ import { Plus, ReceiptText, Trash2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import IvaModal from './IvaModal';
-import { PageHeader, Card, EmptyState, CardGridSkeleton, Stagger, StaggerItem } from '@/components/ui';
+import { PageHeader, Card, EmptyState, CardGridSkeleton, Stagger, StaggerItem, ConfirmDialog } from '@/components/ui';
 
 /**
  * Página para gestionar las configuraciones de IVA.
@@ -35,11 +35,16 @@ export default function IvaPage(): ReactElement {
     fetchData();
   }, [fetchData]);
 
-  const eliminar = async (iva: Iva): Promise<void> => {
-    if (!confirm(`¿Eliminar el tipo de IVA "${iva.nombre}"?`)) return;
+  const [ivaAEliminar, setIvaAEliminar] = useState<Iva | null>(null);
+  const [eliminandoIva, setEliminandoIva] = useState(false);
+
+  const confirmarEliminarIva = async (): Promise<void> => {
+    if (!ivaAEliminar) return;
+    setEliminandoIva(true);
     try {
-      await deleteIvaConfig(iva.id);
+      await deleteIvaConfig(ivaAEliminar.id);
       toast.success('Tipo de IVA eliminado.');
+      setIvaAEliminar(null);
       await fetchData();
     } catch (error) {
       const messages = getApiErrorMessages(error);
@@ -48,6 +53,8 @@ export default function IvaPage(): ReactElement {
       } else {
         toast.error('No se pudo eliminar. Puede que tenga productos asociados.');
       }
+    } finally {
+      setEliminandoIva(false);
     }
   };
 
@@ -109,7 +116,7 @@ export default function IvaPage(): ReactElement {
                   </div>
                 </div>
                 <button
-                  onClick={() => eliminar(iva)}
+                  onClick={() => setIvaAEliminar(iva)}
                   className="p-1.5 text-slate-400 hover:text-red-500 transition-colors"
                   aria-label={`Eliminar ${iva.nombre}`}
                 >
@@ -132,6 +139,16 @@ export default function IvaPage(): ReactElement {
           }}
         />
       )}
+
+      <ConfirmDialog
+        isOpen={!!ivaAEliminar}
+        title="Eliminar Tipo de IVA"
+        message={`¿Eliminar el tipo de IVA "${ivaAEliminar?.nombre}"? Esta acción no se puede deshacer.`}
+        confirmLabel="Eliminar"
+        loading={eliminandoIva}
+        onConfirm={confirmarEliminarIva}
+        onCancel={() => setIvaAEliminar(null)}
+      />
     </div>
   );
 }

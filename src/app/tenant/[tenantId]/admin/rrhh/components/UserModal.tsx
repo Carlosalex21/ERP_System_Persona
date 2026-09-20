@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, type ReactElement } from 'react';
-import { X, Loader2 } from 'lucide-react';
+import { UserPlus } from 'lucide-react';
 import { Rol, Sucursal, UserManaged, UserManagedRequest } from '@/types/api';
 import { createManagedUser, updateManagedUser } from '@/services/rrhhService';
+import { AppModal, ActionButton } from '@/components/ui';
 
 interface UserModalProps {
   isOpen: boolean;
@@ -15,7 +16,7 @@ interface UserModalProps {
   usuario?: UserManaged | null;
 }
 
-export default function UserModal({ isOpen, onClose, onSave, roles, sucursales, usuario = null }: UserModalProps): ReactElement | null {
+export default function UserModal({ isOpen, onClose, onSave, roles, sucursales, usuario = null }: UserModalProps): ReactElement {
   const editando = usuario !== null;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -47,8 +48,12 @@ export default function UserModal({ isOpen, onClose, onSave, roles, sucursales, 
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // Acepta tanto el submit nativo del <form> (Enter en un input) como el
+  // click del botón "Invitar Empleado" del footer -- ese botón vive FUERA
+  // del <form> (AppModal renderiza el footer aparte, ver `AppModal.tsx`),
+  // así que un simple `type="submit"` no lo dispararía solo.
+  const handleSubmit = async (e?: { preventDefault: () => void }) => {
+    e?.preventDefault();
     setLoading(true);
     setError(null);
 
@@ -110,16 +115,23 @@ export default function UserModal({ isOpen, onClose, onSave, roles, sucursales, 
     }
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-      <div className="bg-white w-full max-w-lg rounded-2xl shadow-xl overflow-hidden animate-scale-in">
-        <div className="bg-primary-900 p-4 text-white flex justify-between items-center">
-          <h3 className="font-bold">{editando ? 'Editar Empleado' : 'Invitar Nuevo Empleado'}</h3>
-          <button onClick={onClose} className="hover:text-primary-200"><X size={20}/></button>
-        </div>
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+    <AppModal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={editando ? 'Editar Empleado' : 'Invitar Nuevo Empleado'}
+      icon={<UserPlus size={20} />}
+      size="md"
+      footer={
+        <>
+          <ActionButton variant="secondary" onClick={onClose}>Cancelar</ActionButton>
+          <ActionButton type="submit" loading={loading} onClick={handleSubmit}>
+            {editando ? 'Guardar Cambios' : 'Invitar Empleado'}
+          </ActionButton>
+        </>
+      }
+    >
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Nombre</label>
@@ -170,16 +182,7 @@ export default function UserModal({ isOpen, onClose, onSave, roles, sucursales, 
           </div>
 
           {error && <p className="text-xs text-red-600 bg-red-50 p-2 rounded-md">{error}</p>}
-
-          <div className="mt-6 pt-4 border-t flex justify-end gap-3">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-bold text-slate-500 bg-slate-100 rounded-lg">Cancelar</button>
-            <button type="submit" disabled={loading} className="px-4 py-2 text-sm font-bold text-white bg-primary-600 rounded-lg flex items-center gap-2">
-              {loading && <Loader2 size={16} className="animate-spin" />}
-              {loading ? 'Guardando...' : editando ? 'Guardar Cambios' : 'Invitar Empleado'}
-            </button>
-          </div>
         </form>
-      </div>
-    </div>
+    </AppModal>
   );
 }

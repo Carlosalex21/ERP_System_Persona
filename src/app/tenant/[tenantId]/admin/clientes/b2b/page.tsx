@@ -9,7 +9,7 @@ import {
   getB2BClientes, updateClienteB2B, getNivelesPrecio, createNivelPrecio, updateNivelPrecio, deleteNivelPrecio,
 } from '@/services/clientesService';
 import { ClienteB2B, ClienteB2BRequest, NivelPrecio, NivelPrecioRequest } from '@/types/api';
-import { PageHeader, Card, EmptyState, TableSkeleton } from '@/components/ui';
+import { PageHeader, Card, EmptyState, TableSkeleton, ConfirmDialog } from '@/components/ui';
 
 const ESTADO_ESTILOS: Record<string, string> = {
   activo: 'bg-green-100 text-green-700',
@@ -150,13 +150,20 @@ function NivelesPrecioModal({ onClose }: { onClose: () => void }): ReactElement 
     }
   };
 
-  const eliminar = async (id: number): Promise<void> => {
-    if (!confirm('¿Eliminar este nivel de precio?')) return;
+  const [nivelAEliminar, setNivelAEliminar] = useState<number | null>(null);
+  const [eliminandoNivel, setEliminandoNivel] = useState(false);
+
+  const confirmarEliminarNivel = async (): Promise<void> => {
+    if (nivelAEliminar == null) return;
+    setEliminandoNivel(true);
     try {
-      await deleteNivelPrecio(id);
-      setNiveles(prev => prev.filter(n => n.id !== id));
+      await deleteNivelPrecio(nivelAEliminar);
+      setNiveles(prev => prev.filter(n => n.id !== nivelAEliminar));
+      setNivelAEliminar(null);
     } catch {
       toast.error('No se pudo eliminar (puede que esté en uso por algún cliente).');
+    } finally {
+      setEliminandoNivel(false);
     }
   };
 
@@ -203,7 +210,7 @@ function NivelesPrecioModal({ onClose }: { onClose: () => void }): ReactElement 
                         />
                       </td>
                       <td className="p-3 text-right">
-                        <button onClick={() => eliminar(nivel.id)} className="text-slate-300 hover:text-red-500"><Trash2 size={14} /></button>
+                        <button onClick={() => setNivelAEliminar(nivel.id)} className="text-slate-300 hover:text-red-500"><Trash2 size={14} /></button>
                       </td>
                     </tr>
                   ))}
@@ -242,6 +249,16 @@ function NivelesPrecioModal({ onClose }: { onClose: () => void }): ReactElement 
           </form>
         </div>
       </div>
+
+      <ConfirmDialog
+        isOpen={nivelAEliminar != null}
+        title="Eliminar Nivel de Precio"
+        message="¿Eliminar este nivel de precio? Esta acción no se puede deshacer."
+        confirmLabel="Eliminar"
+        loading={eliminandoNivel}
+        onConfirm={confirmarEliminarNivel}
+        onCancel={() => setNivelAEliminar(null)}
+      />
     </div>
   );
 }

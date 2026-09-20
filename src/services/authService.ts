@@ -2,11 +2,31 @@
  * @file Servicio para acciones de autenticación públicas y específicas del tenant.
  */
 import axios from 'axios';
-import { apiPublica } from './api';
+import { apiPublica, apiPrivada } from './api';
 
 interface ActivationResponse {
   message: string;
 }
+
+/** Perfil del empleado/usuario del tenant actualmente autenticado (`/auth/me/`). */
+export interface UsuarioActual {
+  id: number;
+  email: string;
+  first_name: string;
+  last_name: string;
+  rol: string | null;
+  /** Código estable del rol (ver `apps.core.permissions.codigo_rol`), no el nombre editable. */
+  rol_codigo: string | null;
+  sucursal: string | null;
+  /** Códigos de módulo del panel que el rol de este usuario NO debe ver (ver `utils/modulosPanel.ts`). */
+  modulos_ocultos: string[];
+}
+
+/** Perfil del usuario autenticado -- usado para armar el menú según su rol (ver `SessionContext`). */
+export const getUsuarioActual = async (): Promise<UsuarioActual> => {
+  const response = await apiPrivada.get<UsuarioActual>('/auth/me/');
+  return response.data;
+};
 
 /**
  * Activa la cuenta de un cliente B2B estableciendo su contraseña.
@@ -18,6 +38,16 @@ interface ActivationResponse {
  * @returns {Promise<ActivationResponse>}
  */
 export const activateB2bAccount = async (tenantId: string, token: string, password: string, password_confirm: string): Promise<ActivationResponse> => {
+  // Producción: mismo origen (esta página ya vive bajo el subdominio del
+  // tenant -- ver `NEXT_PUBLIC_API_SAME_ORIGIN` en `services/api.ts`).
+  if (process.env.NEXT_PUBLIC_API_SAME_ORIGIN === 'true') {
+    const response = await axios.post<ActivationResponse>(
+      '/api/v1/clientes/b2b/activate-account/',
+      { token, password, password_confirm },
+    );
+    return response.data;
+  }
+
   // La URL base del backend, ajústala según tu entorno (producción/desarrollo)
   const baseURL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
   const tenantApiUrl = `${baseURL.replace('://', `://${tenantId}.`)}`;

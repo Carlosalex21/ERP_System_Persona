@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "frontend",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "backend",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["C:\\Proyectos\\SistemaAdministrativo\\ERP_Tienda_Power\\backend\\manage.py", "runserver", "8000"],
+      "port": 8000
+    }
+  ]
+}

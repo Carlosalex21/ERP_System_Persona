@@ -8,7 +8,7 @@ import toast from 'react-hot-toast';
 import { getProveedores, deleteProveedor } from '@/services/proveedoresService';
 import { getApiErrorMessages } from '@/utils/helpers';
 import { Proveedor } from '@/types/api';
-import { DataTable, PageHeader, Card, EmptyState, TableSkeleton } from '@/components/ui';
+import { DataTable, PageHeader, Card, EmptyState, TableSkeleton, ConfirmDialog } from '@/components/ui';
 import ProveedorModal from './ProveedorModal';
 
 export default function ProveedoresPage(): ReactElement {
@@ -44,11 +44,16 @@ export default function ProveedoresPage(): ReactElement {
     setModalAbierto(true);
   };
 
-  const eliminar = async (proveedor: Proveedor): Promise<void> => {
-    if (!confirm(`¿Eliminar el proveedor "${proveedor.nombre}"?`)) return;
+  const [proveedorAEliminar, setProveedorAEliminar] = useState<Proveedor | null>(null);
+  const [eliminandoProveedor, setEliminandoProveedor] = useState(false);
+
+  const confirmarEliminarProveedor = async (): Promise<void> => {
+    if (!proveedorAEliminar) return;
+    setEliminandoProveedor(true);
     try {
-      await deleteProveedor(proveedor.id);
+      await deleteProveedor(proveedorAEliminar.id);
       toast.success('Proveedor eliminado.');
+      setProveedorAEliminar(null);
       await cargar();
     } catch (error) {
       const messages = getApiErrorMessages(error);
@@ -57,6 +62,8 @@ export default function ProveedoresPage(): ReactElement {
       } else {
         toast.error('No se pudo eliminar el proveedor.');
       }
+    } finally {
+      setEliminandoProveedor(false);
     }
   };
 
@@ -134,7 +141,7 @@ export default function ProveedoresPage(): ReactElement {
             <Pencil size={16} />
           </button>
           <button
-            onClick={() => eliminar(row.original)}
+            onClick={() => setProveedorAEliminar(row.original)}
             className="p-2 text-slate-400 hover:text-red-500 transition-colors"
             aria-label="Eliminar proveedor"
           >
@@ -195,6 +202,16 @@ export default function ProveedoresPage(): ReactElement {
           }}
         />
       )}
+
+      <ConfirmDialog
+        isOpen={!!proveedorAEliminar}
+        title="Eliminar Proveedor"
+        message={`¿Eliminar el proveedor "${proveedorAEliminar?.nombre}"? Esta acción no se puede deshacer.`}
+        confirmLabel="Eliminar"
+        loading={eliminandoProveedor}
+        onConfirm={confirmarEliminarProveedor}
+        onCancel={() => setProveedorAEliminar(null)}
+      />
     </div>
   );
 }

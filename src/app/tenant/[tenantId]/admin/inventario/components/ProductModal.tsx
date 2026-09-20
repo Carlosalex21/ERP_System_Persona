@@ -32,7 +32,8 @@ interface ProductForm {
   sku: string;
   codigo_barras: string;
   disponible_online: boolean;
-  tipo: 'simple' | 'variable';
+  es_insumo: boolean;
+  tipo: 'simple' | 'variable' | 'servicio';
   almacen: string;
   configuracion_iva: string;
   categoria: string;
@@ -83,6 +84,8 @@ interface ProductModalProps {
   setFormProducto: React.Dispatch<React.SetStateAction<ProductForm>>;
   esProductoConVariantes: boolean;
   setEsProductoConVariantes: React.Dispatch<React.SetStateAction<boolean>>;
+  esServicio: boolean;
+  setEsServicio: React.Dispatch<React.SetStateAction<boolean>>;
   variantes: Variant[];
   setVariantes: React.Dispatch<React.SetStateAction<Variant[]>>;
   handleAñadirVariante: () => void;
@@ -117,6 +120,7 @@ interface ProductModalProps {
 export default function ProductModal({
   formProducto, setFormProducto,
   esProductoConVariantes, setEsProductoConVariantes,
+  esServicio, setEsServicio,
   variantes, setVariantes,
   handleAñadirVariante, handleEliminarVariante, handleCambioVariante,
   presentaciones, handleAñadirPresentacion, handleEliminarPresentacion, handleCambioPresentacion,
@@ -157,16 +161,38 @@ export default function ProductModal({
 
         {/* Selector de Tipo de Producto -- oculto al editar: por ahora esta
             pantalla solo edita los campos simples de un producto ya
-            existente, no agrega/quita variantes. */}
+            existente, no agrega/quita variantes ni cambia entre tipos. */}
         {!editando && (
-        <div className="flex items-center gap-4 p-2 bg-slate-100 rounded-lg">
-          <label className="block text-xs font-bold text-slate-500 uppercase">Tipo de Producto</label>
-          <button type="button" onClick={() => setEsProductoConVariantes(!esProductoConVariantes)} className="w-12 h-6 bg-slate-200 rounded-full p-1 transition-colors">
-            <span className={`w-4 h-4 bg-white rounded-full shadow-md transform transition-transform ${esProductoConVariantes ? 'translate-x-6 bg-primary-600' : 'translate-x-0'}`}></span>
-          </button>
-          <span className={`font-semibold text-sm ${esProductoConVariantes ? 'text-primary-700' : 'text-slate-600'}`}>
-            {esProductoConVariantes ? 'Con Variantes (Tallas, Colores, etc.)' : 'Producto Simple'}
-          </span>
+        <div className="p-2 bg-slate-100 rounded-lg">
+          <label className="block text-xs font-bold text-slate-500 uppercase mb-2 px-1">Tipo de Producto</label>
+          <div className="grid grid-cols-3 gap-1.5">
+            <button
+              type="button"
+              onClick={() => { setEsProductoConVariantes(false); setEsServicio(false); }}
+              className={`py-2 rounded-lg text-xs font-bold transition-colors ${!esProductoConVariantes && !esServicio ? 'bg-white text-primary-700 shadow-sm' : 'text-slate-500'}`}
+            >
+              Simple
+            </button>
+            <button
+              type="button"
+              onClick={() => { setEsProductoConVariantes(true); setEsServicio(false); }}
+              className={`py-2 rounded-lg text-xs font-bold transition-colors ${esProductoConVariantes ? 'bg-white text-primary-700 shadow-sm' : 'text-slate-500'}`}
+            >
+              Con Variantes
+            </button>
+            <button
+              type="button"
+              onClick={() => { setEsServicio(true); setEsProductoConVariantes(false); }}
+              className={`py-2 rounded-lg text-xs font-bold transition-colors ${esServicio ? 'bg-white text-primary-700 shadow-sm' : 'text-slate-500'}`}
+            >
+              Servicio
+            </button>
+          </div>
+          {esServicio && (
+            <p className="text-[11px] text-slate-500 px-1 mt-2">
+              Algo que se cobra pero no es un ítem físico (ej. &quot;Servicio Técnico&quot;, &quot;Mano de Obra&quot;, &quot;Consulta&quot;) -- sin stock, almacén ni código de barras.
+            </p>
+          )}
         </div>
         )}
         {editando && formProducto.tipo === 'variable' && (
@@ -257,37 +283,41 @@ export default function ProductModal({
                 En qu&eacute; moneda escribiste el precio de arriba. Si cambias de tienda de moneda en el POS, se convierte autom&aacute;ticamente.
               </p>
             </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Stock Inicial</label>
-              <input type="number" value={formProducto.cantidad} onChange={e => setFormProducto({...formProducto, cantidad: parseInt(e.target.value) || 0})} className="w-full px-3 py-2 border rounded-lg text-sm" required={!esProductoConVariantes} />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Stock Mínimo</label>
-              <input
-                type="number"
-                min="0"
-                value={formProducto.stock_minimo}
-                onChange={e => setFormProducto({ ...formProducto, stock_minimo: e.target.value })}
-                className="w-full px-3 py-2 border rounded-lg text-sm"
-                placeholder="Opcional"
-              />
-              <p className="text-[11px] text-slate-400 mt-1">A partir de cuánto stock se avisa &quot;bajo stock&quot;. Vacío = umbral general.</p>
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">SKU</label>
-              <input
-                type="text"
-                value={formProducto.sku}
-                onChange={e => setFormProducto({ ...formProducto, sku: e.target.value })}
-                className="w-full px-3 py-2 border rounded-lg text-sm"
-                placeholder="Opcional"
-              />
-              <p className="text-[11px] text-slate-400 mt-1">Código interno propio (distinto del de barras), útil para sincronizar con otras plataformas.</p>
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Código de Barras</label>
-              <input type="text" value={formProducto.codigo_barras} onChange={e => setFormProducto({...formProducto, codigo_barras: e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Opcional" />
-            </div>
+            {!esServicio && (
+              <>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Stock Inicial</label>
+                  <input type="number" value={formProducto.cantidad} onChange={e => setFormProducto({...formProducto, cantidad: parseInt(e.target.value) || 0})} className="w-full px-3 py-2 border rounded-lg text-sm" required={!esProductoConVariantes} />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Stock Mínimo</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={formProducto.stock_minimo}
+                    onChange={e => setFormProducto({ ...formProducto, stock_minimo: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-lg text-sm"
+                    placeholder="Opcional"
+                  />
+                  <p className="text-[11px] text-slate-400 mt-1">A partir de cuánto stock se avisa &quot;bajo stock&quot;. Vacío = umbral general.</p>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">SKU</label>
+                  <input
+                    type="text"
+                    value={formProducto.sku}
+                    onChange={e => setFormProducto({ ...formProducto, sku: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-lg text-sm"
+                    placeholder="Opcional"
+                  />
+                  <p className="text-[11px] text-slate-400 mt-1">Código interno propio (distinto del de barras), útil para sincronizar con otras plataformas.</p>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Código de Barras</label>
+                  <input type="text" value={formProducto.codigo_barras} onChange={e => setFormProducto({...formProducto, codigo_barras: e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Opcional" />
+                </div>
+              </>
+            )}
           </div>
         )}
 
@@ -304,8 +334,9 @@ export default function ProductModal({
         )}
 
         {/* Presentaciones de venta -- solo aplica a productos simples (ver
-            docstring de `PresentacionProducto` en el backend). */}
-        {!esProductoConVariantes && (
+            docstring de `PresentacionProducto` en el backend); un servicio
+            no se vende "por bulto/caja". */}
+        {!esProductoConVariantes && !esServicio && (
           <div className="pt-4 border-t">
             <PresentacionesFields
               presentaciones={presentaciones}
@@ -318,13 +349,16 @@ export default function ProductModal({
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:col-span-2 pt-4 border-t">
-          <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Almacén Principal</label>
-            <select value={formProducto.almacen} onChange={e => setFormProducto({...formProducto, almacen: e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm bg-white" required>
-              <option value="">Selecciona un almacén...</option>
-              {almacenes.map(a => <option key={a.id} value={a.id}>{a.nombre}</option>)}
-            </select>
-          </div>
+          {/* Almacén no aplica a un servicio -- no hay nada físico que guardar. */}
+          {!esServicio && (
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Almacén Principal</label>
+              <select value={formProducto.almacen} onChange={e => setFormProducto({...formProducto, almacen: e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm bg-white" required>
+                <option value="">Selecciona un almacén...</option>
+                {almacenes.map(a => <option key={a.id} value={a.id}>{a.nombre}</option>)}
+              </select>
+            </div>
+          )}
           <div>
             <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Categoría</label>
             <select value={formProducto.categoria} onChange={e => setFormProducto({...formProducto, categoria: e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm bg-white" required>
@@ -342,6 +376,25 @@ export default function ProductModal({
             />
             <span className="text-sm font-semibold text-slate-700">Mostrar en el catálogo público (tienda online)</span>
           </label>
+
+          {/* Un servicio no puede ser "insumo interno" -- ese concepto es de
+              stock físico (materia prima), que un servicio no tiene. */}
+          {!esServicio && (
+            <label className="md:col-span-2 flex items-center gap-3 p-3 bg-slate-50 border rounded-lg cursor-pointer">
+              <input
+                type="checkbox"
+                checked={formProducto.es_insumo}
+                onChange={e => setFormProducto({ ...formProducto, es_insumo: e.target.checked })}
+                className="w-5 h-5 accent-primary-600"
+              />
+              <span className="text-sm font-semibold text-slate-700">
+                Es un insumo interno (materia prima, ej. papas, zanahoria) -- no se ofrece directamente
+                <span className="block text-xs font-normal text-slate-400 mt-0.5">
+                  Se sigue controlando como stock normal, pero no aparecerá en el selector de &quot;agregar producto&quot; del POS/Mesas.
+                </span>
+              </span>
+            </label>
+          )}
         </div>
 
         {/* Impuesto y desglose del precio -- al final: es lo último que se

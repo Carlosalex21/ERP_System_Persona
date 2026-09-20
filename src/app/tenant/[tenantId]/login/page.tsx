@@ -6,7 +6,7 @@ import Cookies from 'js-cookie';
 import { Lock, User, ArrowRight, Loader2, Store } from 'lucide-react';
 import { apiPublica } from '@/services/api';
 import { getB2BPerfil } from '@/services/b2bPortalService';
-import { getSharedCookieDomain } from '@/utils/cookieDomain';
+import { getSharedCookieDomain, cookieSecureFlag } from '@/utils/cookieDomain';
 
 export default function TenantLogin({ params }: { params: Promise<{ tenantId: string }> }) {
   const { tenantId } = use(params);
@@ -40,8 +40,8 @@ export default function TenantLogin({ params }: { params: Promise<{ tenantId: st
       // `.erpsystem.com` en producción) -- así viaja también al dominio raíz,
       // necesario para flujos como "Prueba gratis: Nd" -> `/pago` que viven
       // fuera del subdominio del tenant.
-      Cookies.set('access_token', access, { expires: 1, domain });
-      Cookies.set('refresh_token', refresh, { expires: 7, domain });
+      Cookies.set('access_token', access, { expires: 1, domain, secure: cookieSecureFlag(), sameSite: 'Lax' });
+      Cookies.set('refresh_token', refresh, { expires: 7, domain, secure: cookieSecureFlag(), sameSite: 'Lax' });
 
       // 4. Este mismo login lo usan tanto el personal del tenant como sus
       // clientes B2B autenticados -- se distingue por si existe un perfil

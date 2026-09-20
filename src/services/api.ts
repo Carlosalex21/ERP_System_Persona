@@ -8,7 +8,8 @@ import axios, {
 import Cookies from 'js-cookie';
 
 import type { ApiEnvelope, ApiError } from '@/types/api';
-import { getSharedCookieDomain } from '@/utils/cookieDomain';
+import { getSharedCookieDomain, cookieSecureFlag } from '@/utils/cookieDomain';
+import { limpiarCacheReferencia } from '@/utils/offlineDb';
 
 // Definimos la URL base del backend en Django
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -41,6 +42,12 @@ function isEnvelope(body: unknown): body is ApiEnvelope<unknown> {
 export const apiPublica: AxiosInstance = axios.create({
   baseURL: API_URL,
   headers: { 'Content-Type': 'application/json' },
+  // Sin esto, un pedido del catálogo público podía quedar esperando
+  // indefinidamente (ej. si la consulta externa de tasa BCV se cuelga) --
+  // el checkout deshabilita su botón de cerrar mientras el pedido está en
+  // vuelo (ver `CheckoutModal`), así que sin un límite de tiempo el cliente
+  // quedaría atrapado sin poder cerrar el modal ni saber qué pasó.
+  timeout: 20000,
 });
 
 /**
@@ -57,10 +64,18 @@ function resolveBaseURL(): string {
   if (typeof window === 'undefined') {
     return `${API_URL}/api/v1`;
   }
+  // Producción: el navegador llama a la API en el MISMO origen que el
+  // frontend (ej. `https://tienda1.midominio.com/api/v1/...`) -- el reverse
+  // proxy (nginx) enruta `/api/` al backend. Esto evita CORS entre
+  // subdominios y permite un solo certificado TLS por subdominio de tenant,
+  // en vez de exponer el backend en su propio host:puerto. Ver
+  // `NEXT_PUBLIC_API_SAME_ORIGIN` en `.env`.
+  if (process.env.NEXT_PUBLIC_API_SAME_ORIGIN === 'true') {
+    return '/api/v1';
+  }
   const hostname = window.location.hostname;
   const tenant = hostname.split('.')[0];
   if (tenant && tenant !== 'www' && tenant !== 'localhost') {
-    const port = window.location.port ? `:${window.location.port}` : '';
     return `http://${tenant}.localhost:8000/api/v1`;
   }
   return `${API_URL}/api/v1`;
@@ -184,10 +199,10 @@ export async function refreshAccessToken(): Promise<RefreshResult> {
 
       if (access) {
         const domain = getSharedCookieDomain();
-        Cookies.set('access_token', access, { expires: 1, secure: false, sameSite: 'Lax', domain });
+        Cookies.set('access_token', access, { expires: 1, secure: cookieSecureFlag(), sameSite: 'Lax', domain });
         // El backend rota el refresh token (ROTATE_REFRESH_TOKENS=True); lo guardamos si viene.
         if (refresh) {
-          Cookies.set('refresh_token', refresh, { expires: 7, secure: false, sameSite: 'Lax', domain });
+          Cookies.set('refresh_token', refresh, { expires: 7, secure: cookieSecureFlag(), sameSite: 'Lax', domain });
         }
         return { ok: true, access, refresh: refresh ?? undefined };
       }
@@ -275,6 +290,7 @@ apiPrivada.interceptors.response.use(
         const domain = getSharedCookieDomain();
         Cookies.remove('access_token', { domain });
         Cookies.remove('refresh_token', { domain });
+        limpiarCacheReferencia();
         if (typeof window !== 'undefined') {
           // Redirige al login del subdominio actual (tenant) para no perder el
           // contexto multi-tenant. window.location.origin ya incluye el subdominio.

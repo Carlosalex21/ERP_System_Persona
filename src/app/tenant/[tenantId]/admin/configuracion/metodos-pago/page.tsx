@@ -11,7 +11,7 @@ import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 
 import MetodoPagoModal from './MetodoPagoModal';
-import { DataTable, PageHeader, Card, EmptyState, TableSkeleton } from '@/components/ui';
+import { DataTable, PageHeader, Card, EmptyState, TableSkeleton, ConfirmDialog } from '@/components/ui';
 import {
   getMetodosDePago,
   createMetodoPago,
@@ -83,15 +83,22 @@ export default function MetodosPagoPage(): ReactElement {
     }
   };
 
-  const eliminar = async (metodo: MetodoPago): Promise<void> => {
-    if (!confirm(`¿Eliminar el método de pago "${metodo.nombre}"?`)) return;
+  const [metodoAEliminar, setMetodoAEliminar] = useState<MetodoPago | null>(null);
+  const [eliminandoMetodo, setEliminandoMetodo] = useState(false);
+
+  const confirmarEliminarMetodo = async (): Promise<void> => {
+    if (!metodoAEliminar) return;
+    setEliminandoMetodo(true);
     try {
-      await deleteMetodoPago(metodo.id);
+      await deleteMetodoPago(metodoAEliminar.id);
       toast.success('Método de pago eliminado.');
+      setMetodoAEliminar(null);
       await cargar();
     } catch (error) {
       console.error('Error eliminando método de pago:', error);
       toast.error('No se pudo eliminar el método de pago. Puede que tenga transacciones asociadas.');
+    } finally {
+      setEliminandoMetodo(false);
     }
   };
 
@@ -162,7 +169,7 @@ export default function MetodosPagoPage(): ReactElement {
             <Pencil size={16} />
           </button>
           <button
-            onClick={() => eliminar(row.original)}
+            onClick={() => setMetodoAEliminar(row.original)}
             className="p-2 text-slate-400 hover:text-red-500 transition-colors"
             aria-label="Eliminar método de pago"
           >
@@ -221,6 +228,16 @@ export default function MetodosPagoPage(): ReactElement {
           cargando={saving}
         />
       )}
+
+      <ConfirmDialog
+        isOpen={!!metodoAEliminar}
+        title="Eliminar Método de Pago"
+        message={`¿Eliminar el método de pago "${metodoAEliminar?.nombre}"? Esta acción no se puede deshacer.`}
+        confirmLabel="Eliminar"
+        loading={eliminandoMetodo}
+        onConfirm={confirmarEliminarMetodo}
+        onCancel={() => setMetodoAEliminar(null)}
+      />
     </div>
   );
 }

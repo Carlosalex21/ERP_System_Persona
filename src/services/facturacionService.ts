@@ -456,6 +456,20 @@ export const getFacturas = async (): Promise<Factura[]> => {
 };
 
 /**
+ * Historial de facturas de un cliente puntual (ej. las facturas de
+ * honorarios que un contador le emitió a una `EmpresaContable` enlazada) --
+ * sin pasar por caché, para que siempre refleje la última factura emitida.
+ * @param {number} clienteId - ID del cliente.
+ * @returns {Promise<Factura[]>}
+ */
+export const getFacturasPorCliente = async (clienteId: number): Promise<Factura[]> => {
+  const response = await apiPrivada.get<Factura[]>('/facturacion/lista/', {
+    params: { cliente: clienteId, page_size: 100 },
+  });
+  return response.data;
+};
+
+/**
  * Cuenta las facturas en un estado dado (ej. 'pendiente') sin traer el
  * listado completo -- usado para el badge de "Pedidos" del panel.
  * @param {string} estado - Estado a contar.

@@ -9,7 +9,7 @@ import { Factura, NotaCredito } from '@/types/api';
 import { getNotasCredito, getFacturas, deleteNotaCredito } from '@/services/facturacionService';
 import { getMonedas } from '@/services/configuracionService';
 import { getApiErrorMessages, parseDecimal } from '@/utils/helpers';
-import { DataTable, PageHeader, Card, TableSkeleton } from '@/components/ui';
+import { DataTable, PageHeader, Card, TableSkeleton, ConfirmDialog } from '@/components/ui';
 import NotaCreditoModal from './NotaCreditoModal';
 import NotaPdfModal from '@/components/facturacion/NotaPdfModal';
 
@@ -66,12 +66,19 @@ export default function NotasCreditoPage(): ReactElement {
     setModalAbierto(true);
   }, []);
 
-  const eliminar = useCallback(
-    async (nota: NotaCredito) => {
-      if (!window.confirm(`¿Eliminar la nota de crédito ${nota.numero_nota}?`)) return;
+  const [notaAEliminar, setNotaAEliminar] = useState<NotaCredito | null>(null);
+  const [eliminandoNota, setEliminandoNota] = useState(false);
+
+  const eliminar = useCallback((nota: NotaCredito) => setNotaAEliminar(nota), []);
+
+  const confirmarEliminarNota = useCallback(
+    async () => {
+      if (!notaAEliminar) return;
+      setEliminandoNota(true);
       try {
-        await deleteNotaCredito(nota.id);
+        await deleteNotaCredito(notaAEliminar.id);
         toast.success('Nota de crédito eliminada.');
+        setNotaAEliminar(null);
         loadData();
       } catch (error) {
         const messages = getApiErrorMessages(error);
@@ -80,9 +87,11 @@ export default function NotasCreditoPage(): ReactElement {
         } else {
           toast.error('Error al eliminar la nota de crédito.');
         }
+      } finally {
+        setEliminandoNota(false);
       }
     },
-    [loadData],
+    [notaAEliminar, loadData],
   );
 
   const columns = useMemo<ColumnDef<NotaCredito>[]>(() => [
@@ -190,6 +199,16 @@ export default function NotasCreditoPage(): ReactElement {
         onClose={() => setNotaImprimir(null)}
         notaId={notaImprimir?.id ?? null}
         tipo="credito"
+      />
+
+      <ConfirmDialog
+        isOpen={!!notaAEliminar}
+        title="Eliminar Nota de Crédito"
+        message={`¿Eliminar la nota de crédito ${notaAEliminar?.numero_nota}? Esta acción no se puede deshacer.`}
+        confirmLabel="Eliminar"
+        loading={eliminandoNota}
+        onConfirm={confirmarEliminarNota}
+        onCancel={() => setNotaAEliminar(null)}
       />
     </div>
   );

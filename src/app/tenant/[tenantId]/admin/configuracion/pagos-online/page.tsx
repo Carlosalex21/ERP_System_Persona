@@ -8,7 +8,7 @@ import { getMetodosPagoConfig, deleteMetodoPagoConfig } from '@/services/pagosOn
 import { getApiErrorMessages } from '@/utils/helpers';
 import { MetodoPagoConfig } from '@/types/api';
 import MetodoPagoConfigModal from './MetodoPagoConfigModal';
-import { PageHeader, Card, EmptyState, CardGridSkeleton, Stagger, StaggerItem } from '@/components/ui';
+import { PageHeader, Card, EmptyState, CardGridSkeleton, Stagger, StaggerItem, ConfirmDialog } from '@/components/ui';
 
 export default function PagosOnlinePage(): ReactElement {
   const [metodos, setMetodos] = useState<MetodoPagoConfig[]>([]);
@@ -43,11 +43,16 @@ export default function PagosOnlinePage(): ReactElement {
     setModalAbierto(true);
   };
 
-  const eliminar = async (metodo: MetodoPagoConfig): Promise<void> => {
-    if (!confirm(`¿Eliminar "${metodo.nombre}"? Dejará de mostrarse en tu catálogo público.`)) return;
+  const [metodoAEliminar, setMetodoAEliminar] = useState<MetodoPagoConfig | null>(null);
+  const [eliminandoMetodo, setEliminandoMetodo] = useState(false);
+
+  const confirmarEliminarMetodo = async (): Promise<void> => {
+    if (!metodoAEliminar) return;
+    setEliminandoMetodo(true);
     try {
-      await deleteMetodoPagoConfig(metodo.id);
+      await deleteMetodoPagoConfig(metodoAEliminar.id);
       toast.success('Método de pago eliminado.');
+      setMetodoAEliminar(null);
       await cargar();
     } catch (error) {
       const messages = getApiErrorMessages(error);
@@ -56,6 +61,8 @@ export default function PagosOnlinePage(): ReactElement {
       } else {
         toast.error('No se pudo eliminar el método de pago.');
       }
+    } finally {
+      setEliminandoMetodo(false);
     }
   };
 
@@ -127,7 +134,7 @@ export default function PagosOnlinePage(): ReactElement {
                       <Pencil size={15} />
                     </button>
                     <button
-                      onClick={() => eliminar(metodo)}
+                      onClick={() => setMetodoAEliminar(metodo)}
                       className="p-1.5 text-slate-400 hover:text-red-500 transition-colors"
                       aria-label="Eliminar método"
                     >
@@ -188,6 +195,16 @@ export default function PagosOnlinePage(): ReactElement {
           }}
         />
       )}
+
+      <ConfirmDialog
+        isOpen={!!metodoAEliminar}
+        title="Eliminar Método de Pago"
+        message={`¿Eliminar "${metodoAEliminar?.nombre}"? Dejará de mostrarse en tu catálogo público.`}
+        confirmLabel="Eliminar"
+        loading={eliminandoMetodo}
+        onConfirm={confirmarEliminarMetodo}
+        onCancel={() => setMetodoAEliminar(null)}
+      />
     </div>
   );
 }

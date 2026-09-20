@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form';
 import { Smartphone, Mail, CreditCard } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { MetodoPagoConfig } from '@/types/api';
+import { getProtocol } from '@/utils/tenantUrl';
 import {
   createMetodoPagoConfig,
   createPagoMovilConfig,
@@ -51,11 +52,15 @@ const NOMBRES_POR_DEFECTO = ['Pago Móvil', 'Zelle', 'Tarjeta (internacional)'];
 
 export default function MetodoPagoConfigModal({ metodo, onClose, onSaved }: MetodoPagoConfigModalProps): ReactElement {
   const [tipo, setTipo] = useState<Tipo>(tipoInicial(metodo));
-  // El webhook lo llama Stripe directamente al backend (puerto 8000), no al
-  // frontend -- se arma con el mismo subdominio del tenant que ya se está
-  // viendo en el panel.
+  // El webhook lo llama Stripe directamente al backend, no al frontend --
+  // se arma con el mismo subdominio del tenant que ya se está viendo en el
+  // panel. En producción el backend vive detrás del mismo host (el reverse
+  // proxy enruta `/api/` hacia él, ver `NEXT_PUBLIC_API_SAME_ORIGIN`), sin
+  // el puerto `:8000` de desarrollo.
   const webhookUrl = typeof window !== 'undefined'
-    ? `http://${window.location.hostname}:8000/api/v1/public/pagos/stripe/webhook/`
+    ? process.env.NEXT_PUBLIC_API_SAME_ORIGIN === 'true'
+      ? `${getProtocol()}://${window.location.hostname}/api/v1/public/pagos/stripe/webhook/`
+      : `http://${window.location.hostname}:8000/api/v1/public/pagos/stripe/webhook/`
     : '';
 
   const {

@@ -10,7 +10,7 @@ import { getTransaccionesPasarela, confirmarTransaccionPasarela } from '@/servic
 import { getMonedas } from '@/services/configuracionService';
 import { getApiErrorMessages, parseDecimal, getNombreById } from '@/utils/helpers';
 import { Factura, Cliente, TransaccionPasarela, MetodoPago, Transaccionpago, Moneda } from '@/types/api';
-import { DataTable, PageHeader, Card, TableSkeleton } from '@/components/ui';
+import { DataTable, PageHeader, Card, TableSkeleton, ConfirmDialog } from '@/components/ui';
 import PedidoDetalleModal from './PedidoDetalleModal';
 import AbonoModal from './AbonoModal';
 
@@ -122,12 +122,18 @@ export default function PedidosPage(): ReactElement {
     }
   };
 
-  const rechazarPedido = async (factura: Factura) => {
-    if (!confirm(`¿Anular el pedido #${factura.correlativo || factura.id}? El stock reservado se restaurará.`)) return;
+  const [pedidoARechazar, setPedidoARechazar] = useState<Factura | null>(null);
+
+  const rechazarPedido = (factura: Factura) => setPedidoARechazar(factura);
+
+  const confirmarRechazoPedido = async () => {
+    if (!pedidoARechazar) return;
+    const factura = pedidoARechazar;
     setProcesandoId(factura.id);
     try {
       await anularFactura(factura.id);
       toast.success('Pedido anulado y stock restaurado.');
+      setPedidoARechazar(null);
       await cargar(true);
     } catch (error) {
       const messages = getApiErrorMessages(error);
@@ -399,6 +405,16 @@ export default function PedidosPage(): ReactElement {
           }}
         />
       )}
+
+      <ConfirmDialog
+        isOpen={!!pedidoARechazar}
+        title="Anular Pedido"
+        message={`¿Anular el pedido #${pedidoARechazar?.correlativo || pedidoARechazar?.id}? El stock reservado se restaurará.`}
+        confirmLabel="Anular"
+        loading={procesandoId === pedidoARechazar?.id}
+        onConfirm={confirmarRechazoPedido}
+        onCancel={() => setPedidoARechazar(null)}
+      />
     </div>
   );
 }

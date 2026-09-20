@@ -6,6 +6,7 @@ import Cookies from 'js-cookie';
 import { getSharedCookieDomain } from '@/utils/cookieDomain';
 import { Loader2, LogOut, Building2, BadgePercent } from 'lucide-react';
 import { getB2BPerfil, type B2BPerfil } from '@/services/b2bPortalService';
+import { limpiarCacheReferencia } from '@/utils/offlineDb';
 
 /**
  * Shell del portal de clientes B2B: distinto del admin (sin sidebar de
@@ -31,6 +32,7 @@ export default function B2BPortalLayout({ children }: { children: React.ReactNod
     const domain = getSharedCookieDomain();
     Cookies.remove('access_token', { domain });
     Cookies.remove('refresh_token', { domain });
+    limpiarCacheReferencia();
     router.push('../login');
   };
 

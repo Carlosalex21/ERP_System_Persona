@@ -13,7 +13,7 @@ import toast from 'react-hot-toast';
 import { apiPrivada } from '@/services/api';
 import { getApiErrorMessages, getNombreById } from '@/utils/helpers';
 import { roundMoney } from '@/utils/taxCalculator';
-import { DataTable, PageHeader, StatCard, Card, Stagger, StaggerItem, TableSkeleton } from '@/components/ui';
+import { DataTable, PageHeader, StatCard, Card, Stagger, StaggerItem, TableSkeleton, ConfirmDialog } from '@/components/ui';
 import ProductModal from '../inventario/components/ProductModal';
 import type { PresentacionForm } from '../inventario/components/PresentacionesFields';
 import { Almacen, Categoria, Iva, Moneda, Producto, ProductoRequest, VariacionproductoRequest } from '@/types/api';
@@ -45,6 +45,9 @@ export default function InventarioPage({ params }: { params: Promise<{ tenantId:
   const [editandoId, setEditandoId] = useState<number | null>(null);
 
   const [esProductoConVariantes, setEsProductoConVariantes] = useState(false);
+  // Algo que se cobra pero no es un ítem físico (ej. "Servicio Técnico") --
+  // mutuamente excluyente con `esProductoConVariantes` (ver `handleTipoChange`).
+  const [esServicio, setEsServicio] = useState(false);
   const [variantes, setVariantes] = useState<any[]>([
     { nombre: '', sku: '', precio: '', cantidad: 0, codigo_barras: '' }
   ]);
@@ -54,7 +57,7 @@ export default function InventarioPage({ params }: { params: Promise<{ tenantId:
   const [presentacionesOriginalIds, setPresentacionesOriginalIds] = useState<number[]>([]);
   const [formProducto, setFormProducto] = useState({
     nombre: '', descripcion: '', precio: '', cantidad: 0, stock_minimo: '', sku: '',
-    codigo_barras: '', disponible_online: true, tipo: 'simple' as 'simple' | 'variable',
+    codigo_barras: '', disponible_online: true, es_insumo: false, tipo: 'simple' as 'simple' | 'variable' | 'servicio',
     almacen: '', configuracion_iva: '', categoria: '', moneda: '', imagen: null as File | null,
   });
 
@@ -122,7 +125,9 @@ export default function InventarioPage({ params }: { params: Promise<{ tenantId:
       const umbral = p.stock_minimo ?? UMBRAL_BAJO_STOCK_GENERAL;
       return cantidad > 0 && cantidad <= umbral;
     }).length;
-    const agotados = productos.filter(p => !p.cantidad || p.cantidad <= 0).length;
+    // 'servicio' no tiene stock real (siempre cantidad 0) -- sin excluirlo,
+    // cada servicio del catálogo aparecía contado como "agotado".
+    const agotados = productos.filter(p => p.tipo !== 'servicio' && (!p.cantidad || p.cantidad <= 0)).length;
     const valor = productos.reduce((acc, p) => acc + (parseFloat(p.precio || '0') * (p.cantidad || 0)), 0);
     return { total, bajoStock, agotados, valor };
   }, [productos]);
@@ -132,17 +137,20 @@ export default function InventarioPage({ params }: { params: Promise<{ tenantId:
     setEditandoId(null);
     setFormProducto({
       nombre: '', descripcion: '', precio: '', cantidad: 0, stock_minimo: '', sku: '',
-      codigo_barras: '', disponible_online: true, tipo: 'simple' as 'simple' | 'variable',
+      codigo_barras: '', disponible_online: true, es_insumo: false, tipo: 'simple' as 'simple' | 'variable' | 'servicio',
       almacen: '', configuracion_iva: '', categoria: '', moneda: '', imagen: null,
     });
     setVariantes([{ nombre: '', sku: '', precio: '', cantidad: 0, codigo_barras: '' }]);
     setPresentaciones([]);
     setPresentacionesOriginalIds([]);
     setEsProductoConVariantes(false);
+    setEsServicio(false);
   };
 
   const abrirCreacion = (): void => {
     setEditandoId(null);
+    setEsServicio(false);
+    setEsProductoConVariantes(false);
     setModalProducto(true);
   };
 
@@ -160,6 +168,7 @@ export default function InventarioPage({ params }: { params: Promise<{ tenantId:
       sku: producto.sku || '',
       codigo_barras: producto.codigo_barras || '',
       disponible_online: producto.disponible_online ?? true,
+      es_insumo: producto.es_insumo ?? false,
       tipo: producto.tipo,
       almacen: producto.almacen != null ? String(producto.almacen) : '',
       configuracion_iva: producto.configuracion_iva != null ? String(producto.configuracion_iva) : '',
@@ -177,6 +186,7 @@ export default function InventarioPage({ params }: { params: Promise<{ tenantId:
     })));
     setPresentacionesOriginalIds(presentacionesActivas.map(p => p.id));
     setEsProductoConVariantes(false);
+    setEsServicio(producto.tipo === 'servicio');
     setModalProducto(true);
   };
 
@@ -190,15 +200,19 @@ export default function InventarioPage({ params }: { params: Promise<{ tenantId:
       // (en vez de omitir el campo) dos productos sin código chocan contra
       // la restricción de unicidad ("ya existe") aunque ninguno tenga uno
       // de verdad. `null` sí se trata como "sin valor" y no choca nunca.
-      codigo_barras: formProducto.codigo_barras.trim() || null,
-      sku: formProducto.sku.trim() || null,
-      stock_minimo: formProducto.stock_minimo.trim() !== '' ? Number(formProducto.stock_minimo) : null,
-      almacen: Number(formProducto.almacen) || null,
+      // Un servicio no tiene ninguno de estos -- se envían vacíos aunque el
+      // formulario los haya dejado con basura de un toggle anterior.
+      codigo_barras: esServicio ? null : (formProducto.codigo_barras.trim() || null),
+      sku: esServicio ? null : (formProducto.sku.trim() || null),
+      stock_minimo: esServicio ? null : (formProducto.stock_minimo.trim() !== '' ? Number(formProducto.stock_minimo) : null),
+      cantidad: esServicio ? 0 : formProducto.cantidad,
+      almacen: esServicio ? null : (Number(formProducto.almacen) || null),
+      es_insumo: esServicio ? false : formProducto.es_insumo,
       configuracion_iva: Number(formProducto.configuracion_iva) || null,
       categoria: Number(formProducto.categoria) || null,
       moneda: Number(formProducto.moneda) || null,
       activo: true,
-      tipo: esProductoConVariantes ? 'variable' : 'simple',
+      tipo: esServicio ? 'servicio' : (esProductoConVariantes ? 'variable' : 'simple'),
     };
     // Editar solo toca los campos "simples" (por ahora no hay UI para
     // editar variantes existentes) -- omitir `tipo` en el PATCH evita que
@@ -295,15 +309,22 @@ export default function InventarioPage({ params }: { params: Promise<{ tenantId:
     setPresentaciones(nuevasPresentaciones);
   };
 
-  const eliminarProducto = async (id: number): Promise<void> => {
-    if (!confirm("¿Eliminar producto?")) return;
+  const [productoAEliminar, setProductoAEliminar] = useState<Producto | null>(null);
+  const [eliminandoProducto, setEliminandoProducto] = useState(false);
+
+  const confirmarEliminarProducto = async (): Promise<void> => {
+    if (!productoAEliminar) return;
+    setEliminandoProducto(true);
     try {
-      await deleteProducto(id);
+      await deleteProducto(productoAEliminar.id);
       toast.success('Producto eliminado.');
+      setProductoAEliminar(null);
       cargarDatosMaestros();
     } catch (error) {
       toast.error("No se pudo eliminar el producto.");
       console.error("Error eliminando producto:", error);
+    } finally {
+      setEliminandoProducto(false);
     }
   };
 
@@ -355,6 +376,15 @@ export default function InventarioPage({ params }: { params: Promise<{ tenantId:
       accessorKey: 'cantidad',
       header: () => <div className="text-center">Stock</div>,
       cell: ({ row }) => {
+        if (row.original.tipo === 'servicio') {
+          return (
+            <div className="text-center">
+              <span className="px-2.5 py-1 rounded-lg font-bold text-xs border bg-slate-50 text-slate-500 border-slate-200">
+                Servicio
+              </span>
+            </div>
+          );
+        }
         const cantidad = row.original.cantidad || 0;
         const umbral = row.original.stock_minimo ?? UMBRAL_BAJO_STOCK_GENERAL;
         return (
@@ -386,7 +416,7 @@ export default function InventarioPage({ params }: { params: Promise<{ tenantId:
             <Pencil size={16} />
           </button>
           <button
-            onClick={() => eliminarProducto(row.original.id)}
+            onClick={() => setProductoAEliminar(row.original)}
             className="p-2 text-slate-400 hover:text-red-500 transition-colors"
             aria-label="Eliminar producto"
           >
@@ -490,6 +520,8 @@ export default function InventarioPage({ params }: { params: Promise<{ tenantId:
           setFormProducto={setFormProducto}
           esProductoConVariantes={esProductoConVariantes}
           setEsProductoConVariantes={setEsProductoConVariantes}
+          esServicio={esServicio}
+          setEsServicio={setEsServicio}
           variantes={variantes}
           setVariantes={setVariantes}
           handleAñadirVariante={handleAñadirVariante}
@@ -509,6 +541,16 @@ export default function InventarioPage({ params }: { params: Promise<{ tenantId:
           editando={!!editandoId}
         />
       )}
+
+      <ConfirmDialog
+        isOpen={!!productoAEliminar}
+        title="Eliminar Producto"
+        message={`¿Eliminar "${productoAEliminar?.nombre}"? Esta acción no se puede deshacer.`}
+        confirmLabel="Eliminar"
+        loading={eliminandoProducto}
+        onConfirm={confirmarEliminarProducto}
+        onCancel={() => setProductoAEliminar(null)}
+      />
     </div>
   );
 }

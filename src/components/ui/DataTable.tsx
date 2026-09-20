@@ -74,7 +74,17 @@ export function DataTable<T>({
                     className={`p-4 first:pl-6 ${header.column.getCanSort() ? 'cursor-pointer select-none hover:text-slate-700' : ''}`}
                     onClick={header.column.getToggleSortingHandler()}
                   >
-                    <span className="inline-flex items-center gap-1">
+                    {/* `flex w-full` + `[&>div]:w-full` (antes `inline-flex`) --
+                        para que un header como
+                        `() => <div className="text-right">Acciones</div>` de verdad
+                        quede alineado a la derecha: un span `inline-flex` se encoge
+                        al ancho de su contenido, así que ese `text-right` interno no
+                        tenía contra qué alinearse (el div hijo también se encogía) y
+                        la columna de acciones quedaba visualmente desalineada del
+                        botón de abajo en TODAS las tablas que usan este patrón, no
+                        solo una. Forzar el div hijo a `w-full` es lo que hace que el
+                        `text-right`/`text-center` de cada columna por fin surta efecto. */}
+                    <span className="flex w-full items-center gap-1 [&>div]:w-full">
                       {flexRender(header.column.columnDef.header, header.getContext())}
                       {header.column.getCanSort() &&
                         (header.column.getIsSorted() === 'asc' ? (

@@ -2,6 +2,8 @@
 
 import { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
 import { apiPrivada } from '@/services/api';
+import { getUsuarioActual, type UsuarioActual } from '@/services/authService';
+import type { TipoNegocio } from '@/utils/modulosPanel';
 
 /**
  * Define la estructura de los datos del perfil del tenant que se obtendrán de la API.
@@ -20,7 +22,7 @@ export interface TenantSubscriptionStatus {
 
 export interface TenantProfile {
   nombre_empresa: string;
-  tipo_negocio: 'retail' | 'b2b';
+  tipo_negocio: TipoNegocio;
   onboarding_completado: boolean;
   schema_name: string;
   /** País de operación (VE/CO/PE) -- determina moneda base e IVA/IGV. */
@@ -30,6 +32,8 @@ export interface TenantProfile {
 
 interface SessionContextType {
   tenant: TenantProfile | null;
+  /** Perfil del empleado logueado (rol, módulos ocultos) -- null mientras carga o si falló. */
+  usuario: UsuarioActual | null;
   isLoading: boolean;
   /**
    * true cuando, tras terminar de cargar, no se pudo obtener el perfil del
@@ -52,8 +56,19 @@ const SessionContext = createContext<SessionContextType | undefined>(undefined);
  */
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [tenant, setTenant] = useState<TenantProfile | null>(null);
+  const [usuario, setUsuario] = useState<UsuarioActual | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [authError, setAuthError] = useState(false);
+
+  // Aparte del perfil del tenant (abajo): quién es el empleado logueado y
+  // qué módulos debe ver según su rol (ver `Sidebar.tsx`/`admin/layout.tsx`).
+  // Se degrada a "sin ocultar nada" si falla -- esto es solo la UI del
+  // menú; los permisos reales de cada acción los sigue exigiendo el
+  // backend (`apps.core.permissions`), así que un fallo aquí no abre
+  // ningún hueco de seguridad, solo muestra de más.
+  useEffect(() => {
+    getUsuarioActual().then(setUsuario).catch(() => setUsuario(null));
+  }, []);
 
   const fetchTenantProfile = useCallback(async () => {
     setIsLoading(true);
@@ -88,7 +103,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [fetchTenantProfile]);
 
   return (
-    <SessionContext.Provider value={{ tenant, isLoading, authError, refetchTenant: fetchTenantProfile }}>
+    <SessionContext.Provider value={{ tenant, usuario, isLoading, authError, refetchTenant: fetchTenantProfile }}>
       {children}
     </SessionContext.Provider>
   );

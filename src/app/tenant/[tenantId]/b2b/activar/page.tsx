@@ -5,6 +5,7 @@ import { useSearchParams, useParams, useRouter } from 'next/navigation';
 import { activateB2bAccount } from '@/services/authService';
 import { Loader2, KeyRound, ShieldCheck } from 'lucide-react';
 import { useNotify } from '@/hooks/useNotify';
+import { tenantUrl } from '@/utils/tenantUrl';
 
 function ActivationForm(): ReactElement {
   const router = useRouter();
@@ -37,7 +38,7 @@ function ActivationForm(): ReactElement {
       const response = await activateB2bAccount(tenantId, token, password, passwordConfirm);
       notify.success(response.message);
       // Redirigir al login del tenant
-      const loginUrl = `http://${tenantId}.localhost:3000/login`;
+      const loginUrl = tenantUrl(tenantId, '/login');
       router.push(loginUrl);
     } catch (err: any) {
       const apiError = err.response?.data?.detail || "No se pudo activar la cuenta. El token puede ser inválido o haber expirado.";

@@ -1,16 +1,18 @@
 "use client";
 
 import { useState, useRef, useEffect, use, type ReactElement } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import Cookies from 'js-cookie';
-import { Menu, Bell, Globe2, Sparkles, AlertTriangle, ShoppingBag, ArrowRight } from 'lucide-react';
+import { Menu, Bell, Globe2, Sparkles, AlertTriangle, ShoppingBag, ArrowRight, Lock } from 'lucide-react';
 import Sidebar from '@/components/Sidebar';
 import { SessionProvider, useSession } from '@/context/SessionContext';
 import { usePedidosPendientesDetalle } from '@/hooks/usePedidosPendientes';
 import { getPaisInfo } from '@/utils/paises';
 import OnboardingTour from '@/components/tour/OnboardingTour';
 import { getSharedCookieDomain } from '@/utils/cookieDomain';
+import { limpiarCacheReferencia } from '@/utils/offlineDb';
+import { moduloDeRuta, primerModuloVisible } from '@/utils/modulosPanel';
 
 interface AdminLayoutProps {
   params: Promise<{ tenantId: string }>;
@@ -180,6 +182,7 @@ function SesionNoDisponible(): ReactElement {
     const domain = getSharedCookieDomain();
     Cookies.remove('access_token', { domain });
     Cookies.remove('refresh_token', { domain });
+    limpiarCacheReferencia();
     const timeout = setTimeout(() => router.push('/login'), 2500);
     return () => clearTimeout(timeout);
   }, [router]);
@@ -203,6 +206,38 @@ function SesionNoDisponible(): ReactElement {
   );
 }
 
+/**
+ * Se muestra en vez de la página cuando el rol del usuario tiene este
+ * módulo oculto (ver "Permisos por Rol") -- solo esconde el CONTENIDO, no
+ * el layout entero: el usuario sigue viendo el sidebar (ya filtrado, sin
+ * este ítem) para poder irse a cualquier módulo que sí le corresponda.
+ * Esto es una conveniencia de UI, no el límite de seguridad real -- ese lo
+ * sigue poniendo el backend (`apps.core.permissions`) en cada endpoint,
+ * así que entrar aquí a mano (tecleando la URL) nunca deja hacer nada que
+ * el backend no permitiría de todas formas.
+ */
+function AccesoRestringido({ destino }: { destino: string | null }): ReactElement {
+  return (
+    <div className="h-full flex items-center justify-center py-16">
+      <div className="text-center max-w-sm">
+        <Lock className="mx-auto text-slate-300 mb-3" size={36} />
+        <h2 className="font-bold text-slate-800 text-lg">Acceso restringido</h2>
+        <p className="text-sm text-slate-500 mt-1">
+          Tu rol no tiene acceso a esta sección. Si crees que es un error, pídele a tu administrador que lo habilite en Permisos por Rol.
+        </p>
+        {destino && (
+          <Link
+            href={destino}
+            className="inline-block mt-4 px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-bold hover:bg-primary-700 transition-colors"
+          >
+            Ir a mi panel
+          </Link>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function AdminShell({
   menuMovilAbierto, setMenuMovilAbierto, ejecutarLogout, children,
 }: {
@@ -211,11 +246,24 @@ function AdminShell({
   ejecutarLogout: () => void;
   children: React.ReactNode;
 }): ReactElement {
-  const { isLoading, authError } = useSession();
+  const { isLoading, authError, usuario, tenant } = useSession();
+  const pathname = usePathname();
 
   if (!isLoading && authError) {
     return <SesionNoDisponible />;
   }
+
+  // "Permisos por Rol" es admin-only aparte de cualquier configuración de
+  // `modulos_ocultos` -- no tendría sentido que un rol pudiera ocultarse
+  // (o dejar de ocultarse) esa misma pantalla a sí mismo.
+  const esPantallaPermisos = pathname?.startsWith('/admin/configuracion/permisos');
+  const moduloActual = usuario ? moduloDeRuta(pathname ?? '') : null;
+  const bloqueadoPorRol = Boolean(moduloActual && usuario!.modulos_ocultos.includes(moduloActual.codigo));
+  const bloqueadoPorAdmin = Boolean(esPantallaPermisos && usuario && usuario.rol_codigo !== 'admin');
+  const restringido = bloqueadoPorRol || bloqueadoPorAdmin;
+  const destinoAlternativo = usuario
+    ? primerModuloVisible(usuario.modulos_ocultos, tenant?.tipo_negocio)?.path ?? null
+    : null;
 
   return (
     <div className="h-screen bg-slate-50 flex flex-col md:flex-row text-slate-900">
@@ -228,7 +276,7 @@ function AdminShell({
       <div className="flex-1 flex flex-col min-w-0 min-h-0">
         <AdminTopbar onOpenMenu={() => setMenuMovilAbierto(true)} />
         <main className="p-4 sm:p-8 flex-grow overflow-y-auto relative min-h-0">
-          {children}
+          {restringido ? <AccesoRestringido destino={destinoAlternativo} /> : children}
         </main>
       </div>
     </div>
@@ -246,6 +294,11 @@ export default function AdminLayout({ params, children }: AdminLayoutProps): Rea
     const domain = getSharedCookieDomain();
     Cookies.remove('access_token', { domain });
     Cookies.remove('refresh_token', { domain });
+    // El POS es un terminal normalmente COMPARTIDO entre cajeros por turno
+    // -- sin esto, el nombre/precio/dirección de cada cliente quedaba en
+    // IndexedDB sin límite de tiempo, legible por el siguiente que use el
+    // mismo navegador (ver el comentario largo en `limpiarCacheReferencia`).
+    limpiarCacheReferencia();
     router.push('/login');
   };
 

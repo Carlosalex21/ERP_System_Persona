@@ -1,8 +1,9 @@
-"use client"; // Este archivo ya tenía "use client"
+"use client";
 
-import { useState, useEffect, type ReactElement } from 'react';
-import { Check, HelpCircle, Loader2, Sparkles, ArrowRight } from 'lucide-react';
+import { useState, useEffect, useCallback, Suspense, type ReactElement } from 'react';
+import { Check, HelpCircle, Loader2, Sparkles, ArrowRight, Store, Building, UtensilsCrossed, FlaskConical, Wrench, Calculator } from 'lucide-react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { getPlanesPublicos } from '@/services/platformBillingService';
 import { Plan } from '@/types/api';
 import Reveal from '@/components/marketing/Reveal';
@@ -10,34 +11,42 @@ import Reveal from '@/components/marketing/Reveal';
 /** Descuento anual mostrado en la UI (no hay un precio anual real en el backend todavía). */
 const DESCUENTO_ANUAL = 0.2;
 
-export default function PlanesPage(): ReactElement {
+type TipoNegocio = 'retail' | 'b2b' | 'restaurante' | 'farmacia' | 'servicios' | 'contador';
+
+const TIPOS_NEGOCIO: { valor: TipoNegocio; etiqueta: string; icon: typeof Store }[] = [
+  { valor: 'retail', etiqueta: 'Tienda al Detal', icon: Store },
+  { valor: 'restaurante', etiqueta: 'Restaurante', icon: UtensilsCrossed },
+  { valor: 'farmacia', etiqueta: 'Farmacia', icon: FlaskConical },
+  { valor: 'servicios', etiqueta: 'Taller/Servicios', icon: Wrench },
+  { valor: 'contador', etiqueta: 'Contador', icon: Calculator },
+  { valor: 'b2b', etiqueta: 'Mayorista', icon: Building },
+];
+
+function PlanesContent(): ReactElement {
+  const searchParams = useSearchParams();
+  const tipoInicial = searchParams.get('negocio') as TipoNegocio | null;
+
   const [esAnual, setEsAnual] = useState(false);
+  const [tipoNegocio, setTipoNegocio] = useState<TipoNegocio | null>(tipoInicial);
   const [planes, setPlanes] = useState<Plan[]>([]);
   const [cargando, setCargando] = useState(true);
 
-  useEffect(() => {
-    getPlanesPublicos()
-      .then(setPlanes)
-      .catch(() => setPlanes([]))
-      .finally(() => setCargando(false));
+  const cargarPlanes = useCallback(async (tipo: TipoNegocio | null) => {
+    setCargando(true);
+    try {
+      setPlanes(await getPlanesPublicos(tipo || undefined));
+    } catch {
+      setPlanes([]);
+    } finally {
+      setCargando(false);
+    }
   }, []);
 
-  const planEmprendedor = planes.find((p) => p.slug === 'emprendedor');
-  const planPro = planes.find((p) => p.slug === 'pro');
+  useEffect(() => { cargarPlanes(tipoNegocio); }, [tipoNegocio, cargarPlanes]);
 
-  const precioMensualEmprendedor = planEmprendedor ? parseFloat(planEmprendedor.precio) : 15;
-  const precioAnualEmprendedor = Math.round(precioMensualEmprendedor * (1 - DESCUENTO_ANUAL));
-
-  const precioMensualPro = planPro ? parseFloat(planPro.precio) : 29;
-  const precioAnualPro = Math.round(precioMensualPro * (1 - DESCUENTO_ANUAL));
-
-  if (cargando) {
-    return (
-      <div className="bg-slate-50 min-h-screen flex items-center justify-center">
-        <Loader2 className="animate-spin text-primary-600" size={32} />
-      </div>
-    );
-  }
+  const planesOrdenados = [...planes].sort((a, b) => parseFloat(a.precio) - parseFloat(b.precio));
+  // El plan más caro se destaca visualmente -- si solo hay uno, no se destaca nada.
+  const idPlanDestacado = planesOrdenados.length > 1 ? planesOrdenados[planesOrdenados.length - 1].id : null;
 
   return (
     <div className="bg-slate-50 min-h-screen">
@@ -58,13 +67,32 @@ export default function PlanesPage(): ReactElement {
           </Reveal>
           <Reveal delay={0.15}>
             <p className="mt-6 text-lg text-slate-400">
-              Elige el plan que mejor se adapte al tamaño de tu negocio. Todos los planes incluyen subdominio dedicado.
+              Elige el plan que mejor se adapte al tipo y tamaño de tu negocio. Todos los planes incluyen subdominio dedicado.
             </p>
           </Reveal>
         </div>
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-16 relative z-10">
+        {/* Selector de tipo de negocio -- cada vertical tiene su propia oferta y precio. */}
+        <Reveal delay={0.15}>
+          <div className="flex flex-wrap justify-center gap-2 mb-6">
+            {TIPOS_NEGOCIO.map(({ valor, etiqueta, icon: Icon }) => (
+              <button
+                key={valor}
+                onClick={() => setTipoNegocio(valor === tipoNegocio ? null : valor)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold border-2 transition-colors ${
+                  tipoNegocio === valor
+                    ? 'border-primary-600 bg-primary-50 text-primary-700'
+                    : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300'
+                }`}
+              >
+                <Icon size={15} /> {etiqueta}
+              </button>
+            ))}
+          </div>
+        </Reveal>
+
         {/* Selector Mensual / Anual */}
         <Reveal delay={0.2}>
           <div className="flex justify-center items-center gap-4 mb-12 bg-white rounded-full border border-slate-200 shadow-lg shadow-slate-900/5 p-2 w-fit mx-auto">
@@ -86,177 +114,82 @@ export default function PlanesPage(): ReactElement {
           </div>
         </Reveal>
 
-        {/* Tarjetas de Precios */}
-        <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto mb-24">
+        {/* Tarjetas de Precios -- dinámicas: tantas como planes activos apliquen al tipo de negocio elegido. */}
+        {cargando ? (
+          <div className="flex justify-center py-24"><Loader2 className="animate-spin text-primary-600" size={32} /></div>
+        ) : planesOrdenados.length === 0 ? (
+          <div className="text-center py-24 text-slate-400">Todavía no hay planes configurados para este tipo de negocio.</div>
+        ) : (
+          <div className={`grid gap-8 mx-auto mb-24 ${planesOrdenados.length === 1 ? 'max-w-md' : planesOrdenados.length === 2 ? 'md:grid-cols-2 max-w-4xl' : 'md:grid-cols-3 max-w-6xl'}`}>
+            {planesOrdenados.map((plan, i) => {
+              const destacado = plan.id === idPlanDestacado;
+              const precioMensual = parseFloat(plan.precio);
+              const precioAnual = Math.round(precioMensual * (1 - DESCUENTO_ANUAL));
+              const caracteristicas = plan.descripcion.split('\n').map((l) => l.trim()).filter(Boolean);
 
-          {/* Plan Emprendedor */}
-          <Reveal from="left">
-            <div className="h-full bg-white p-8 rounded-3xl shadow-sm border border-slate-200 flex flex-col justify-between relative overflow-hidden transition-all hover:shadow-xl hover:-translate-y-1">
-              <div>
-                <h3 className="text-2xl font-black text-slate-900 mb-2">Plan Emprendedor</h3>
-                <p className="text-slate-500 text-sm mb-6">Ideal para tiendas independientes y profesionales independientes.</p>
+              return (
+                <Reveal key={plan.id} from={i % 2 === 0 ? 'left' : 'right'} delay={i * 0.1}>
+                  <div className={`h-full p-8 rounded-3xl flex flex-col justify-between relative overflow-hidden transition-all hover:-translate-y-1 ${
+                    destacado
+                      ? 'bg-ink-950 text-white shadow-2xl shadow-ink-950/20 border-2 border-primary-700'
+                      : 'bg-white shadow-sm border border-slate-200 hover:shadow-xl'
+                  }`}>
+                    {destacado && (
+                      <>
+                        <div className="absolute -top-16 -right-16 w-48 h-48 bg-primary-600 rounded-full blur-[80px] opacity-40" />
+                        <div className="absolute top-0 right-0 bg-accent-400 text-ink-950 text-xs font-bold px-4 py-1.5 rounded-bl-2xl tracking-wide flex items-center gap-1 z-10">
+                          <Sparkles size={12} /> RECOMENDADO
+                        </div>
+                      </>
+                    )}
 
-                <div className="mb-6 flex items-baseline">
-                  <span className="font-display text-6xl font-black text-slate-900">
-                    ${esAnual ? precioAnualEmprendedor : precioMensualEmprendedor}
-                  </span>
-                  <span className="text-slate-500 ml-2">/ mes</span>
-                </div>
+                    <div className="relative z-10">
+                      <h3 className={`text-2xl font-black mb-2 ${destacado ? 'text-white' : 'text-slate-900'}`}>{plan.nombre}</h3>
 
-                {esAnual && (
-                  <p className="text-green-600 text-xs font-semibold mb-6">
-                    Se facturan ${precioAnualEmprendedor * 12} al año
-                  </p>
-                )}
+                      <div className="mb-6 flex items-baseline">
+                        <span className={`font-display text-6xl font-black ${destacado ? 'text-white' : 'text-slate-900'}`}>
+                          ${esAnual ? precioAnual : precioMensual}
+                        </span>
+                        <span className={`ml-2 ${destacado ? 'text-slate-400' : 'text-slate-500'}`}>/ mes</span>
+                      </div>
 
-                <div className="border-t border-slate-100 my-6"></div>
+                      {esAnual && (
+                        <p className={`text-xs font-semibold mb-6 ${destacado ? 'text-accent-400' : 'text-green-600'}`}>
+                          Se facturan ${precioAnual * 12} al año
+                        </p>
+                      )}
 
-                <ul className="space-y-4 mb-8">
-                  <li className="flex items-start gap-3 text-slate-600">
-                    <Check className="text-primary-600 shrink-0 mt-0.5" size={18} />
-                    <span>Subdominio personalizado (ej: tuempresa.erpsystem.com)</span>
-                  </li>
-                  <li className="flex items-start gap-3 text-slate-600">
-                    <Check className="text-primary-600 shrink-0 mt-0.5" size={18} />
-                    <span>Catálogo web público optimizado para móviles</span>
-                  </li>
-                  <li className="flex items-start gap-3 text-slate-600">
-                    <Check className="text-primary-600 shrink-0 mt-0.5" size={18} />
-                    <span>Pedidos ilimitados enviados directamente a tu WhatsApp</span>
-                  </li>
-                  <li className="flex items-start gap-3 text-slate-600">
-                    <Check className="text-primary-600 shrink-0 mt-0.5" size={18} />
-                    <span>Módulo de Inventario Básico (Hasta 100 productos)</span>
-                  </li>
-                  <li className="flex items-start gap-3 text-slate-600">
-                    <Check className="text-primary-600 shrink-0 mt-0.5" size={18} />
-                    <span>Facturación no fiscal / Control de Órdenes internas</span>
-                  </li>
-                </ul>
-              </div>
+                      <div className={`border-t my-6 ${destacado ? 'border-white/10' : 'border-slate-100'}`}></div>
 
-              {/* ENLACE DINÁMICO AL LOGIN */}
-              <Link
-                href={`/login?plan=emprendedor&facturacion=${esAnual ? 'anual' : 'mensual'}`}
-                className="group w-full bg-slate-900 text-white text-center py-3.5 rounded-full font-bold hover:bg-slate-800 transition-colors shadow-sm flex items-center justify-center gap-2"
-              >
-                Seleccionar plan <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" />
-              </Link>
-            </div>
-          </Reveal>
+                      <ul className="space-y-4 mb-8">
+                        {caracteristicas.length > 0 ? caracteristicas.map((c) => (
+                          <li key={c} className={`flex items-start gap-3 ${destacado ? 'text-slate-300' : 'text-slate-600'}`}>
+                            <Check className={destacado ? 'text-accent-400 shrink-0 mt-0.5' : 'text-primary-600 shrink-0 mt-0.5'} size={18} />
+                            <span>{c}</span>
+                          </li>
+                        )) : (
+                          <li className={destacado ? 'text-slate-400 text-sm' : 'text-slate-400 text-sm'}>
+                            Hasta {plan.limite_usuarios} usuarios · {plan.limite_sucursales} sucursal(es)
+                            {plan.limite_productos ? ` · ${plan.limite_productos} productos` : ' · productos ilimitados'}
+                          </li>
+                        )}
+                      </ul>
+                    </div>
 
-          {/* Plan ERP Pro */}
-          <Reveal from="right" delay={0.1}>
-            <div className="h-full bg-ink-950 text-white p-8 rounded-3xl shadow-2xl shadow-ink-950/20 border-2 border-primary-700 flex flex-col justify-between relative overflow-hidden transition-all hover:-translate-y-1">
-              <div className="absolute -top-16 -right-16 w-48 h-48 bg-primary-600 rounded-full blur-[80px] opacity-40" />
-              <div className="absolute top-0 right-0 bg-accent-400 text-ink-950 text-xs font-bold px-4 py-1.5 rounded-bl-2xl tracking-wide flex items-center gap-1 z-10">
-                <Sparkles size={12} /> RECOMENDADO
-              </div>
-
-              <div className="relative z-10">
-                <h3 className="text-2xl font-black mb-2 text-white">Plan ERP Pro</h3>
-                <p className="text-slate-400 text-sm mb-6">Para comercios en crecimiento que requieren control total y reportes avanzados.</p>
-
-                <div className="mb-6 flex items-baseline">
-                  <span className="font-display text-6xl font-black text-white">
-                    ${esAnual ? precioAnualPro : precioMensualPro}
-                  </span>
-                  <span className="text-slate-400 ml-2">/ mes</span>
-                </div>
-
-                {esAnual && (
-                  <p className="text-accent-400 text-xs font-semibold mb-6">
-                    Se facturan ${precioAnualPro * 12} al año
-                  </p>
-                )}
-
-                <div className="border-t border-white/10 my-6"></div>
-
-                <ul className="space-y-4 mb-8">
-                  <li className="flex items-start gap-3 text-slate-300">
-                    <Check className="text-accent-400 shrink-0 mt-0.5" size={18} />
-                    <span>Todo lo incluido en el Plan Emprendedor</span>
-                  </li>
-                  <li className="flex items-start gap-3 text-slate-300">
-                    <Check className="text-accent-400 shrink-0 mt-0.5" size={18} />
-                    <span className="font-semibold text-white">Productos y categorías ilimitadas</span>
-                  </li>
-                  <li className="flex items-start gap-3 text-slate-300">
-                    <Check className="text-accent-400 shrink-0 mt-0.5" size={18} />
-                    <span>Módulo multialmacén y control de stocks críticos</span>
-                  </li>
-                  <li className="flex items-start gap-3 text-slate-300">
-                    <Check className="text-accent-400 shrink-0 mt-0.5" size={18} />
-                    <span>Panel de analíticas avanzadas y reportes de ventas</span>
-                  </li>
-                  <li className="flex items-start gap-3 text-slate-300">
-                    <Check className="text-accent-400 shrink-0 mt-0.5" size={18} />
-                    <span>Soporte prioritario por WhatsApp y Correo</span>
-                  </li>
-                </ul>
-              </div>
-
-              {/* ENLACE DINÁMICO AL LOGIN */}
-              <Link
-                href={`/login?plan=pro&facturacion=${esAnual ? 'anual' : 'mensual'}`}
-                className="group w-full bg-accent-400 text-ink-950 text-center py-3.5 rounded-full font-bold hover:bg-accent-300 transition-colors shadow-md relative z-10 flex items-center justify-center gap-2"
-              >
-                Seleccionar plan <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" />
-              </Link>
-            </div>
-          </Reveal>
-
-        </div>
-
-        {/* Sección de Comparación Detallada */}
-        <Reveal>
-          <div className="max-w-4xl mx-auto mb-24 hidden sm:block">
-            <h3 className="font-display font-extrabold text-3xl text-slate-900 text-center mb-10 uppercase">Cara a cara</h3>
-            <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
-              <table className="w-full border-collapse text-left text-sm">
-                <thead>
-                  <tr className="bg-slate-100 border-b border-slate-200 text-slate-700 font-semibold">
-                    <th className="p-4 pl-6">Módulos Básicos</th>
-                    <th className="p-4 text-center">Emprendedor</th>
-                    <th className="p-4 text-center">ERP Pro</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 text-slate-600">
-                  <tr>
-                    <td className="p-4 pl-6 font-medium text-slate-800">Catálogo Web Autogestionable</td>
-                    <td className="p-4 text-center text-primary-600">✓</td>
-                    <td className="p-4 text-center text-primary-600">✓</td>
-                  </tr>
-                  <tr>
-                    <td className="p-4 pl-6 font-medium text-slate-800">Pedidos directo a WhatsApp</td>
-                    <td className="p-4 text-center text-primary-600">✓</td>
-                    <td className="p-4 text-center text-primary-600">✓</td>
-                  </tr>
-                  <tr>
-                    <td className="p-4 pl-6 font-medium text-slate-800">Límite de Productos en Stock</td>
-                    <td className="p-4 text-center">Hasta 100</td>
-                    <td className="p-4 text-center font-semibold text-primary-700">Ilimitados</td>
-                  </tr>
-                  <tr>
-                    <td className="p-4 pl-6 font-medium text-slate-800">Facturación No Fiscal (Órdenes de Compra)</td>
-                    <td className="p-4 text-center text-primary-600">✓</td>
-                    <td className="p-4 text-center text-primary-600">✓</td>
-                  </tr>
-                  <tr>
-                    <td className="p-4 pl-6 font-medium text-slate-800">Gestión de Múltiples Almacenes</td>
-                    <td className="p-4 text-center text-slate-300">✕</td>
-                    <td className="p-4 text-center text-primary-600">✓</td>
-                  </tr>
-                  <tr>
-                    <td className="p-4 pl-6 font-medium text-slate-800">Reportes de Ventas y Finanzas</td>
-                    <td className="p-4 text-center text-slate-300">Básico</td>
-                    <td className="p-4 text-center font-semibold text-primary-700">Avanzado</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+                    <Link
+                      href={`/login?plan=${plan.slug || plan.id}&facturacion=${esAnual ? 'anual' : 'mensual'}${tipoNegocio ? `&negocio=${tipoNegocio}` : ''}`}
+                      className={`group w-full text-center py-3.5 rounded-full font-bold transition-colors shadow-sm flex items-center justify-center gap-2 relative z-10 ${
+                        destacado ? 'bg-accent-400 text-ink-950 hover:bg-accent-300 shadow-md' : 'bg-slate-900 text-white hover:bg-slate-800'
+                      }`}
+                    >
+                      Seleccionar plan <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" />
+                    </Link>
+                  </div>
+                </Reveal>
+              );
+            })}
           </div>
-        </Reveal>
+        )}
 
         {/* Sección de Preguntas Frecuentes Corta */}
         <div id="faq" className="max-w-3xl mx-auto border-t border-slate-200 pt-16 pb-24">
@@ -274,8 +207,8 @@ export default function PlanesPage(): ReactElement {
                 a: 'No, el subdominio `tunombre.erpsystem.com` está 100% incluido de forma gratuita en cualquiera de nuestros planes operativos.',
               },
               {
-                q: '¿Cómo se reciben los PDFs de las órdenes?',
-                a: 'Cuando tus compradores finales cierran el pedido desde tu catálogo, el sistema genera automáticamente un formato limpio del pedido y abre el WhatsApp del cliente con el texto y link listo para que te lo envíe con un solo toque.',
+                q: '¿Los planes son distintos según mi tipo de negocio?',
+                a: 'Sí -- un restaurante, una farmacia, un taller de servicios o un contador tienen necesidades y módulos distintos, así que cada uno tiene su propia oferta de planes y precios. Elige tu tipo de negocio arriba para ver los que te corresponden.',
               },
             ].map((item, i) => (
               <Reveal key={item.q} delay={i * 0.06}>
@@ -293,5 +226,13 @@ export default function PlanesPage(): ReactElement {
 
       </div>
     </div>
+  );
+}
+
+export default function PlanesPage(): ReactElement {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-slate-50"><Loader2 className="animate-spin text-primary-600" size={32} /></div>}>
+      <PlanesContent />
+    </Suspense>
   );
 }

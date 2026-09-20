@@ -46,6 +46,16 @@ export const getRoles = async (): Promise<Rol[]> => {
 };
 
 /**
+ * Actualiza los módulos del panel ocultos para un rol (pantalla "Permisos
+ * por Rol"). Es el único campo editable de un rol -- el resto
+ * (código/nombre) lo siembra el sistema al crear el tenant.
+ */
+export const updateModulosOcultosRol = async (rolId: number, modulosOcultos: string[]): Promise<Rol> => {
+  const response = await apiPrivada.patch<Rol>(`/auth/roles/${rolId}/`, { modulos_ocultos: modulosOcultos });
+  return response.data;
+};
+
+/**
  * Obtiene la lista de sucursales del tenant.
  * @returns {Promise<Sucursal[]>}
  */

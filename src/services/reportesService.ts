@@ -30,12 +30,27 @@ export interface DashboardReporte {
     ingresos_total: string | number;
   }>;
   productosBajoStock: Array<{ nombre: string; cantidad: number }>;
+  /** Productos que, a su ritmo de venta de los últimos 30 días, se agotarían en 7 días o menos. */
+  prediccionQuiebreStock: Array<{
+    nombre: string;
+    sku: string | null;
+    cantidad: number;
+    venta_diaria_promedio: number;
+    dias_restantes: number;
+  }>;
   infoGeneral: {
     clientes: number;
     productos: number;
     ordenes_periodo: number;
     valor_inventario: string | number;
     productos_bajo_stock_count: number;
+  };
+  /** Solo presente para tenants tipo_negocio='contador' (ver `apps.contabilidad.services.obtener_metricas_dashboard_contador`). */
+  contabilidad?: {
+    empresas_activas: number;
+    asientos_contabilizados_mes: number;
+    honorarios_facturados_mes: string | number;
+    cierres_realizados: number;
   };
 }
 

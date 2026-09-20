@@ -6,6 +6,8 @@ import { ShoppingCart, Store, Search } from 'lucide-react';
 
 interface StorefrontHeroProps {
   nombreTienda: string;
+  /** Logo subido en "Datos de la Empresa" -- si no hay, se usa el ícono genérico de tienda. */
+  logoUrl?: string | null;
   totalItems: number;
   onCartClick: () => void;
   filtro: string;
@@ -15,16 +17,25 @@ interface StorefrontHeroProps {
 const EASE = [0.22, 1, 0.36, 1] as const;
 
 /** Navbar + hero de bienvenida del catálogo público: primera impresión de la tienda para el cliente. */
-export default function StorefrontHero({ nombreTienda, totalItems, onCartClick, filtro, onFiltroChange }: StorefrontHeroProps): ReactElement {
+export default function StorefrontHero({ nombreTienda, logoUrl, totalItems, onCartClick, filtro, onFiltroChange }: StorefrontHeroProps): ReactElement {
   return (
     <>
       {/* NAVBAR */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2 min-w-0">
-            <div className="w-10 h-10 bg-primary-600 rounded-xl flex items-center justify-center text-white shadow-md shrink-0">
-              <Store size={20} />
-            </div>
+            {logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element -- logo dinámico servido por el backend del tenant.
+              <img
+                src={logoUrl}
+                alt={nombreTienda}
+                className="w-10 h-10 rounded-xl object-cover shrink-0 border border-slate-200"
+              />
+            ) : (
+              <div className="w-10 h-10 bg-primary-600 rounded-xl flex items-center justify-center text-white shadow-md shrink-0">
+                <Store size={20} />
+              </div>
+            )}
             <h1 className="text-xl font-black tracking-tight uppercase text-slate-800 truncate">
               {nombreTienda}
             </h1>

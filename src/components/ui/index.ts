@@ -3,6 +3,7 @@
  * Centraliza las importaciones para mantener consistencia en toda la app.
  */
 export { default as AppModal } from './AppModal';
+export { default as ConfirmDialog } from './ConfirmDialog';
 export { Skeleton, StatCardSkeleton, TableSkeleton, CardGridSkeleton, ChartSkeleton, ListSkeleton, FormSkeleton } from './Skeleton';
 export { default as PageHeader } from './PageHeader';
 export { StatCard, EmptyState, Badge, ActionButton } from './primitives';

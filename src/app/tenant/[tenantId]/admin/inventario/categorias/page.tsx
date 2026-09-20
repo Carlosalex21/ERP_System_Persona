@@ -7,7 +7,7 @@ import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 
 import CategoriaModal from './CategoriaModal';
-import { DataTable, TableSkeleton, PageHeader, Card, EmptyState } from '@/components/ui';
+import { DataTable, TableSkeleton, PageHeader, Card, EmptyState, ConfirmDialog } from '@/components/ui';
 import {
   getCategorias,
   createCategoria,
@@ -70,15 +70,22 @@ export default function CategoriasPage(): ReactElement {
     }
   };
 
-  const eliminar = async (categoria: Categoria): Promise<void> => {
-    if (!confirm(`¿Eliminar la categoría "${categoria.nombre}"?`)) return;
+  const [categoriaAEliminar, setCategoriaAEliminar] = useState<Categoria | null>(null);
+  const [eliminandoCategoria, setEliminandoCategoria] = useState(false);
+
+  const confirmarEliminarCategoria = async (): Promise<void> => {
+    if (!categoriaAEliminar) return;
+    setEliminandoCategoria(true);
     try {
-      await deleteCategoria(categoria.id);
+      await deleteCategoria(categoriaAEliminar.id);
       toast.success('Categoría eliminada.');
+      setCategoriaAEliminar(null);
       await cargar();
     } catch (error) {
       console.error('Error eliminando categoría:', error);
       toast.error('No se pudo eliminar la categoría. Puede que tenga productos asociados.');
+    } finally {
+      setEliminandoCategoria(false);
     }
   };
 
@@ -139,7 +146,7 @@ export default function CategoriasPage(): ReactElement {
             <Pencil size={16} />
           </button>
           <button
-            onClick={() => eliminar(row.original)}
+            onClick={() => setCategoriaAEliminar(row.original)}
             className="p-2 text-slate-400 hover:text-red-500 transition-colors"
             aria-label="Eliminar categoría"
           >
@@ -199,6 +206,16 @@ export default function CategoriasPage(): ReactElement {
           cargando={saving}
         />
       )}
+
+      <ConfirmDialog
+        isOpen={!!categoriaAEliminar}
+        title="Eliminar Categoría"
+        message={`¿Eliminar la categoría "${categoriaAEliminar?.nombre}"? Esta acción no se puede deshacer.`}
+        confirmLabel="Eliminar"
+        loading={eliminandoCategoria}
+        onConfirm={confirmarEliminarCategoria}
+        onCancel={() => setCategoriaAEliminar(null)}
+      />
     </div>
   );
 }

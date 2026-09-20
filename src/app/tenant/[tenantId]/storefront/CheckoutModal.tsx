@@ -70,7 +70,16 @@ export default function CheckoutModal({
           >
             <div className="bg-primary-900 p-6 text-white flex justify-between items-center shrink-0">
               <h3 className="font-bold text-lg">Confirmar Pedido</h3>
-              <button onClick={onClose} className="p-2 hover:bg-primary-800 rounded-full">
+              {/* Deshabilitado mientras `enviando`: el pedido ya viaja al
+                  backend y no se puede cancelar -- si se dejara cerrar aquí,
+                  la respuesta llegaría más tarde con el modal ya cerrado (o
+                  reabierto para un pedido distinto), sin ninguna manera de
+                  mostrarle al cliente si su pedido se envió o no. */}
+              <button
+                onClick={onClose}
+                disabled={enviando}
+                className="p-2 hover:bg-primary-800 rounded-full disabled:opacity-40 disabled:hover:bg-transparent"
+              >
                 <X size={20} />
               </button>
             </div>

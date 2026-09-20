@@ -1,17 +1,42 @@
 "use client";
 
 import { useState, Suspense, useEffect } from 'react';
-import { Mail, Lock, User, Building, Eye, EyeOff, ArrowRight, CheckCircle2, Loader2, UserPlus, Check, X, Globe, Store, ExternalLink, ArrowLeft, Sparkles } from 'lucide-react';
+import { Mail, Lock, User, Building, Eye, EyeOff, ArrowRight, CheckCircle2, Loader2, UserPlus, Check, X, Globe, Store, ExternalLink, ArrowLeft, Sparkles, UtensilsCrossed, FlaskConical, Wrench, Calculator } from 'lucide-react';
 import Cookies from 'js-cookie';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { apiPublica } from '@/services/api';
 import { getPlanesPublicos, getMiCliente } from '@/services/platformBillingService';
-import { getSharedCookieDomain } from '@/utils/cookieDomain';
+import { getSharedCookieDomain, cookieSecureFlag } from '@/utils/cookieDomain';
+import { tenantUrl } from '@/utils/tenantUrl';
 import Reveal from '@/components/marketing/Reveal';
 import FloatingChip from '@/components/marketing/FloatingChip';
 
 type View = 'select_type' | 'register' | 'owner_login';
-type BusinessType = 'retail' | 'b2b';
+type BusinessType = 'retail' | 'b2b' | 'restaurante' | 'farmacia' | 'servicios' | 'contador';
+
+const TIPOS_NEGOCIO: {
+  tipo: BusinessType;
+  icon: typeof Store;
+  color: string;
+  titulo: string;
+  descripcion: string;
+}[] = [
+  { tipo: 'retail', icon: Store, color: 'primary', titulo: 'Tienda al Detal', descripcion: 'POS, tiendas físicas y e-commerce tradicional.' },
+  { tipo: 'restaurante', icon: UtensilsCrossed, color: 'accent', titulo: 'Restaurante / Bar', descripcion: 'Mesas, pedidos y cuenta dividida por QR.' },
+  { tipo: 'farmacia', icon: FlaskConical, color: 'emerald', titulo: 'Farmacia', descripcion: 'Control de lotes y alertas de vencimiento.' },
+  { tipo: 'servicios', icon: Wrench, color: 'amber', titulo: 'Taller / Servicios', descripcion: 'Órdenes de servicio, técnicos y entregas.' },
+  { tipo: 'contador', icon: Calculator, color: 'violet', titulo: 'Contador / Firma Contable', descripcion: 'Plan de cuentas, asientos, libros y estados financieros por cliente.' },
+  { tipo: 'b2b', icon: Building, color: 'indigo', titulo: 'Fabricante / Mayorista', descripcion: 'Red de clientes mayoristas con precios especiales.' },
+];
+
+const COLOR_CLASSES: Record<string, { activo: string; icono: string }> = {
+  primary: { activo: 'border-primary-500 bg-primary-50', icono: 'text-primary-600' },
+  accent: { activo: 'border-accent-500 bg-accent-50', icono: 'text-accent-600' },
+  emerald: { activo: 'border-emerald-500 bg-emerald-50', icono: 'text-emerald-600' },
+  amber: { activo: 'border-amber-500 bg-amber-50', icono: 'text-amber-600' },
+  indigo: { activo: 'border-indigo-500 bg-indigo-50', icono: 'text-indigo-600' },
+  violet: { activo: 'border-violet-500 bg-violet-50', icono: 'text-violet-600' },
+};
 type PaisCodigo = 'VE' | 'CO' | 'PE';
 
 /**
@@ -87,6 +112,10 @@ function AuthContent() {
   const [email, setEmail] = useState('');
   const [nombreEmpresa, setNombreEmpresa] = useState('');
   const [subdominio, setSubdominio] = useState('');
+  // Solo se usa/envía si businessType === 'restaurante' -- cada local tiene
+  // un número de mesas distinto, así que lo indica el propio dueño en vez
+  // de sembrar una cantidad fija (ver TenantService.create_tenant).
+  const [cantidadMesas, setCantidadMesas] = useState(6);
 
   // Estados de Validación de Subdominio
   const [validandoSubdominio, setValidandoSubdominio] = useState(false);
@@ -173,13 +202,13 @@ function AuthContent() {
   const procesarLoginDueno = async () => {
     const res = await apiPublica.post('/auth/token/', { username: usuarioLogin, password });
     const domain = getSharedCookieDomain();
-    Cookies.set('access_token', res.data.access, { expires: 1, domain });
-    Cookies.set('refresh_token', res.data.refresh, { expires: 7, domain });
+    Cookies.set('access_token', res.data.access, { expires: 1, domain, secure: cookieSecureFlag(), sameSite: 'Lax' });
+    Cookies.set('refresh_token', res.data.refresh, { expires: 7, domain, secure: cookieSecureFlag(), sameSite: 'Lax' });
 
     try {
       const cliente = await getMiCliente();
       if (cliente.subscription?.is_active) {
-        window.location.href = `http://${cliente.schema_name}.localhost:3000/admin`;
+        window.location.href = tenantUrl(cliente.schema_name, '/admin');
       } else {
         const planSlug = planElegido || 'emprendedor';
         router.push(`/pago?plan=${planSlug}&subdominio=${cliente.schema_name}`);
@@ -227,17 +256,25 @@ function AuthContent() {
       ...(planId ? { plan_id: planId } : {}),
       tipo_negocio: businessType,
       pais_codigo: paisCodigo,
+      ...(businessType === 'restaurante' ? { cantidad_mesas: cantidadMesas } : {}),
     };
 
     try {
-      await apiPublica.post('/tenants/register/', payload);
+      // Timeout más largo que el default (20s) SOLO para este request:
+      // crear un tenant corre TODAS las migraciones en un esquema Postgres
+      // nuevo (no es un POST normal) -- cuantos más módulos tiene el
+      // sistema, más tarda. Con el timeout default, un registro real podía
+      // completarse en el servidor (el tenant SÍ quedaba creado) pero el
+      // navegador ya había cortado la conexión, dejando al usuario viendo
+      // la animación de "Desplegando tu ecosistema" para siempre.
+      await apiPublica.post('/tenants/register/', payload, { timeout: 60000 });
       // Auto-login: el flujo de pago de suscripción (/pago) necesita una
       // sesión autenticada del dueño del tenant para saber a quién cobrarle.
       try {
         const tokenRes = await apiPublica.post('/auth/token/', { username: usernameRegistro, password });
         const domain = getSharedCookieDomain();
-        Cookies.set('access_token', tokenRes.data.access, { expires: 1, domain });
-        Cookies.set('refresh_token', tokenRes.data.refresh, { expires: 7, domain });
+        Cookies.set('access_token', tokenRes.data.access, { expires: 1, domain, secure: cookieSecureFlag(), sameSite: 'Lax' });
+        Cookies.set('refresh_token', tokenRes.data.refresh, { expires: 7, domain, secure: cookieSecureFlag(), sameSite: 'Lax' });
       } catch (loginError) {
         console.error('No se pudo iniciar sesión automáticamente tras el registro:', loginError);
       }
@@ -343,7 +380,7 @@ function AuthContent() {
                 <h4 className="font-bold text-slate-900 text-sm">Catálogo Público Online</h4>
                 <p className="text-xs text-slate-400 mt-1 mb-4">La dirección web donde tus clientes comprarán tus productos.</p>
               </div>
-              <a href={`http://${subdominio}.localhost:3000`} target="_blank" rel="noopener noreferrer" className="w-full py-2.5 bg-white border border-slate-200 text-slate-700 font-bold text-xs rounded-xl flex items-center justify-center gap-2 shadow-sm hover:bg-slate-50 transition-colors">
+              <a href={tenantUrl(subdominio)} target="_blank" rel="noopener noreferrer" className="w-full py-2.5 bg-white border border-slate-200 text-slate-700 font-bold text-xs rounded-xl flex items-center justify-center gap-2 shadow-sm hover:bg-slate-50 transition-colors">
                 Ver Catálogo <ExternalLink size={14} />
               </a>
             </div>
@@ -356,7 +393,7 @@ function AuthContent() {
                 <h4 className="font-bold text-slate-900 text-sm">Panel Administrativo</h4>
                 <p className="text-xs text-slate-400 mt-1 mb-4">Administra tu inventario, configura almacenes, sucursales e IVA.</p>
               </div>
-              <a href={`http://${subdominio}.localhost:3000/login`} className="w-full py-2.5 bg-primary-600 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 shadow-md hover:bg-primary-700 transition-transform active:scale-95">
+              <a href={tenantUrl(subdominio, '/login')} className="w-full py-2.5 bg-primary-600 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 shadow-md hover:bg-primary-700 transition-transform active:scale-95">
                 Ingresar al Admin <ArrowRight size={14} />
               </a>
             </div>
@@ -488,22 +525,24 @@ function AuthContent() {
               </div>
 
               <h2 className="text-xl font-bold text-slate-800 mb-2">Elige tu Modelo de Negocio</h2>
-              <p className="text-slate-500 mb-6 text-sm">Selecciona cómo operarás para configurar tu sistema.</p>
-              <div className="space-y-4">
-                <div onClick={() => handleSelectType('retail')} className="p-5 border-2 border-slate-200 rounded-xl text-left hover:border-primary-500 hover:bg-primary-50 cursor-pointer transition-all flex items-center gap-4">
-                  <Store size={32} className="mx-auto text-primary-600 shrink-0" />
-                  <div>
-                    <h3 className="font-bold text-slate-800">Tienda al Detal (Retail)</h3>
-                    <p className="text-xs text-slate-500 mt-1">Vende directamente al consumidor final. Ideal para POS, tiendas físicas y e-commerce tradicional.</p>
-                  </div>
-                </div>
-                <div onClick={() => handleSelectType('b2b')} className="p-5 border-2 border-slate-200 rounded-xl text-left hover:border-indigo-500 hover:bg-indigo-50 cursor-pointer transition-all flex items-center gap-4">
-                  <Building size={32} className="mx-auto text-indigo-600 shrink-0" />
-                  <div>
-                    <h3 className="font-bold text-slate-800">Fabricante / Mayorista (B2B)</h3>
-                    <p className="text-xs text-slate-500 mt-1">Gestiona tu red de clientes mayoristas, con precios y condiciones especiales.</p>
-                  </div>
-                </div>
+              <p className="text-slate-500 mb-6 text-sm">El sistema habilita los módulos que necesitas según lo que elijas -- lo puedes ajustar después.</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {TIPOS_NEGOCIO.map(({ tipo, icon: Icon, color, titulo, descripcion }) => (
+                  <button
+                    key={tipo}
+                    type="button"
+                    onClick={() => handleSelectType(tipo)}
+                    className={`p-4 border-2 rounded-xl text-left cursor-pointer transition-all flex items-start gap-3 ${
+                      businessType === tipo ? COLOR_CLASSES[color].activo : 'border-slate-200 hover:border-slate-300'
+                    }`}
+                  >
+                    <Icon size={26} className={`shrink-0 ${COLOR_CLASSES[color].icono}`} />
+                    <div>
+                      <h3 className="font-bold text-slate-800 text-sm">{titulo}</h3>
+                      <p className="text-xs text-slate-500 mt-1">{descripcion}</p>
+                    </div>
+                  </button>
+                ))}
               </div>
             </div>
           )}
@@ -565,6 +604,24 @@ function AuthContent() {
                     <input type="text" value={nombreEmpresa} onChange={e => setNombreEmpresa(e.target.value)} placeholder="Ej. Inversiones Power" className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border rounded-lg text-sm focus:outline-none" required />
                   </div>
                 </div>
+
+                {businessType === 'restaurante' && (
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1">¿Cuántas mesas tiene tu local?</label>
+                    <div className="relative">
+                      <UtensilsCrossed className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                      <input
+                        type="number"
+                        min={1}
+                        max={200}
+                        value={cantidadMesas}
+                        onChange={e => setCantidadMesas(Math.max(1, Math.min(200, Number(e.target.value) || 1)))}
+                        className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border rounded-lg text-sm focus:outline-none"
+                      />
+                    </div>
+                    <p className="mt-1 text-[11px] text-slate-400">Las creamos numeradas (Mesa 1, Mesa 2...) -- puedes renombrarlas o agregar/quitar después desde el panel.</p>
+                  </div>
+                )}
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Tu Enlace Web (Subdominio)</label>

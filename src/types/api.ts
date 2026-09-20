@@ -135,8 +135,12 @@ export type CategoriaRequest = Omit<Categoria, 'id' | 'slug' | 'padre_nombre'>;
 
 export interface Rol {
   id: number;
+  codigo: string | null;
   nombre: string;
-  // NOTA: El esquema de Rol no está en el YAML, se asume esta estructura.
+  descripcion: string | null;
+  activo: boolean;
+  /** Códigos de módulo del panel ocultos para este rol -- ver `utils/modulosPanel.ts`. */
+  modulos_ocultos: string[];
 }
 
 export interface Sucursal {
@@ -215,13 +219,15 @@ export interface Producto {
   stock_minimo?: number | null;
   codigo_barras?: string | null;
   disponible_online?: boolean | null;
+  /** Insumo/materia prima interna (ej. papas en un restaurante) -- se excluye de los selectores de venta (POS, Mesas). */
+  es_insumo?: boolean;
   descuento?: string | null;
   slug?: string | null;
   sku?: string | null;
   peso?: string | null;
   dimensiones?: string | null;
   imagen?: string | null; // URL de la imagen
-  tipo: 'simple' | 'variable';
+  tipo: 'simple' | 'variable' | 'servicio';
   activo: boolean;
   almacen?: number | null;
   configuracion_iva?: number | null;
@@ -773,6 +779,8 @@ export interface Plan {
   limite_productos: number | null;
   descripcion: string;
   activo: boolean;
+  /** Tipos de negocio a los que aplica (ver TipoNegocio en utils/modulosPanel). Vacío = aplica a todos. */
+  tipos_negocio: string[];
 }
 
 /** Versión resumida de `Plan` embebida en la suscripción del cliente (sin `descripcion`/`activo`). */

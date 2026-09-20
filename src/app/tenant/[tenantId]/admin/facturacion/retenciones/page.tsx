@@ -8,7 +8,7 @@ import toast from 'react-hot-toast';
 import { Retencion } from '@/types/api';
 import { getRetenciones, deleteRetencion } from '@/services/facturacionService';
 import { getApiErrorMessages, parseDecimal } from '@/utils/helpers';
-import { DataTable, PageHeader, Card, TableSkeleton } from '@/components/ui';
+import { DataTable, PageHeader, Card, TableSkeleton, ConfirmDialog } from '@/components/ui';
 import RetencionModal from './RetencionModal';
 
 const RETENCION_LABELS: Record<string, string> = {
@@ -59,12 +59,19 @@ export default function RetencionesPage(): ReactElement {
     setModalAbierto(true);
   }, []);
 
-  const eliminar = useCallback(
-    async (retencion: Retencion) => {
-      if (!window.confirm(`¿Eliminar la retención #${retencion.id}?`)) return;
+  const [retencionAEliminar, setRetencionAEliminar] = useState<Retencion | null>(null);
+  const [eliminandoRetencion, setEliminandoRetencion] = useState(false);
+
+  const eliminar = useCallback((retencion: Retencion) => setRetencionAEliminar(retencion), []);
+
+  const confirmarEliminarRetencion = useCallback(
+    async () => {
+      if (!retencionAEliminar) return;
+      setEliminandoRetencion(true);
       try {
-        await deleteRetencion(retencion.id);
+        await deleteRetencion(retencionAEliminar.id);
         toast.success('Retención eliminada.');
+        setRetencionAEliminar(null);
         loadData();
       } catch (error) {
         const messages = getApiErrorMessages(error);
@@ -73,9 +80,11 @@ export default function RetencionesPage(): ReactElement {
         } else {
           toast.error('Error al eliminar la retención.');
         }
+      } finally {
+        setEliminandoRetencion(false);
       }
     },
-    [loadData],
+    [retencionAEliminar, loadData],
   );
 
   const columns = useMemo<ColumnDef<Retencion>[]>(() => [
@@ -154,6 +163,16 @@ export default function RetencionesPage(): ReactElement {
           }}
         />
       )}
+
+      <ConfirmDialog
+        isOpen={!!retencionAEliminar}
+        title="Eliminar Retención"
+        message={`¿Eliminar la retención #${retencionAEliminar?.id}? Esta acción no se puede deshacer.`}
+        confirmLabel="Eliminar"
+        loading={eliminandoRetencion}
+        onConfirm={confirmarEliminarRetencion}
+        onCancel={() => setRetencionAEliminar(null)}
+      />
     </div>
   );
 }

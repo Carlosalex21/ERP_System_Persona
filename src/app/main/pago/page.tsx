@@ -12,6 +12,7 @@ import {
   getMiCliente, getPlanesPublicos, getPlatformPaymentInfo, getPeriodosSuscripcion, crearPagoSuscripcion,
 } from '@/services/platformBillingService';
 import { MiCliente, MiSubscripcion, Plan, PlatformPaymentInfo, MetodoPagoSuscripcion, PeriodoSuscripcion, PeriodoSuscripcionInfo } from '@/types/api';
+import { tenantUrl } from '@/utils/tenantUrl';
 
 /** Beneficios adicionales (marketing) por plan, más allá de los límites numéricos que ya vienen del backend. */
 const BENEFICIOS_EXTRA: Record<string, string[]> = {
@@ -268,10 +269,10 @@ function PagoContent(): ReactElement {
             </p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <a href={`http://${subdominio || cliente?.schema_name}.localhost:3000`} target="_blank" rel="noopener noreferrer" className="w-full py-2.5 bg-white border border-slate-200 text-slate-700 font-bold text-xs rounded-xl flex items-center justify-center gap-2 shadow-sm hover:bg-slate-50 transition-colors">
+            <a href={tenantUrl(subdominio || cliente?.schema_name || '')} target="_blank" rel="noopener noreferrer" className="w-full py-2.5 bg-white border border-slate-200 text-slate-700 font-bold text-xs rounded-xl flex items-center justify-center gap-2 shadow-sm hover:bg-slate-50 transition-colors">
               Ver Catálogo <ExternalLink size={14} />
             </a>
-            <a href={`http://${subdominio || cliente?.schema_name}.localhost:3000/login`} className="w-full py-2.5 bg-primary-600 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 shadow-md hover:bg-primary-700 transition-colors">
+            <a href={tenantUrl(subdominio || cliente?.schema_name || '', '/login')} className="w-full py-2.5 bg-primary-600 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 shadow-md hover:bg-primary-700 transition-colors">
               Ingresar al Admin <ArrowRight size={14} />
             </a>
           </div>
@@ -309,10 +310,10 @@ function PagoContent(): ReactElement {
           </div>
           {tienePlanPago && (
             <div className="grid grid-cols-2 gap-3">
-              <a href={`http://${subdominio || cliente?.schema_name}.localhost:3000`} target="_blank" rel="noopener noreferrer" className="py-2 px-4 bg-white border border-slate-200 text-slate-700 font-bold text-xs rounded-xl flex items-center justify-center gap-2 shadow-sm hover:bg-slate-50 transition-colors">
+              <a href={tenantUrl(subdominio || cliente?.schema_name || '')} target="_blank" rel="noopener noreferrer" className="py-2 px-4 bg-white border border-slate-200 text-slate-700 font-bold text-xs rounded-xl flex items-center justify-center gap-2 shadow-sm hover:bg-slate-50 transition-colors">
                 Ver Catálogo <ExternalLink size={14} />
               </a>
-              <a href={`http://${subdominio || cliente?.schema_name}.localhost:3000/login`} className="py-2 px-4 bg-primary-600 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 shadow-md hover:bg-primary-700 transition-colors">
+              <a href={tenantUrl(subdominio || cliente?.schema_name || '', '/login')} className="py-2 px-4 bg-primary-600 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 shadow-md hover:bg-primary-700 transition-colors">
                 Ir al Admin <ArrowRight size={14} />
               </a>
             </div>
@@ -487,7 +488,7 @@ function PagoContent(): ReactElement {
 
           {esPrueba && (
             <div className="text-center">
-              <a href={`http://${subdominio || cliente?.schema_name}.localhost:3000/login`} className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-400 hover:text-primary-600">
+              <a href={tenantUrl(subdominio || cliente?.schema_name || '', '/login')} className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-400 hover:text-primary-600">
                 <Store size={14} /> Prefiero seguir con el plan de prueba por ahora
               </a>
             </div>

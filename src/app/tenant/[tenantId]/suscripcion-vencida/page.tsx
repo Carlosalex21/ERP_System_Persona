@@ -5,6 +5,7 @@ import { AlertTriangle, ArrowRight, LogOut, Loader2 } from 'lucide-react';
 import Cookies from 'js-cookie';
 import { getSharedCookieDomain } from '@/utils/cookieDomain';
 import { apiPrivada } from '@/services/api';
+import { mainUrl } from '@/utils/tenantUrl';
 import type { TenantProfile } from '@/context/SessionContext';
 
 /**
@@ -33,7 +34,7 @@ export default function SuscripcionVencidaPage({ params }: { params: Promise<{ t
     window.location.href = 'login';
   };
 
-  const hrefPago = `http://localhost:3000/pago?subdominio=${tenantId}`;
+  const hrefPago = mainUrl(`/pago?subdominio=${tenantId}`);
 
   return (
     <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4">

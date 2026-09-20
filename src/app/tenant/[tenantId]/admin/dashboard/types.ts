@@ -16,3 +16,12 @@ export interface ProductoBajoStock {
   cantidad: number;
   sku?: string;
 }
+
+/** Producto en riesgo de agotarse pronto según su ritmo de venta reciente -- ver `dashboard_service.obtener_prediccion_quiebre_stock`. */
+export interface PrediccionQuiebreStock {
+  nombre: string;
+  sku: string | null;
+  cantidad: number;
+  venta_diaria_promedio: number;
+  dias_restantes: number;
+}

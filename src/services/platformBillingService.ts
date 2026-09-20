@@ -22,9 +22,15 @@ import {
   PeriodoSuscripcionInfo,
 } from '@/types/api';
 
-/** Lista pública de planes activos (sin autenticación). */
-export const getPlanesPublicos = async (): Promise<Plan[]> => {
-  const response = await apiPublica.get<Plan[]>('/tenants/plans/');
+/**
+ * Lista pública de planes activos (sin autenticación). `tipoNegocio` filtra
+ * a los planes que aplican a ese tipo (más los que aplican a todos) -- ver
+ * `Plan.tipos_negocio`.
+ */
+export const getPlanesPublicos = async (tipoNegocio?: string): Promise<Plan[]> => {
+  const response = await apiPublica.get<Plan[]>('/tenants/plans/', {
+    params: tipoNegocio ? { tipo_negocio: tipoNegocio } : undefined,
+  });
   return response.data;
 };
 

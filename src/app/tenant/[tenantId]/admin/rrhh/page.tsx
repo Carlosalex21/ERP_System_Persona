@@ -8,7 +8,7 @@ import toast from 'react-hot-toast';
 import { getManagedUsers, getSucursales, getRoles, updateManagedUser } from '@/services/rrhhService';
 import { UserManaged, Rol, Sucursal } from '@/types/api';
 import { getNombreById } from '@/utils/helpers';
-import { DataTable, PageHeader, Card, TableSkeleton } from '@/components/ui';
+import { DataTable, PageHeader, Card, TableSkeleton, ConfirmDialog } from '@/components/ui';
 import UserModal from './components/UserModal';
 
 /**
@@ -67,14 +67,21 @@ export default function RrhhPage(): ReactElement {
   // verdad dejaría esos registros históricos sin esa atribución. Se
   // desactiva en su lugar -- ya no puede iniciar sesión, pero su historial
   // se mantiene intacto.
-  const desactivarUsuario = async (usuario: UserManaged): Promise<void> => {
-    if (!confirm(`¿Desactivar a ${usuario.first_name} ${usuario.last_name}? Ya no podrá iniciar sesión.`)) return;
+  const [usuarioADesactivar, setUsuarioADesactivar] = useState<UserManaged | null>(null);
+  const [desactivando, setDesactivando] = useState(false);
+
+  const confirmarDesactivarUsuario = async (): Promise<void> => {
+    if (!usuarioADesactivar) return;
+    setDesactivando(true);
     try {
-      await updateManagedUser(usuario.id, { is_active: false });
+      await updateManagedUser(usuarioADesactivar.id, { is_active: false });
       toast.success('Empleado desactivado.');
+      setUsuarioADesactivar(null);
       await fetchData();
     } catch {
       toast.error('No se pudo desactivar al empleado.');
+    } finally {
+      setDesactivando(false);
     }
   };
 
@@ -132,7 +139,7 @@ export default function RrhhPage(): ReactElement {
           </button>
           {row.original.is_active && (
             <button
-              onClick={() => desactivarUsuario(row.original)}
+              onClick={() => setUsuarioADesactivar(row.original)}
               className="p-2 text-slate-400 hover:text-red-500 transition-colors"
               aria-label="Desactivar empleado"
             >
@@ -185,6 +192,16 @@ export default function RrhhPage(): ReactElement {
           usuario={editandoUsuario}
         />
       )}
+
+      <ConfirmDialog
+        isOpen={!!usuarioADesactivar}
+        title="Desactivar Empleado"
+        message={`¿Desactivar a ${usuarioADesactivar?.first_name} ${usuarioADesactivar?.last_name}? Ya no podrá iniciar sesión.`}
+        confirmLabel="Desactivar"
+        loading={desactivando}
+        onConfirm={confirmarDesactivarUsuario}
+        onCancel={() => setUsuarioADesactivar(null)}
+      />
     </div>
   );
 }

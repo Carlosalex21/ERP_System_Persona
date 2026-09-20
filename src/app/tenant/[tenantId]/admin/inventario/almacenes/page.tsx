@@ -8,7 +8,7 @@ import toast from 'react-hot-toast';
 import AlmacenModal from './AlmacenModal';
 import { getAlmacenes, createAlmacen, updateAlmacen, deleteAlmacen } from '@/services/inventoryService';
 import type { Almacen, AlmacenRequest } from '@/types/api';
-import { PageHeader, Card, EmptyState, CardGridSkeleton, Stagger, StaggerItem } from '@/components/ui';
+import { PageHeader, Card, EmptyState, CardGridSkeleton, Stagger, StaggerItem, ConfirmDialog } from '@/components/ui';
 
 export default function AlmacenesPage(): ReactElement {
   const [almacenes, setAlmacenes] = useState<Almacen[]>([]);
@@ -64,15 +64,22 @@ export default function AlmacenesPage(): ReactElement {
     }
   };
 
-  const eliminar = async (almacen: Almacen): Promise<void> => {
-    if (!confirm(`¿Eliminar el almacén "${almacen.nombre}"?`)) return;
+  const [almacenAEliminar, setAlmacenAEliminar] = useState<Almacen | null>(null);
+  const [eliminandoAlmacen, setEliminandoAlmacen] = useState(false);
+
+  const confirmarEliminarAlmacen = async (): Promise<void> => {
+    if (!almacenAEliminar) return;
+    setEliminandoAlmacen(true);
     try {
-      await deleteAlmacen(almacen.id);
+      await deleteAlmacen(almacenAEliminar.id);
       toast.success('Almacén eliminado.');
+      setAlmacenAEliminar(null);
       await cargar();
     } catch (error) {
       console.error('Error eliminando almacén:', error);
       toast.error('No se pudo eliminar el almacén. Puede que tenga inventario asociado.');
+    } finally {
+      setEliminandoAlmacen(false);
     }
   };
 
@@ -145,7 +152,7 @@ export default function AlmacenesPage(): ReactElement {
                       <Pencil size={15} />
                     </button>
                     <button
-                      onClick={() => eliminar(almacen)}
+                      onClick={() => setAlmacenAEliminar(almacen)}
                       className="p-1.5 text-slate-400 hover:text-red-500 transition-colors"
                       aria-label="Eliminar almacén"
                     >
@@ -179,6 +186,16 @@ export default function AlmacenesPage(): ReactElement {
           cargando={saving}
         />
       )}
+
+      <ConfirmDialog
+        isOpen={!!almacenAEliminar}
+        title="Eliminar Almacén"
+        message={`¿Eliminar el almacén "${almacenAEliminar?.nombre}"? Esta acción no se puede deshacer.`}
+        confirmLabel="Eliminar"
+        loading={eliminandoAlmacen}
+        onConfirm={confirmarEliminarAlmacen}
+        onCancel={() => setAlmacenAEliminar(null)}
+      />
     </div>
   );
 }

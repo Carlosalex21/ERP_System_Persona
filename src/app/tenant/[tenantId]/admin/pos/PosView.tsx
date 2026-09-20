@@ -12,7 +12,7 @@ import { Skeleton } from '@/components/ui';
 import { useNotify } from '@/hooks/useNotify';
 import { getProductos } from '@/services/inventoryService';
 import { getClientes } from '@/services/clientesService';
-import { createFactura, registrarPago } from '@/services/facturacionService';
+import { createFactura, registrarPago, getMetodosDePago } from '@/services/facturacionService';
 import {
   getMonedas,
   getTasasCambioActual,
@@ -101,12 +101,24 @@ export default function PosView({ tenantId }: PosViewProps): ReactElement {
         getTasasCambioActual(),
         getIvas(),
         getVendedores(),
+        // Se descarta el resultado aquí a propósito: solo nos interesa que
+        // `conRespaldoOffline` deje los métodos de pago en caché. Si no se
+        // precarga junto al resto, un corte de conexión ANTES de la primera
+        // venta del turno deja el modal de cobro sin ningún método
+        // seleccionable (no hay con qué caer de vuelta) y la venta offline
+        // queda bloqueada -- PaymentModal ya la vuelve a pedir al abrirse.
+        getMetodosDePago(),
       ]);
 
       let monedasData: Moneda[] = [];
       if (productsRes.status === 'fulfilled') {
-        setProducts(productsRes.value);
-        setFilteredProducts(productsRes.value);
+        // Los insumos internos (materia prima -- ej. papas, un repuesto
+        // genérico) se compran y se controlan como stock normal, pero no son
+        // algo que se venda tal cual desde el mostrador -- no deben aparecer
+        // en la grilla de venta del POS.
+        const vendibles = productsRes.value.filter((p) => !p.es_insumo);
+        setProducts(vendibles);
+        setFilteredProducts(vendibles);
       }
       if (clientsRes.status === 'fulfilled') setClients(clientsRes.value);
       if (monedasRes.status === 'fulfilled') {

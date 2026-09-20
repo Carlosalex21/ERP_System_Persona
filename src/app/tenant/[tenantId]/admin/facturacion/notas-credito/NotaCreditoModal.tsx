@@ -7,6 +7,7 @@ import toast from 'react-hot-toast';
 import { Factura, NotaCredito, NotaCreditoRequest } from '@/types/api';
 import { createNotaCredito, updateNotaCredito } from '@/services/facturacionService';
 import { getApiErrorMessages, parseDecimal, formatCurrency } from '@/utils/helpers';
+import { extraerBaseImponible, roundMoney } from '@/utils/taxCalculator';
 import { AppModal, ActionButton } from '@/components/ui';
 
 interface NotaCreditoModalProps {
@@ -64,9 +65,16 @@ export default function NotaCreditoModal({
       ? parseDecimal(facturaSeleccionada.iva_total) / parseDecimal(facturaSeleccionada.base_imponible)
       : 0.16;
 
-  const previewBase = parseDecimal(monto);
-  const previewIva = previewBase * ratioIva;
-  const previewTotal = previewBase + previewIva;
+  // `monto` es el TOTAL de la nota (con IVA incluido, igual que el total de
+  // la factura que la origina -- ver `_proporcionar` en `notas_service.py`,
+  // que reparte proporcionalmente la base/IVA de la factura según
+  // `monto / factura.total`) -- así que aquí se DESGLOSA, nunca se le suma
+  // IVA encima. Antes esta previsualización trataba `monto` como si fuera
+  // la base imponible y le sumaba el IVA, mostrando un total mayor al que
+  // el backend en verdad iba a registrar.
+  const previewTotal = parseDecimal(monto);
+  const previewBase = extraerBaseImponible(previewTotal, ratioIva * 100);
+  const previewIva = roundMoney(previewTotal - previewBase);
 
   const onSubmit = async (values: NotaCreditoFormValues) => {
     const payload: NotaCreditoRequest = {

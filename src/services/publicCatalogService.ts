@@ -25,6 +25,8 @@ export interface PublicProducto {
   /** Stock realmente vendible (cantidad total menos reservas vigentes). */
   stock_disponible: number;
   imagen_url?: string | null;
+  categoria_id?: number | null;
+  categoria_nombre?: string | null;
 }
 
 /** Item de un pedido público. */
@@ -85,6 +87,11 @@ const TENANT_BASE_DOMAIN = process.env.NEXT_PUBLIC_TENANT_DOMAIN || `localhost:$
 function baseUrl(subdominio: string): string {
   if (typeof window === 'undefined') {
     return `${API_ORIGIN}/api/v1`;
+  }
+  // Producción: mismo origen que el frontend, el reverse proxy enruta
+  // `/api/` al backend -- ver el mismo criterio en `services/api.ts`.
+  if (process.env.NEXT_PUBLIC_API_SAME_ORIGIN === 'true') {
+    return '/api/v1';
   }
   return `http://${subdominio}.localhost:${DEV_PORT}/api/v1`;
 }
@@ -161,10 +168,13 @@ export const getMetodosPagoPublico = async (subdominio: string): Promise<PublicM
   return response.data.data;
 };
 
-/** Nombre comercial y teléfono de contacto del tenant (para el botón de WhatsApp). */
+/** Nombre comercial, teléfono de contacto y logo del tenant (para el hero del catálogo y el botón de WhatsApp). */
 export interface PublicEmpresaInfo {
   nombre_comercial: string;
   telefono: string | null;
+  logo_url: string | null;
+  /** Para adaptar el copy del storefront (ej. "Menú" en vez de "Catálogo" para un restaurante). */
+  tipo_negocio?: 'retail' | 'b2b' | 'restaurante' | 'farmacia' | 'servicios' | null;
 }
 
 export const getEmpresaInfoPublico = async (subdominio: string): Promise<PublicEmpresaInfo> => {
@@ -203,16 +213,21 @@ export const getTasasPublico = async (subdominio: string): Promise<Record<string
  * URL de Stripe a la que redirigir al cliente para pagar con tarjeta.
  * @param {string} subdominio - El subdominio/tenantId.
  * @param {number} facturaId - ID del pedido (devuelto por `crearPedidoPublico`).
+ * @param {string} accessToken - `access_token` devuelto por `crearPedidoPublico`
+ *   para ESE mismo pedido -- prueba que quien pide la sesión de pago es
+ *   quien creó el pedido, no un visitante adivinando `facturaId` (ver el
+ *   mismo comentario en el backend, `CrearSesionStripeView`).
  */
 export const crearSesionStripe = async (
   subdominio: string,
   facturaId: number,
+  accessToken: string,
 ): Promise<{ checkout_url: string }> => {
   const successUrl = `${window.location.origin}/${subdominio}?pago=exitoso`;
   const cancelUrl = `${window.location.origin}/${subdominio}?pago=cancelado`;
   const response = await axios.post<ApiEnvelope<{ checkout_url: string }>>(
     `${baseUrl(subdominio)}/public/pagos/stripe/sesion/`,
-    { factura_id: facturaId, success_url: successUrl, cancel_url: cancelUrl },
+    { factura_id: facturaId, access_token: accessToken, success_url: successUrl, cancel_url: cancelUrl },
     { headers: tenantHeaders(subdominio) },
   );
   return response.data.data;

@@ -82,6 +82,27 @@ export async function leerCache<T>(clave: string): Promise<T | null> {
   }
 }
 
+/**
+ * Borra el caché de datos de referencia (clientes, precios, etc.) -- se
+ * llama al cerrar sesión. Un POS es normalmente un terminal COMPARTIDO
+ * entre varios cajeros por turno (ver `cajaService`: el turno de caja es
+ * por usuario, no por terminal); sin esto, el nombre/teléfono/dirección de
+ * cada cliente y toda la lista de precios quedaban en IndexedDB sin
+ * límite de tiempo, legibles por el siguiente cajero que use el mismo
+ * navegador. NO toca `cola_ventas` a propósito: una venta hecha sin
+ * conexión debe sobrevivir el cierre de sesión hasta que de verdad se
+ * sincronice con el backend, la haya hecho el cajero que cierra sesión o
+ * el que entra después.
+ */
+export async function limpiarCacheReferencia(): Promise<void> {
+  try {
+    await conStore(STORE_CACHE, 'readwrite', (store) => store.clear());
+  } catch {
+    // Igual que el resto de este archivo: si IndexedDB falla, no debe
+    // romper el flujo de logout.
+  }
+}
+
 // --- Cola de ventas pendientes de sincronizar ---
 
 export type EstadoSyncVenta = 'pendiente' | 'sincronizando' | 'error';

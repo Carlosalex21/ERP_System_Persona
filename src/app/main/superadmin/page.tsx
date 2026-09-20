@@ -9,7 +9,9 @@ import {
   Wallet, Smartphone, CheckCircle2, XCircle, Clock, Lock, User as UserIcon, Sliders, Eye, EyeOff,
 } from 'lucide-react';
 import { apiPrivada, apiPublica } from '@/services/api';
-import { getSharedCookieDomain } from '@/utils/cookieDomain';
+import { getSharedCookieDomain, cookieSecureFlag } from '@/utils/cookieDomain';
+import { getApiErrorMessages } from '@/utils/helpers';
+import { ConfirmDialog } from '@/components/ui';
 import {
   getSubscriptionPayments, confirmarPagoSuscripcion, rechazarPagoSuscripcion,
   getPlatformPaymentConfig, updatePlatformPaymentConfig,
@@ -57,6 +59,7 @@ export default function SuperAdminPanel() {
   const [formPlan, setFormPlan] = useState<{
     nombre: string; slug: string; descripcion: string; precio: string;
     limite_usuarios: number; limite_sucursales: number; limite_productos: number | null; activo: boolean;
+    tipos_negocio: string[];
   }>({
     nombre: '',
     slug: '',
@@ -65,7 +68,8 @@ export default function SuperAdminPanel() {
     limite_usuarios: 100,
     limite_sucursales: 10,
     limite_productos: null,
-    activo: true
+    activo: true,
+    tipos_negocio: [],
   });
 
   useEffect(() => {
@@ -91,8 +95,8 @@ export default function SuperAdminPanel() {
     try {
       const res = await apiPublica.post('/auth/token/', { username: usuarioLogin, password: passwordLogin });
       const domain = getSharedCookieDomain();
-      Cookies.set('access_token', res.data.access, { expires: 1, domain });
-      Cookies.set('refresh_token', res.data.refresh, { expires: 7, domain });
+      Cookies.set('access_token', res.data.access, { expires: 1, domain, secure: cookieSecureFlag(), sameSite: 'Lax' });
+      Cookies.set('refresh_token', res.data.refresh, { expires: 7, domain, secure: cookieSecureFlag(), sameSite: 'Lax' });
       // Verificación real contra el backend: `/auth/me/` exige IsAdminUser,
       // así que si esta llamada falla, la cuenta existe pero NO es staff.
       await apiPrivada.get('/auth/me/');
@@ -158,14 +162,23 @@ export default function SuperAdminPanel() {
     }
   };
 
-  const rechazarPago = async (id: number) => {
-    if (!confirm('¿Rechazar este pago? El cliente deberá reportarlo de nuevo.')) return;
+  const [pagoARechazar, setPagoARechazar] = useState<number | null>(null);
+  const [rechazandoPago, setRechazandoPago] = useState(false);
+
+  const rechazarPago = (id: number) => setPagoARechazar(id);
+
+  const confirmarRechazoPago = async () => {
+    if (pagoARechazar == null) return;
+    setRechazandoPago(true);
     try {
-      await rechazarPagoSuscripcion(id);
+      await rechazarPagoSuscripcion(pagoARechazar);
       toast.success('Pago rechazado.');
+      setPagoARechazar(null);
       obtenerDatos();
     } catch {
       toast.error('No se pudo rechazar el pago.');
+    } finally {
+      setRechazandoPago(false);
     }
   };
 
@@ -177,8 +190,13 @@ export default function SuperAdminPanel() {
       const actualizado = await updatePlatformPaymentConfig(pagoConfig);
       setPagoConfig(actualizado);
       toast.success('Configuración de cobro actualizada.');
-    } catch {
-      toast.error('No se pudo guardar la configuración.');
+    } catch (error) {
+      // Antes el catch tragaba el motivo real del error (validación de
+      // campo, sesión vencida, etc.) y siempre mostraba el mismo mensaje
+      // genérico -- imposible saber qué falló sin abrir las herramientas
+      // de desarrollador.
+      const mensajes = getApiErrorMessages(error);
+      mensajes.length > 0 ? mensajes.forEach((m) => toast.error(m)) : toast.error('No se pudo guardar la configuración.');
     } finally {
       setGuardandoConfig(false);
     }
@@ -192,8 +210,9 @@ export default function SuperAdminPanel() {
       const actualizado = await updatePlatformSettings(platformSettings);
       setPlatformSettings(actualizado);
       toast.success('Configuración de plataforma actualizada.');
-    } catch {
-      toast.error('No se pudo guardar la configuración.');
+    } catch (error) {
+      const mensajes = getApiErrorMessages(error);
+      mensajes.length > 0 ? mensajes.forEach((m) => toast.error(m)) : toast.error('No se pudo guardar la configuración.');
     } finally {
       setGuardandoSettings(false);
     }
@@ -229,18 +248,30 @@ export default function SuperAdminPanel() {
       limite_usuarios: plan.limite_usuarios,
       limite_sucursales: plan.limite_sucursales,
       limite_productos: plan.limite_productos ?? null,
-      activo: plan.activo
+      activo: plan.activo,
+      tipos_negocio: plan.tipos_negocio || [],
     });
     setModalPlanAbierto(true);
   };
 
   // Eliminar Plan
-  const eliminarPlan = async (id: number) => {
-    if(!confirm("¿Estás seguro de eliminar este plan?")) return;
+  const [planAEliminar, setPlanAEliminar] = useState<number | null>(null);
+  const [eliminandoPlan, setEliminandoPlan] = useState(false);
+
+  const eliminarPlan = (id: number) => setPlanAEliminar(id);
+
+  const confirmarEliminarPlan = async () => {
+    if (planAEliminar == null) return;
+    setEliminandoPlan(true);
     try {
-      await apiPrivada.delete(`/tenants/plans/${id}/`);
+      await apiPrivada.delete(`/tenants/plans/${planAEliminar}/`);
+      setPlanAEliminar(null);
       obtenerDatos();
-    } catch (error) { alert("No se pudo eliminar el plan."); }
+    } catch (error) {
+      toast.error("No se pudo eliminar el plan.");
+    } finally {
+      setEliminandoPlan(false);
+    }
   };
 
   const cerrarSesion = () => {
@@ -429,7 +460,7 @@ export default function SuperAdminPanel() {
             <div className="flex justify-between items-center">
               <h1 className="text-3xl font-black text-slate-900 tracking-tight">Planes de Suscripción</h1>
               <button 
-                onClick={() => { setEditandoPlanId(null); setFormPlan({ nombre: '', slug: '', descripcion: '', precio: '', limite_usuarios: 100, limite_sucursales: 10, limite_productos: null, activo: true }); setModalPlanAbierto(true); }}
+                onClick={() => { setEditandoPlanId(null); setFormPlan({ nombre: '', slug: '', descripcion: '', precio: '', limite_usuarios: 100, limite_sucursales: 10, limite_productos: null, activo: true, tipos_negocio: [] }); setModalPlanAbierto(true); }}
                 className="bg-accent-500 text-white px-5 py-2.5 rounded-xl font-bold hover:bg-accent-600 flex items-center gap-2 shadow-lg"
               >
                 <Plus size={18} /> Nuevo Plan
@@ -651,8 +682,17 @@ export default function SuperAdminPanel() {
                   <input type="text" value={formPlan.nombre} onChange={e => setFormPlan({...formPlan, nombre: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-primary-600" required />
                 </div>
                 <div className="col-span-2">
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Descripción Corta</label>
-                  <textarea value={formPlan.descripcion} onChange={e => setFormPlan({...formPlan, descripcion: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl h-20 focus:outline-none" required />
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Características (una por línea)</label>
+                  <textarea
+                    value={formPlan.descripcion}
+                    onChange={e => setFormPlan({...formPlan, descripcion: e.target.value})}
+                    placeholder={'Hasta 5 usuarios\n1 sucursal\nSoporte por correo'}
+                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl h-24 focus:outline-none"
+                    required
+                  />
+                  <p className="mt-1 text-[11px] text-slate-400">
+                    Cada línea aparece como una viñeta en la página pública de Planes -- este texto es lo único que distingue a un plan de otro para quien está comparando, así que conviene que cada plan tenga el suyo propio.
+                  </p>
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Precio Mensual ($)</label>
@@ -681,6 +721,39 @@ export default function SuperAdminPanel() {
                   />
                   <p className="text-[11px] text-slate-400 mt-1">Deja vacío para no limitar la cantidad de productos.</p>
                 </div>
+                <div className="col-span-2">
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Tipos de Negocio</label>
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      { valor: 'retail', etiqueta: 'Retail' },
+                      { valor: 'b2b', etiqueta: 'B2B' },
+                      { valor: 'restaurante', etiqueta: 'Restaurante' },
+                      { valor: 'farmacia', etiqueta: 'Farmacia' },
+                      { valor: 'servicios', etiqueta: 'Taller/Servicios' },
+                      { valor: 'contador', etiqueta: 'Contador' },
+                    ].map((t) => {
+                      const marcado = formPlan.tipos_negocio.includes(t.valor);
+                      return (
+                        <button
+                          key={t.valor}
+                          type="button"
+                          onClick={() => setFormPlan({
+                            ...formPlan,
+                            tipos_negocio: marcado
+                              ? formPlan.tipos_negocio.filter((v) => v !== t.valor)
+                              : [...formPlan.tipos_negocio, t.valor],
+                          })}
+                          className={`px-3 py-1.5 rounded-full text-xs font-bold border-2 transition-colors ${
+                            marcado ? 'border-primary-600 bg-primary-50 text-primary-700' : 'border-slate-200 text-slate-500'
+                          }`}
+                        >
+                          {t.etiqueta}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-1">Ninguno marcado = el plan aplica a todos los tipos de negocio.</p>
+                </div>
               </div>
 
               <div className="pt-6 flex gap-3">
@@ -694,6 +767,25 @@ export default function SuperAdminPanel() {
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        isOpen={pagoARechazar != null}
+        title="Rechazar Pago"
+        message="¿Rechazar este pago? El cliente deberá reportarlo de nuevo."
+        confirmLabel="Rechazar"
+        loading={rechazandoPago}
+        onConfirm={confirmarRechazoPago}
+        onCancel={() => setPagoARechazar(null)}
+      />
+      <ConfirmDialog
+        isOpen={planAEliminar != null}
+        title="Eliminar Plan"
+        message="¿Estás seguro de eliminar este plan? Esta acción no se puede deshacer."
+        confirmLabel="Eliminar"
+        loading={eliminandoPlan}
+        onConfirm={confirmarEliminarPlan}
+        onCancel={() => setPlanAEliminar(null)}
+      />
     </div>
   );
 }

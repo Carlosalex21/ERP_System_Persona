@@ -9,7 +9,7 @@ import { Factura, NotaDebito } from '@/types/api';
 import { getNotasDebito, getFacturas, deleteNotaDebito } from '@/services/facturacionService';
 import { getMonedas } from '@/services/configuracionService';
 import { getApiErrorMessages, parseDecimal } from '@/utils/helpers';
-import { DataTable, PageHeader, Card, TableSkeleton } from '@/components/ui';
+import { DataTable, PageHeader, Card, TableSkeleton, ConfirmDialog } from '@/components/ui';
 import NotaDebitoModal from './NotaDebitoModal';
 import NotaPdfModal from '@/components/facturacion/NotaPdfModal';
 
@@ -66,12 +66,19 @@ export default function NotasDebitoPage(): ReactElement {
     setModalAbierto(true);
   }, []);
 
-  const eliminar = useCallback(
-    async (nota: NotaDebito) => {
-      if (!window.confirm(`¿Eliminar la nota de débito ${nota.numero_nota}?`)) return;
+  const [notaAEliminar, setNotaAEliminar] = useState<NotaDebito | null>(null);
+  const [eliminandoNota, setEliminandoNota] = useState(false);
+
+  const eliminar = useCallback((nota: NotaDebito) => setNotaAEliminar(nota), []);
+
+  const confirmarEliminarNota = useCallback(
+    async () => {
+      if (!notaAEliminar) return;
+      setEliminandoNota(true);
       try {
-        await deleteNotaDebito(nota.id);
+        await deleteNotaDebito(notaAEliminar.id);
         toast.success('Nota de débito eliminada.');
+        setNotaAEliminar(null);
         loadData();
       } catch (error) {
         const messages = getApiErrorMessages(error);
@@ -80,9 +87,11 @@ export default function NotasDebitoPage(): ReactElement {
         } else {
           toast.error('Error al eliminar la nota de débito.');
         }
+      } finally {
+        setEliminandoNota(false);
       }
     },
-    [loadData],
+    [notaAEliminar, loadData],
   );
 
   const columns = useMemo<ColumnDef<NotaDebito>[]>(() => [
@@ -189,6 +198,16 @@ export default function NotasDebitoPage(): ReactElement {
         onClose={() => setNotaImprimir(null)}
         notaId={notaImprimir?.id ?? null}
         tipo="debito"
+      />
+
+      <ConfirmDialog
+        isOpen={!!notaAEliminar}
+        title="Eliminar Nota de Débito"
+        message={`¿Eliminar la nota de débito ${notaAEliminar?.numero_nota}? Esta acción no se puede deshacer.`}
+        confirmLabel="Eliminar"
+        loading={eliminandoNota}
+        onConfirm={confirmarEliminarNota}
+        onCancel={() => setNotaAEliminar(null)}
       />
     </div>
   );
