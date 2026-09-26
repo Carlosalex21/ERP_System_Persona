@@ -6,13 +6,14 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, type ReactElement } from 'react';
-import { Search, Barcode, PlusCircle, CheckCircle2, X, WifiOff, RefreshCw, CloudUpload, FileText } from 'lucide-react';
+import { Search, Barcode, PlusCircle, CheckCircle2, X, WifiOff, RefreshCw, CloudUpload, FileText, MessageCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Skeleton } from '@/components/ui';
 import { useNotify } from '@/hooks/useNotify';
 import { getProductos } from '@/services/inventoryService';
 import { getClientes } from '@/services/clientesService';
-import { createFactura, registrarPago, getMetodosDePago } from '@/services/facturacionService';
+import { createFactura, registrarPago, getMetodosDePago, obtenerLinkCompartirFactura } from '@/services/facturacionService';
+import { getConfiguracionEmpresa } from '@/services/configuracionService';
 import {
   getMonedas,
   getTasasCambioActual,
@@ -29,13 +30,21 @@ import { calcularTotales, type ItemCalculo, type TotalesCalculo } from '@/utils/
 import { useTenant } from '@/hooks/useTenant';
 import { usePendingSalesSync } from '@/hooks/usePendingSalesSync';
 import { esErrorDeRed } from '@/utils/offlineCache';
+import { construirLinkWhatsapp } from '@/utils/whatsapp';
 import { encolarVenta } from '@/utils/offlineDb';
+import { usePinAutorizacion } from '@/hooks/usePinAutorizacion';
+import PinAutorizacionModal from '@/components/PinAutorizacionModal';
 
 import SaleCart, { CartItem } from './components/SaleCart';
 import PaymentModal, { PagoLinea } from './components/PaymentModal';
 import CajaWidget from './components/CajaWidget';
 import ClientModal from './components/ClientModal';
+import ProductVariantModal from './components/ProductVariantModal';
 import FacturaPdfModal from '@/components/facturacion/FacturaPdfModal';
+
+/** Identidad de una línea del carrito: el mismo producto con distinta variante/presentación es una línea distinta. */
+const armarCartKey = (productoId: number, varianteId?: number | null, presentacionId?: number | null): string =>
+  `${productoId}-${varianteId ?? 'x'}-${presentacionId ?? 'x'}`;
 
 interface PosViewProps {
   tenantId: string;
@@ -48,6 +57,9 @@ interface VentaExitosa {
   total: string;
   moneda: string;
   pendienteSync?: boolean;
+  /** Capturados de `selectedClient` en el momento de la venta -- ya para cuando esto se renderiza, `selectedClient` se limpió para la próxima venta. */
+  clienteNombre?: string | null;
+  clienteTelefono?: string | null;
 }
 
 /**
@@ -56,6 +68,11 @@ interface VentaExitosa {
 export default function PosView({ tenantId }: PosViewProps): ReactElement {
   const notify = useNotify();
   const { tenant } = useTenant();
+  // Si el admin activó "Exigir PIN para eliminar renglones" (ver Datos de
+  // la Empresa), quitar un ítem del carrito pide antes el PIN de un
+  // encargado -- si no lo activó, `pinAuth.solicitar` ejecuta la acción
+  // directo, sin pedir nada.
+  const pinAuth = usePinAutorizacion();
 
   const [loading, setLoading] = useState(true);
   const [products, setProducts] = useState<Producto[]>([]);
@@ -67,11 +84,24 @@ export default function PosView({ tenantId }: PosViewProps): ReactElement {
   const [isClientModalOpen, setIsClientModalOpen] = useState(false);
   const [selectedClient, setSelectedClient] = useState<Cliente | null>(null);
   const [facturaPdfAbierta, setFacturaPdfAbierta] = useState(false);
+  // Link de WhatsApp de la última venta -- se arma de forma asíncrona
+  // (necesita pedirle al backend el link firmado al PDF y la plantilla de
+  // mensaje configurada) apenas se conoce el facturaId, no en cada render.
+  const [linkWhatsappVenta, setLinkWhatsappVenta] = useState<string | null>(null);
+  // Producto con variantes/presentaciones que el cajero acaba de tocar --
+  // mientras esto no sea null, se muestra el selector antes de agregarlo de
+  // verdad al carrito (un producto simple sin ninguna de las dos se agrega
+  // directo, sin pasar por aquí).
+  const [productoParaVariante, setProductoParaVariante] = useState<Producto | null>(null);
   // Condición de pago y vendedor: por defecto "contado" y sin vendedor
   // explícito (el backend le atribuye la venta a quien está logueado). El
   // selector de vendedor es para cuando un vendedor cerró la venta en la
   // calle y otra persona (ej. un admin) la está tipeando en el sistema.
-  const [condicionPago, setCondicionPago] = useState<'contado' | 'credito'>('contado');
+  // 'nota_entrega': entrega la mercancía YA (descuenta stock al crearse,
+  // ver `NotasEntregaPage`) pero sin factura fiscal todavía -- se convierte
+  // en factura real después, cuando el cliente confirme o llegue la fecha.
+  const [condicionPago, setCondicionPago] = useState<'contado' | 'credito' | 'nota_entrega'>('contado');
+  const [generandoNotaEntrega, setGenerandoNotaEntrega] = useState(false);
   const [vendedores, setVendedores] = useState<Vendedor[]>([]);
   const [vendedorId, setVendedorId] = useState<number | null>(null);
 
@@ -172,6 +202,40 @@ export default function PosView({ tenantId }: PosViewProps): ReactElement {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Arma el mensaje de WhatsApp de la venta recién cerrada: la plantilla
+  // configurable de la empresa (Ajustes > Empresa) + el link firmado al PDF
+  // de la factura, que SIEMPRE se agrega al final -- nunca es opcional,
+  // porque wa.me no permite adjuntar el archivo, solo el link deja que el
+  // cliente en verdad reciba su factura.
+  useEffect(() => {
+    if (!ventaExitosa?.facturaId || !ventaExitosa?.clienteTelefono) {
+      setLinkWhatsappVenta(null);
+      return;
+    }
+    let cancelado = false;
+    (async () => {
+      try {
+        const [empresa, linkPdf] = await Promise.all([
+          getConfiguracionEmpresa(),
+          obtenerLinkCompartirFactura(ventaExitosa.facturaId!),
+        ]);
+        const plantilla = empresa.mensaje_whatsapp_venta || 'Hola {cliente}, gracias por tu compra{factura}. Total: {moneda} {total}. ¡Que la disfrutes!';
+        const texto = plantilla
+          .replace(/\{cliente\}/g, ventaExitosa.clienteNombre || '')
+          .replace(/\{factura\}/g, ventaExitosa.correlativo ? ` (${ventaExitosa.correlativo})` : '')
+          .replace(/\{total\}/g, ventaExitosa.total)
+          .replace(/\{moneda\}/g, ventaExitosa.moneda);
+        const mensajeCompleto = `${texto}\n\n${linkPdf}`;
+        const link = construirLinkWhatsapp(ventaExitosa.clienteTelefono!, mensajeCompleto, tenant?.pais_codigo);
+        if (!cancelado) setLinkWhatsappVenta(link);
+      } catch {
+        if (!cancelado) setLinkWhatsappVenta(null);
+      }
+    })();
+    return () => { cancelado = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ventaExitosa?.facturaId]);
+
   useEffect(() => {
     const lowercasedQuery = searchQuery.toLowerCase();
     const filtered = products.filter(product =>
@@ -271,7 +335,7 @@ export default function PosView({ tenantId }: PosViewProps): ReactElement {
 
     const lineas: ItemCalculo[] = cartItems.map(item => ({
       cantidad: item.quantity,
-      precio_final_unitario: convertirPrecio(parseDecimal(item.precio), item.moneda_codigo),
+      precio_final_unitario: convertirPrecio(parseDecimal(item.precioLinea), item.moneda_codigo),
       tasa_iva: item.configuracion_iva ? (ivaMap[item.configuracion_iva] ?? 0) : 0,
       descuento_pct: parseDecimal(item.descuento),
     }));
@@ -285,62 +349,143 @@ export default function PosView({ tenantId }: PosViewProps): ReactElement {
   }, [cartItems, ivaMap, monedas, tasasActuales, selectedCurrencyCode, descuentoGlobal, retencionPct, convertirPrecio]);
 
   // useCallback: handlers del carrito.
-  const handleAddToCart = useCallback((product: Producto) => {
+  const handleAddToCart = useCallback((product: Producto, opts?: { varianteId?: number; presentacionId?: number }) => {
+    const varianteId = opts?.varianteId ?? null;
+    const presentacionId = opts?.presentacionId ?? null;
+    const variante = varianteId ? (product.variantes || []).find(v => v.id === varianteId) : null;
+    const presentacion = presentacionId ? (product.presentaciones || []).find(p => p.id === presentacionId) : null;
+
+    const cartKey = armarCartKey(product.id, varianteId, presentacionId);
+    const nombreCarrito = variante
+      ? `${product.nombre} (${variante.nombre})`
+      : presentacion
+        ? `${product.nombre} - ${presentacion.nombre}`
+        : product.nombre;
+    const precioLinea = variante
+      ? (variante.precio ?? product.precio ?? '0')
+      : presentacion
+        ? (presentacion.precio ?? (parseFloat(product.precio || '0') * presentacion.factor_conversion).toFixed(2))
+        : (product.precio ?? '0');
+    // Tope de cantidad para ESTA línea: stock propio de la variante, o
+    // cuántas unidades de la presentación caben en el stock base -- nunca
+    // `product.cantidad` a secas (que para un producto 'variable' no
+    // representa nada, el stock real vive en cada variante).
+    const stockLinea = variante
+      ? (variante.cantidad ?? 0)
+      : presentacion
+        ? Math.floor((product.cantidad || 0) / presentacion.factor_conversion)
+        : (product.cantidad || 0);
+
     setCartItems(prevItems => {
-      const existingItem = prevItems.find(item => item.id === product.id);
-      const stockDisponible = product.cantidad || 0;
+      const existingItem = prevItems.find(item => item.cartKey === cartKey);
 
       if (existingItem) {
-        if (existingItem.quantity >= stockDisponible) {
-          notify.error(`No hay más stock para ${product.nombre}.`);
+        if (existingItem.quantity >= stockLinea) {
+          notify.error(`No hay más stock para ${nombreCarrito}.`);
           return prevItems;
         }
         return prevItems.map(item =>
-          item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item,
+          item.cartKey === cartKey ? { ...item, quantity: item.quantity + 1 } : item,
         );
       }
 
-      if (stockDisponible < 1) {
-        notify.error(`El producto ${product.nombre} está agotado.`);
+      if (stockLinea < 1) {
+        notify.error(`${nombreCarrito} está agotado.`);
         return prevItems;
       }
 
-      return [...prevItems, { ...product, quantity: 1 }];
+      return [...prevItems, {
+        ...product,
+        quantity: 1,
+        cartKey,
+        varianteId,
+        presentacionId,
+        nombreCarrito,
+        precioLinea: String(precioLinea),
+        stockLinea,
+      }];
     });
   }, [notify]);
 
-  const handleRemoveFromCart = useCallback((productId: number) => {
-    setCartItems(prevItems => prevItems.filter(item => item.id !== productId));
+  const handleRemoveFromCart = useCallback((cartKey: string) => {
+    setCartItems(prevItems => prevItems.filter(item => item.cartKey !== cartKey));
   }, []);
 
-  const handleUpdateQuantity = useCallback((productId: number, newQuantity: number) => {
-    const productInCatalog = products.find(p => p.id === productId);
-    if (!productInCatalog) return;
-
-    const stockDisponible = productInCatalog.cantidad || 0;
-
+  const handleUpdateQuantity = useCallback((cartKey: string, newQuantity: number) => {
     if (newQuantity < 1) {
-      handleRemoveFromCart(productId);
+      handleRemoveFromCart(cartKey);
       return;
     }
 
-    if (newQuantity > stockDisponible) {
-      notify.error(`Solo hay ${stockDisponible} unidades disponibles.`);
-      newQuantity = stockDisponible;
-    }
-
     setCartItems(prevItems =>
-      prevItems.map(item =>
-        item.id === productId ? { ...item, quantity: newQuantity } : item,
-      ),
+      prevItems.map(item => {
+        if (item.cartKey !== cartKey) return item;
+        let cantidad = newQuantity;
+        if (cantidad > item.stockLinea) {
+          notify.error(`Solo hay ${item.stockLinea} unidades disponibles.`);
+          cantidad = item.stockLinea;
+        }
+        return { ...item, quantity: cantidad };
+      }),
     );
-  }, [products, handleRemoveFromCart, notify]);
+  }, [handleRemoveFromCart, notify]);
 
   const handleClearCart = useCallback(() => {
     setCartItems([]);
     setSelectedClient(null);
     setVentaExitosa(null);
   }, []);
+
+  // Crea la nota de entrega directo (sin pasar por `PaymentModal`): el
+  // backend descuenta el stock de inmediato al crearla con
+  // `estado='nota_entrega'` (ver `perform_create` en `FacturaViewSet`) --
+  // no hay pago que registrar todavía, eso pasa después al convertirla en
+  // factura real desde "Notas de Entrega".
+  const handleGenerarNotaEntrega = useCallback(async (): Promise<void> => {
+    if (!selectedClient) return;
+    setGenerandoNotaEntrega(true);
+    const monedaSel = monedas.find(m => m.codigo === selectedCurrencyCode);
+    const facturaPayload: FacturaRequest = {
+      fecha_operacion: new Date().toISOString(),
+      cliente: selectedClient.id,
+      estado: 'nota_entrega',
+      moneda: monedaSel?.id ?? null,
+      tasa_cambio: totales.tasa_cambio > 0 ? totales.tasa_cambio.toFixed(6) : null,
+      descuento_global: descuentoGlobal > 0 ? descuentoGlobal.toFixed(2) : null,
+      condicion_pago: 'credito',
+      vendedor: vendedorId ?? undefined,
+      detalles_para_crear: cartItems.map(item => ({
+        producto: item.id,
+        variante: item.varianteId ?? undefined,
+        presentacion: item.presentacionId ?? undefined,
+        cantidad: item.quantity,
+        precio_unitario: convertirPrecio(parseDecimal(item.precioLinea), item.moneda_codigo).toFixed(2),
+      })),
+    };
+    try {
+      const nuevaFactura = await createFactura(facturaPayload);
+      notify.success('Nota de entrega generada: el stock ya se descontó. Factúrala luego desde "Notas de Entrega".');
+      setVentaExitosa({
+        facturaId: nuevaFactura.id,
+        correlativo: null,
+        numero_control: null,
+        total: totales.total.toFixed(2),
+        moneda: selectedCurrencyCode,
+        clienteNombre: selectedClient?.nombre,
+        clienteTelefono: selectedClient?.telefono,
+      });
+      setCartItems([]);
+      setSelectedClient(null);
+      setCondicionPago('contado');
+      setVendedorId(null);
+      await fetchProducts();
+    } catch (error) {
+      console.error('Error al generar la nota de entrega:', error);
+      toastApiError(error, 'No se pudo generar la nota de entrega.');
+    } finally {
+      setGenerandoNotaEntrega(false);
+    }
+  }, [selectedClient, monedas, selectedCurrencyCode, totales, descuentoGlobal, vendedorId, cartItems, convertirPrecio, notify, fetchProducts]);
 
   const handleProceedToPayment = useCallback(() => {
     if (cartItems.length === 0) {
@@ -351,8 +496,12 @@ export default function PosView({ tenantId }: PosViewProps): ReactElement {
       notify.error("Por favor, seleccione un cliente para la venta.");
       return;
     }
+    if (condicionPago === 'nota_entrega') {
+      handleGenerarNotaEntrega();
+      return;
+    }
     setIsPaymentModalOpen(true);
-  }, [cartItems.length, selectedClient, notify]);
+  }, [cartItems.length, selectedClient, notify, condicionPago, handleGenerarNotaEntrega]);
 
   const handleClientCreated = useCallback((newClient: Cliente) => {
     setClients(prevClients => [...prevClients, newClient]);
@@ -376,15 +525,21 @@ export default function PosView({ tenantId }: PosViewProps): ReactElement {
       moneda: monedaSel?.id ?? null,
       tasa_cambio: totales.tasa_cambio > 0 ? totales.tasa_cambio.toFixed(6) : null,
       descuento_global: descuentoGlobal > 0 ? descuentoGlobal.toFixed(2) : null,
-      condicion_pago: condicionPago,
+      // `handleFinalizeSale` nunca corre con 'nota_entrega' (esa condición
+      // se desvía a `handleGenerarNotaEntrega` antes de abrir este modal,
+      // ver `handleProceedToPayment`) -- el fallback es solo para que el
+      // tipo de `FacturaRequest.condicion_pago` (sin 'nota_entrega') cierre.
+      condicion_pago: condicionPago === 'nota_entrega' ? 'credito' : condicionPago,
       vendedor: vendedorId ?? undefined,
       detalles_para_crear: cartItems.map(item => ({
         producto: item.id,
+        variante: item.varianteId ?? undefined,
+        presentacion: item.presentacionId ?? undefined,
         cantidad: item.quantity,
         // Convertido a la moneda de emisión seleccionada (ver `convertirPrecio`)
         // -- el backend espera `precio_unitario` YA en la moneda de la factura,
         // no en la moneda en la que se guardó el producto en inventario.
-        precio_unitario: convertirPrecio(parseDecimal(item.precio), item.moneda_codigo).toFixed(2),
+        precio_unitario: convertirPrecio(parseDecimal(item.precioLinea), item.moneda_codigo).toFixed(2),
       })),
     };
 
@@ -416,6 +571,8 @@ export default function PosView({ tenantId }: PosViewProps): ReactElement {
         total: totalVenta,
         moneda: selectedCurrencyCode,
         pendienteSync: true,
+        clienteNombre: selectedClient?.nombre,
+        clienteTelefono: selectedClient?.telefono,
       });
       setCartItems([]);
       setSelectedClient(null);
@@ -450,6 +607,8 @@ export default function PosView({ tenantId }: PosViewProps): ReactElement {
         numero_control: nuevaFactura.numero_control,
         total: totalVenta,
         moneda: selectedCurrencyCode,
+        clienteNombre: selectedClient?.nombre,
+        clienteTelefono: selectedClient?.telefono,
       });
       setCartItems([]);
       setSelectedClient(null);
@@ -566,15 +725,33 @@ export default function PosView({ tenantId }: PosViewProps): ReactElement {
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 p-4">
               {filteredProducts.map(product => {
-                const stock = product.cantidad || 0;
+                // Un producto 'variable' no lleva stock propio -- vive en
+                // cada variante (ver `Variacionproducto.cantidad`); sumar
+                // `product.cantidad` a secas mostraría "Agotado" siempre.
+                const tieneVariantes = product.tipo === 'variable' && (product.variantes || []).length > 0;
+                const presentacionesActivas = (product.presentaciones || []).filter(p => p.activo);
+                const tienePresentaciones = presentacionesActivas.length > 0;
+                const stock = tieneVariantes
+                  ? (product.variantes || []).reduce((acc, v) => acc + (v.cantidad || 0), 0)
+                  : (product.cantidad || 0);
                 const agotado = stock <= 0;
                 const bajoStock = !agotado && stock <= 5;
+                const precioBase = parseFloat(product.precio || '0');
+                const precioMostrado = tieneVariantes
+                  ? Math.min(...(product.variantes || []).map(v => (v.precio ? parseFloat(v.precio) : precioBase)))
+                  : precioBase;
                 return (
                   <motion.button
                     key={product.id}
                     whileTap={agotado ? undefined : { scale: 0.96 }}
                     type="button"
-                    onClick={() => handleAddToCart(product)}
+                    onClick={() => {
+                      if (tieneVariantes || tienePresentaciones) {
+                        setProductoParaVariante(product);
+                      } else {
+                        handleAddToCart(product);
+                      }
+                    }}
                     disabled={agotado}
                     className={`group relative border rounded-xl p-3 text-left transition-all flex flex-col ${
                       agotado
@@ -593,11 +770,19 @@ export default function PosView({ tenantId }: PosViewProps): ReactElement {
                     )}
                     <div className="flex-grow">
                       <p className="font-bold text-sm text-slate-800 group-hover:text-primary-700 pr-12">{product.nombre}</p>
-                      <p className="text-xs text-slate-400">SKU: {product.sku || 'N/A'}</p>
+                      <p className="text-xs text-slate-400">
+                        SKU: {product.sku || 'N/A'}
+                        {(tieneVariantes || tienePresentaciones) && (
+                          <span className="ml-1.5 text-primary-500 font-bold">
+                            {tieneVariantes ? '· Con variantes' : '· Con presentaciones'}
+                          </span>
+                        )}
+                      </p>
                     </div>
                     <div className="flex justify-between items-center mt-2">
                       <span className="font-black text-slate-900">
-                        {selectedCurrencyCode} {convertirPrecio(parseFloat(product.precio || '0'), product.moneda_codigo).toFixed(2)}
+                        {tieneVariantes && 'Desde '}
+                        {selectedCurrencyCode} {convertirPrecio(precioMostrado, product.moneda_codigo).toFixed(2)}
                       </span>
                       {!agotado && <PlusCircle className="text-primary-500 group-hover:text-primary-700" size={20} />}
                     </div>
@@ -613,7 +798,7 @@ export default function PosView({ tenantId }: PosViewProps): ReactElement {
       <div className="lg:col-span-1 min-h-0">
         <SaleCart
           cartItems={cartItems}
-          onRemoveItem={handleRemoveFromCart}
+          onRemoveItem={(cartKey) => pinAuth.solicitar(() => handleRemoveFromCart(cartKey))}
           onUpdateQuantity={handleUpdateQuantity}
           onClearCart={handleClearCart}
           onProceedToPayment={handleProceedToPayment}
@@ -634,6 +819,7 @@ export default function PosView({ tenantId }: PosViewProps): ReactElement {
           convertirPrecio={convertirPrecio}
           condicionPago={condicionPago}
           onCondicionPagoChange={setCondicionPago}
+          generandoNotaEntrega={generandoNotaEntrega}
           vendedores={vendedores}
           vendedorId={vendedorId}
           onVendedorChange={setVendedorId}
@@ -664,15 +850,27 @@ export default function PosView({ tenantId }: PosViewProps): ReactElement {
               <p className="text-sm mt-1">
                 Total: <span className="font-bold">{ventaExitosa.moneda} {ventaExitosa.total}</span>
               </p>
-              {ventaExitosa.facturaId && (
-                <button
-                  type="button"
-                  onClick={() => setFacturaPdfAbierta(true)}
-                  className="mt-2 inline-flex items-center gap-1.5 bg-white text-emerald-700 text-xs font-black px-3 py-2 rounded-lg transition-colors hover:bg-emerald-50 shadow"
-                >
-                  <FileText size={14} /> Ver factura
-                </button>
-              )}
+              <div className="flex items-center gap-2 mt-2 flex-wrap">
+                {ventaExitosa.facturaId && (
+                  <button
+                    type="button"
+                    onClick={() => setFacturaPdfAbierta(true)}
+                    className="inline-flex items-center gap-1.5 bg-white text-emerald-700 text-xs font-black px-3 py-2 rounded-lg transition-colors hover:bg-emerald-50 shadow"
+                  >
+                    <FileText size={14} /> Ver factura
+                  </button>
+                )}
+                {linkWhatsappVenta && (
+                  <a
+                    href={linkWhatsappVenta}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 bg-white text-emerald-700 text-xs font-black px-3 py-2 rounded-lg transition-colors hover:bg-emerald-50 shadow"
+                  >
+                    <MessageCircle size={14} /> Enviar por WhatsApp
+                  </a>
+                )}
+              </div>
             </div>
             <button
               type="button"
@@ -692,6 +890,23 @@ export default function PosView({ tenantId }: PosViewProps): ReactElement {
         onClientCreated={handleClientCreated}
       />
 
+      {productoParaVariante && (
+        <ProductVariantModal
+          producto={productoParaVariante}
+          onClose={() => setProductoParaVariante(null)}
+          onSelectVariante={(varianteId) => {
+            handleAddToCart(productoParaVariante, { varianteId });
+            setProductoParaVariante(null);
+          }}
+          onSelectPresentacion={(presentacionId) => {
+            handleAddToCart(productoParaVariante, { presentacionId });
+            setProductoParaVariante(null);
+          }}
+        />
+      )}
+
+      <PinAutorizacionModal {...pinAuth.modalProps} />
+
       <PaymentModal
         isOpen={isPaymentModalOpen}
         onClose={() => setIsPaymentModalOpen(false)}
@@ -700,7 +915,10 @@ export default function PosView({ tenantId }: PosViewProps): ReactElement {
         currencyCode={selectedCurrencyCode}
         totalBase={totales.total_base}
         baseCurrencyCode={baseCurrencyCode}
-        condicionPago={condicionPago}
+        // Este modal nunca se abre con condicionPago='nota_entrega' (ver
+        // `handleProceedToPayment`, que desvía ese caso antes de llegar
+        // aquí) -- el fallback es solo para que el tipo cierre.
+        condicionPago={condicionPago === 'nota_entrega' ? 'credito' : condicionPago}
       />
 
       <FacturaPdfModal

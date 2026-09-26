@@ -3,7 +3,7 @@
 import { useState, type ReactElement } from 'react';
 import { Calculator } from 'lucide-react';
 import { AppModal, ActionButton } from '@/components/ui';
-import { createCuentaContable, updateCuentaContable, type CuentaContable, type TipoCuenta } from '@/services/contabilidadService';
+import { createCuentaContable, updateCuentaContable, type CuentaContable, type TipoCuenta, type RolCuenta } from '@/services/contabilidadService';
 import { useNotify } from '@/hooks/useNotify';
 
 const TIPOS: { valor: TipoCuenta; etiqueta: string }[] = [
@@ -13,6 +13,19 @@ const TIPOS: { valor: TipoCuenta; etiqueta: string }[] = [
   { valor: 'ingreso', etiqueta: 'Ingreso' },
   { valor: 'costo', etiqueta: 'Costo' },
   { valor: 'gasto', etiqueta: 'Gasto' },
+];
+
+const ROLES: { valor: RolCuenta; etiqueta: string }[] = [
+  { valor: 'caja', etiqueta: 'Caja' },
+  { valor: 'banco', etiqueta: 'Bancos' },
+  { valor: 'cuentas_por_cobrar', etiqueta: 'Cuentas por Cobrar' },
+  { valor: 'inventario', etiqueta: 'Inventario' },
+  { valor: 'iva_por_cobrar', etiqueta: 'IVA Crédito Fiscal (por cobrar)' },
+  { valor: 'iva_por_pagar', etiqueta: 'IVA Débito Fiscal (por pagar)' },
+  { valor: 'cuentas_por_pagar', etiqueta: 'Cuentas por Pagar Proveedores' },
+  { valor: 'ventas', etiqueta: 'Ingresos por Ventas' },
+  { valor: 'costo_venta', etiqueta: 'Costo de Ventas' },
+  { valor: 'otros_ingresos', etiqueta: 'Otros Ingresos' },
 ];
 
 interface CuentaContableModalProps {
@@ -28,6 +41,7 @@ export default function CuentaContableModal({ empresaId, cuentas, cuenta, onClos
   const [codigo, setCodigo] = useState(cuenta?.codigo || '');
   const [nombre, setNombre] = useState(cuenta?.nombre || '');
   const [tipo, setTipo] = useState<TipoCuenta>(cuenta?.tipo || 'activo');
+  const [rol, setRol] = useState<RolCuenta | ''>(cuenta?.rol || '');
   const [cuentaPadre, setCuentaPadre] = useState(cuenta?.cuenta_padre ? String(cuenta.cuenta_padre) : '');
   const [aceptaMovimiento, setAceptaMovimiento] = useState(cuenta?.acepta_movimiento ?? true);
   const [guardando, setGuardando] = useState(false);
@@ -45,6 +59,7 @@ export default function CuentaContableModal({ empresaId, cuentas, cuenta, onClos
         codigo: codigo.trim(),
         nombre: nombre.trim(),
         tipo,
+        rol: rol || null,
         cuenta_padre: cuentaPadre ? Number(cuentaPadre) : null,
         acepta_movimiento: aceptaMovimiento,
       };
@@ -103,6 +118,16 @@ export default function CuentaContableModal({ empresaId, cuentas, cuenta, onClos
               <option key={c.id} value={c.id}>{c.codigo} - {c.nombre}</option>
             ))}
           </select>
+        </div>
+        <div>
+          <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Rol de negocio (opcional)</label>
+          <select value={rol} onChange={(e) => setRol(e.target.value as RolCuenta | '')} className="w-full px-3 py-2 border rounded-lg text-sm bg-white">
+            <option value="">Sin rol asignado</option>
+            {ROLES.map((r) => <option key={r.valor} value={r.valor}>{r.etiqueta}</option>)}
+          </select>
+          <p className="text-[11px] text-slate-400 mt-1">
+            Marca esta cuenta como "la" cuenta de Caja, Inventario, Costo de Venta, etc. -- así los asientos automáticos (ventas, ajustes de inventario) la encuentran solos, sin configurar nada más.
+          </p>
         </div>
         <label className="flex items-center gap-3 p-3 bg-slate-50 border rounded-lg cursor-pointer">
           <input type="checkbox" checked={aceptaMovimiento} onChange={(e) => setAceptaMovimiento(e.target.checked)} className="w-5 h-5 accent-primary-600" />

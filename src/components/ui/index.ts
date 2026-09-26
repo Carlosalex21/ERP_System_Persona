@@ -8,6 +8,7 @@ export { Skeleton, StatCardSkeleton, TableSkeleton, CardGridSkeleton, ChartSkele
 export { default as PageHeader } from './PageHeader';
 export { StatCard, EmptyState, Badge, ActionButton } from './primitives';
 export { DataTable } from './DataTable';
+export { ExportButton } from './ExportButton';
 export { Card, CardHeader } from './Card';
 export { default as AnimatedNumber } from './AnimatedNumber';
 export { default as FadeIn, Stagger, StaggerItem } from './FadeIn';

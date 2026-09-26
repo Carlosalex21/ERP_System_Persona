@@ -5,7 +5,7 @@
  */
 "use client";
 
-import type { ReactElement } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import AppModal from './AppModal';
 import { ActionButton } from './primitives';
@@ -13,7 +13,8 @@ import { ActionButton } from './primitives';
 interface ConfirmDialogProps {
   isOpen: boolean;
   title: string;
-  message: string;
+  /** Texto simple, o contenido más rico (ej. un selector) para una confirmación con opciones. */
+  message: ReactNode;
   confirmLabel?: string;
   cancelLabel?: string;
   /** true = botón de confirmar en rojo (acción destructiva, ej. eliminar). */
@@ -56,7 +57,7 @@ export default function ConfirmDialog({
         </>
       }
     >
-      <p className="text-sm text-slate-600">{message}</p>
+      <div className="text-sm text-slate-600">{message}</div>
     </AppModal>
   );
 }

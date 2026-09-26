@@ -23,6 +23,7 @@ import {
   PatchedRetencionRequest,
   Transaccionpago,
   PagoRequestLinea,
+  FilaReporteCuentasPorCobrar,
 } from '@/types/api';
 import { cachedGet, invalidateCache } from '@/utils/cache';
 import { conRespaldoOffline } from '@/utils/offlineCache';
@@ -95,6 +96,16 @@ export const obtenerFacturaPdfBlobUrl = async (
     responseType: 'blob',
   });
   return window.URL.createObjectURL(response.data as Blob);
+};
+
+/**
+ * Genera un enlace público (firmado, sin sesión) al PDF de una factura --
+ * para incluirlo en el mensaje de WhatsApp al cliente, ya que `wa.me` solo
+ * permite pre-llenar texto, nunca adjuntar el archivo directamente.
+ */
+export const obtenerLinkCompartirFactura = async (facturaId: number): Promise<string> => {
+  const response = await apiPrivada.get<{ url: string }>(`/facturacion/facturas/${facturaId}/link-compartir/`);
+  return response.data.url;
 };
 
 /** Genera el PDF de una Nota de Crédito y devuelve una blob URL para previsualizarlo/descargarlo. */
@@ -231,6 +242,22 @@ export const anularFactura = async (facturaId: number): Promise<{ message: strin
  */
 export const actualizarEstadoFactura = async (facturaId: number, estado: string): Promise<Factura> => {
   const response = await apiPrivada.patch<Factura>(`/facturacion/lista/${facturaId}/`, { estado });
+  invalidateCache('facturacion:facturas');
+  return response.data;
+};
+
+/**
+ * El almacenista marca que ya armó/preparó este pedido -- paso de
+ * FULFILLMENT separado del cobro (ver `Factura.estado_preparacion`).
+ */
+/** Reporte de antigüedad de saldos (0-30/31-60/61-90/90+ días) de facturas a crédito, agrupado por cliente. */
+export const getReporteCuentasPorCobrar = async (): Promise<FilaReporteCuentasPorCobrar[]> => {
+  const response = await apiPrivada.get<FilaReporteCuentasPorCobrar[]>('/facturacion/reportes/cuentas-por-cobrar/');
+  return response.data;
+};
+
+export const marcarPedidoPreparado = async (facturaId: number): Promise<Factura> => {
+  const response = await apiPrivada.post<Factura>(`/facturacion/lista/${facturaId}/marcar-preparado/`);
   invalidateCache('facturacion:facturas');
   return response.data;
 };
@@ -496,6 +523,33 @@ export const getFacturasPendientesRecientes = async (limit = 5): Promise<Factura
     params: { estado: 'pendiente', page_size: limit },
   });
   return Array.isArray(response.data) ? response.data : [];
+};
+
+/**
+ * Notas de entrega abiertas (`estado='nota_entrega'`) -- entregaron
+ * mercancía real (ya descontaron stock, ver `inventario_afectado`) pero
+ * todavía no se facturaron fiscalmente (sin correlativo). Sin caché: la
+ * lista debe reflejar de inmediato una recién creada o convertida.
+ */
+export const getNotasEntrega = async (): Promise<Factura[]> => {
+  const response = await apiRequest<Factura[]>({
+    method: 'GET',
+    url: '/facturacion/lista/',
+    params: { estado: 'nota_entrega', page_size: 200 },
+  });
+  return Array.isArray(response.data) ? response.data : [];
+};
+
+/** Convierte una nota de entrega en factura fiscal (le asigna correlativo) -- nunca vuelve a tocar el stock, ya salió al confirmarse. */
+export const convertirNotaEntregaAFactura = async (
+  facturaId: number,
+  condicionPago: 'contado' | 'credito',
+): Promise<Factura> => {
+  const response = await apiPrivada.post<Factura>(`/facturacion/lista/${facturaId}/convertir-a-factura/`, {
+    condicion_pago: condicionPago,
+  });
+  invalidateCache('facturacion:facturas');
+  return response.data;
 };
 
 // ---------------------------------------------------------------------------

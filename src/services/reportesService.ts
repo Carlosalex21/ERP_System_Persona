@@ -124,3 +124,88 @@ export const getCierreCaja = async (date?: string): Promise<CierreCajaReporte> =
   });
   return response.data;
 };
+
+// ---------------------------------------------------------------------------
+// Centro de Alertas: cuentas por cobrar/pagar vencidas o por vencer, y
+// productos con bajo stock -- una sola lista ordenada por urgencia.
+// ---------------------------------------------------------------------------
+
+export type TipoAlerta = 'cxc' | 'cxp' | 'stock' | 'lote' | 'seguimiento' | 'reclamo' | 'garantia';
+export type NivelAlerta = 'urgente' | 'atencion';
+
+export interface AlertaItem {
+  tipo: TipoAlerta;
+  nivel: NivelAlerta;
+  titulo: string;
+  descripcion: string;
+  link: string;
+  dias: number | null;
+}
+
+export interface AlertasReporte {
+  alertas: AlertaItem[];
+  total: number;
+  urgentes: number;
+}
+
+export const getAlertas = async (): Promise<AlertasReporte> => {
+  const response = await apiPrivada.get<AlertasReporte>('/reportes/alertas/');
+  return response.data;
+};
+
+// ---------------------------------------------------------------------------
+// Analítica / BI: tendencia mensual, comparativa mes-contra-mes y proyección
+// simple del próximo mes -- ver `apps.reportes.core.analitica_service`.
+// ---------------------------------------------------------------------------
+
+export interface MesTendencia {
+  anio: number;
+  mes: number;
+  label: string;
+  total: number;
+  num_facturas: number;
+}
+
+export interface ComparativaMensual {
+  total_mes_actual: number;
+  total_mes_anterior_mismo_tramo: number;
+  dias_comparados: number;
+  /** `null` cuando no hay base de comparación (mes anterior en cero). */
+  variacion_pct: number | null;
+}
+
+export interface ProyeccionMensual {
+  anio: number;
+  mes: number;
+  label: string;
+  total_estimado: number;
+  tendencia: 'creciente' | 'decreciente' | 'estable';
+}
+
+export interface TopProductoAnalitica {
+  producto__nombre: string | null;
+  variante__nombre: string | null;
+  cantidad_total: number;
+  ingresos_total: string | number;
+}
+
+export interface VentaPorDiaSemana {
+  dia: string;
+  total: number;
+  num_facturas: number;
+}
+
+export interface AnaliticaReporte {
+  tendencia_mensual: MesTendencia[];
+  comparativa_mensual: ComparativaMensual;
+  /** `null` cuando hay menos de 3 meses cerrados con historial -- no hay base para proyectar. */
+  proyeccion_proximo_mes: ProyeccionMensual | null;
+  top_productos: TopProductoAnalitica[];
+  ventas_por_dia_semana: VentaPorDiaSemana[];
+}
+
+/** @param meses Cuántos meses hacia atrás incluir en la tendencia (3-24, default 12). */
+export const getAnalitica = async (meses = 12): Promise<AnaliticaReporte> => {
+  const response = await apiPrivada.get<AnaliticaReporte>('/reportes/analitica/', { params: { meses } });
+  return response.data;
+};

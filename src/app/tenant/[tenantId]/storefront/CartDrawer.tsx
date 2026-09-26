@@ -5,17 +5,23 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { ShoppingCart, X, Trash2, Minus, Plus, ArrowRight, MessageCircle, Package } from 'lucide-react';
 import type { PublicProducto } from '@/services/publicCatalogService';
 
-interface ItemCarrito {
+export interface ItemCarrito {
   producto: PublicProducto;
   cantidad: number;
+  cartKey: string;
+  varianteId?: number | null;
+  presentacionId?: number | null;
+  nombreCarrito: string;
+  precioLinea: string;
+  stockLinea: number;
 }
 
 interface CartDrawerProps {
   abierto: boolean;
   onClose: () => void;
   carrito: ItemCarrito[];
-  onModificarCantidad: (id: number, delta: number) => void;
-  onEliminarItem: (id: number) => void;
+  onModificarCantidad: (cartKey: string, delta: number) => void;
+  onEliminarItem: (cartKey: string) => void;
   simboloProducto: (producto: PublicProducto) => string;
   totalItems: number;
   totalCarrito: number;
@@ -88,7 +94,7 @@ export default function CartDrawer({
                 <AnimatePresence initial={false}>
                   {carrito.map(item => (
                     <motion.div
-                      key={item.producto.id}
+                      key={item.cartKey}
                       layout
                       initial={{ opacity: 0, y: -8 }}
                       animate={{ opacity: 1, y: 0 }}
@@ -106,9 +112,9 @@ export default function CartDrawer({
                       </div>
                       <div className="flex-1 flex flex-col justify-between">
                         <div className="flex justify-between items-start">
-                          <h5 className="font-bold text-slate-800 text-sm leading-tight pr-2">{item.producto.nombre}</h5>
+                          <h5 className="font-bold text-slate-800 text-sm leading-tight pr-2">{item.nombreCarrito}</h5>
                           <button
-                            onClick={() => onEliminarItem(item.producto.id)}
+                            onClick={() => onEliminarItem(item.cartKey)}
                             className="text-slate-300 hover:text-red-500 transition-colors"
                             aria-label="Eliminar"
                           >
@@ -117,14 +123,14 @@ export default function CartDrawer({
                         </div>
                         <div className="flex items-center justify-between mt-2">
                           <span className="font-black text-primary-700 text-sm">
-                            {simboloProducto(item.producto)} {(parseFloat(item.producto.precio_venta) * item.cantidad).toFixed(2)}
+                            {simboloProducto(item.producto)} {(parseFloat(item.precioLinea) * item.cantidad).toFixed(2)}
                           </span>
                           <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1">
-                            <button onClick={() => onModificarCantidad(item.producto.id, -1)} className="text-slate-500 hover:text-slate-800" aria-label="Disminuir">
+                            <button onClick={() => onModificarCantidad(item.cartKey, -1)} className="text-slate-500 hover:text-slate-800" aria-label="Disminuir">
                               <Minus size={14} />
                             </button>
                             <span className="font-bold text-slate-800 text-xs w-4 text-center">{item.cantidad}</span>
-                            <button onClick={() => onModificarCantidad(item.producto.id, 1)} className="text-slate-500 hover:text-slate-800" aria-label="Aumentar">
+                            <button onClick={() => onModificarCantidad(item.cartKey, 1)} className="text-slate-500 hover:text-slate-800" aria-label="Aumentar">
                               <Plus size={14} />
                             </button>
                           </div>

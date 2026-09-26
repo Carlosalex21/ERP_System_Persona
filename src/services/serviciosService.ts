@@ -14,6 +14,8 @@ export interface OrdenServicio {
   estado: EstadoOrdenServicio;
   tecnico: number | null;
   tecnico_nombre: string | null;
+  departamento: number | null;
+  departamento_nombre: string | null;
   costo_estimado: string | null;
   factura: number | null;
   token_publico: string;
@@ -29,6 +31,7 @@ export interface OrdenServicioRequest {
   diagnostico?: string;
   estado?: EstadoOrdenServicio;
   tecnico?: number | null;
+  departamento?: number | null;
   costo_estimado?: number | null;
   fecha_entrega_estimada?: string | null;
 }

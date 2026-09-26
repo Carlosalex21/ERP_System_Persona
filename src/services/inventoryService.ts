@@ -7,7 +7,8 @@ import Cookies from 'js-cookie';
 import { apiPrivada, refreshAccessToken } from '@/services/api';
 import {
   Producto, ProductoRequest, Almacen, Categoria, CategoriaRequest, Variacionproducto, AlmacenRequest, VariacionproductoRequest,
-  AjusteInventario, AjusteInventarioRequest, PresentacionProducto, PresentacionProductoRequest, ProductoBulkUploadResult,
+  AjusteInventario, AjusteInventarioRequest, AjusteInventarioEditRequest, PresentacionProducto, PresentacionProductoRequest, ProductoBulkUploadResult,
+  Inventario, TrasladoInventario, TrasladoInventarioRequest,
 } from '@/types/api';
 import { cachedGet, invalidateCache } from '@/utils/cache';
 import { conRespaldoOffline } from '@/utils/offlineCache';
@@ -316,6 +317,47 @@ export const getAjustesInventario = async (): Promise<AjusteInventario[]> => {
  */
 export const crearAjusteInventario = async (data: AjusteInventarioRequest): Promise<AjusteInventario> => {
   const response = await apiPrivada.post<AjusteInventario>('/inventario/ajustes/', data);
+  invalidateCache('inventario:productos');
+  return response.data;
+};
+
+/**
+ * Corrige la metadata de un ajuste YA aplicado (motivo, proveedor, número de
+ * documento/control, fecha del documento, observaciones) -- nunca el
+ * movimiento de stock en sí (tipo/almacén/líneas). Si el ajuste ya generó
+ * una Cuenta por Pagar, el backend la reajusta con la fecha corregida.
+ */
+export const editarAjusteInventario = async (id: number, data: AjusteInventarioEditRequest): Promise<AjusteInventario> => {
+  const response = await apiPrivada.patch<AjusteInventario>(`/inventario/ajustes/${id}/`, data);
+  return response.data;
+};
+
+// ---------------------------------------------------------------------------
+// Traslados de inventario entre almacenes (directo e inmediato, sin estado
+// "en tránsito")
+// ---------------------------------------------------------------------------
+
+/** Desglose de stock por almacén; sin `almacenId` trae todo el inventario físico. */
+export const getInventarioPorAlmacen = async (almacenId?: number): Promise<Inventario[]> => {
+  const response = await apiPrivada.get<Inventario[]>('/inventario/inventario-fisico/', {
+    params: almacenId ? { almacen: almacenId } : undefined,
+  });
+  return response.data;
+};
+
+/** Lista los traslados de inventario (más recientes primero). */
+export const getTraslados = async (): Promise<TrasladoInventario[]> => {
+  const response = await apiPrivada.get<TrasladoInventario[]>('/inventario/traslados/');
+  return response.data;
+};
+
+/**
+ * Crea un traslado de inventario (cabecera + líneas) y mueve el stock de
+ * inmediato entre los dos almacenes -- no queda pendiente de confirmación.
+ * Invalida la caché de productos: el desglose por almacén cambia al instante.
+ */
+export const crearTraslado = async (data: TrasladoInventarioRequest): Promise<TrasladoInventario> => {
+  const response = await apiPrivada.post<TrasladoInventario>('/inventario/traslados/', data);
   invalidateCache('inventario:productos');
   return response.data;
 };

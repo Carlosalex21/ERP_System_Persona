@@ -28,6 +28,10 @@ export interface EmpresaContableRequest {
 export type TipoCuenta = 'activo' | 'pasivo' | 'patrimonio' | 'ingreso' | 'costo' | 'gasto';
 export type NaturalezaCuenta = 'deudora' | 'acreedora';
 
+export type RolCuenta =
+  | 'caja' | 'banco' | 'cuentas_por_cobrar' | 'inventario' | 'iva_por_cobrar'
+  | 'iva_por_pagar' | 'cuentas_por_pagar' | 'ventas' | 'costo_venta' | 'otros_ingresos';
+
 export interface CuentaContable {
   id: number;
   empresa: number;
@@ -35,6 +39,7 @@ export interface CuentaContable {
   nombre: string;
   tipo: TipoCuenta;
   naturaleza: NaturalezaCuenta;
+  rol: RolCuenta | null;
   cuenta_padre: number | null;
   acepta_movimiento: boolean;
   activo: boolean;
@@ -45,6 +50,7 @@ export interface CuentaContableRequest {
   codigo: string;
   nombre: string;
   tipo: TipoCuenta;
+  rol?: RolCuenta | null;
   cuenta_padre?: number | null;
   acepta_movimiento?: boolean;
 }
@@ -61,7 +67,7 @@ export interface AsientoContableDetalle {
 }
 
 export type EstadoAsiento = 'borrador' | 'contabilizado' | 'anulado';
-export type OrigenAsiento = 'manual' | 'honorarios' | 'venta' | 'cierre';
+export type OrigenAsiento = 'manual' | 'honorarios' | 'venta' | 'ajuste_inventario' | 'cierre';
 
 export interface AsientoContable {
   id: number;
@@ -146,6 +152,17 @@ export interface EstadosFinancierosResponse {
 
 export const getEmpresasContables = async (): Promise<EmpresaContable[]> => {
   const response = await apiPrivada.get<EmpresaContable[]>('/contabilidad/empresas/');
+  return response.data;
+};
+
+/**
+ * Resuelve (auto-creando si hace falta, con plan de cuentas y cuentas por
+ * defecto ya listos) la empresa contable propia del tenant -- para
+ * negocios que no son del vertical 'contador', esta es la única empresa
+ * que existe: no tiene sentido mostrarles el selector multi-empresa.
+ */
+export const getMiEmpresaContable = async (): Promise<EmpresaContable> => {
+  const response = await apiPrivada.get<EmpresaContable>('/contabilidad/mi-empresa/');
   return response.data;
 };
 

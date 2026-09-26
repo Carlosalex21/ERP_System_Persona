@@ -2,7 +2,7 @@
  * @file Servicio para encapsular la lógica de API para el módulo de Clientes.
  */
 import { apiPrivada } from '@/services/api';
-import { Cliente, ClienteB2B, ClienteB2BRequest, ClienteRequest, NivelPrecio, NivelPrecioRequest, PatchedNivelPrecioRequest, ClienteBulkUploadResult } from '@/types/api';
+import { Cliente, ClienteB2B, ClienteB2BRequest, ClienteRequest, NivelPrecio, NivelPrecioRequest, PatchedNivelPrecioRequest, ClienteBulkUploadResult, TipoDocumentoOpcion } from '@/types/api';
 import { conRespaldoOffline } from '@/utils/offlineCache';
 
 /**
@@ -67,6 +67,23 @@ export const deleteNivelPrecio = async (id: number): Promise<void> => {
  */
 export const createCliente = async (data: ClienteRequest): Promise<Cliente> => {
   const response = await apiPrivada.post<Cliente>('/clientes/', data);
+  return response.data;
+};
+
+/** Actualiza los datos de un cliente existente (ej. marcarlo contribuyente especial, cambiar días de crédito). */
+export const updateCliente = async (id: number, data: Partial<ClienteRequest>): Promise<Cliente> => {
+  const response = await apiPrivada.patch<Cliente>(`/clientes/${id}/`, data);
+  return response.data;
+};
+
+/** Baja lógica de un cliente (nunca se borra de verdad -- ver `ClienteRetrieveUpdateDestroyView.perform_destroy`). */
+export const desactivarCliente = async (id: number): Promise<void> => {
+  await apiPrivada.delete(`/clientes/${id}/`);
+};
+
+/** Tipos de documento de identidad válidos para el país fiscal del tenant (ej. V/E/J/G en Venezuela). */
+export const getTiposDocumento = async (): Promise<{ pais_codigo: string; tipos_documento: TipoDocumentoOpcion[] }> => {
+  const response = await apiPrivada.get<{ pais_codigo: string; tipos_documento: TipoDocumentoOpcion[] }>('/clientes/tipos-documento/');
   return response.data;
 };
 

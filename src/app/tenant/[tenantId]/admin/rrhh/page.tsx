@@ -5,8 +5,8 @@ import type { ColumnDef } from '@tanstack/react-table';
 import { Plus, Edit, Trash2, UserX, UserCheck, Users } from 'lucide-react';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
-import { getManagedUsers, getSucursales, getRoles, updateManagedUser } from '@/services/rrhhService';
-import { UserManaged, Rol, Sucursal } from '@/types/api';
+import { getManagedUsers, getSucursales, getRoles, getDepartamentos, updateManagedUser } from '@/services/rrhhService';
+import { UserManaged, Rol, Sucursal, Departamento } from '@/types/api';
 import { getNombreById } from '@/utils/helpers';
 import { DataTable, PageHeader, Card, TableSkeleton, ConfirmDialog } from '@/components/ui';
 import UserModal from './components/UserModal';
@@ -18,6 +18,7 @@ export default function RrhhPage(): ReactElement {
   const [loading, setLoading] = useState(true);
   const [users, setUsers] = useState<UserManaged[]>([]);
   const [sucursales, setSucursales] = useState<Sucursal[]>([]);
+  const [departamentos, setDepartamentos] = useState<Departamento[]>([]);
   const [roles, setRoles] = useState<Rol[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editandoUsuario, setEditandoUsuario] = useState<UserManaged | null>(null);
@@ -27,15 +28,17 @@ export default function RrhhPage(): ReactElement {
       setLoading(true);
       // Antes: roles hardcodeados a 3 IDs fijos. Ahora se consultan los
       // roles reales del tenant (ver apps.usuarios.api.views_roles).
-      const [usersRes, sucursalesRes, rolesRes] = await Promise.allSettled([
+      const [usersRes, sucursalesRes, rolesRes, departamentosRes] = await Promise.allSettled([
         getManagedUsers(),
         getSucursales(),
         getRoles(),
+        getDepartamentos(),
       ]);
       if (usersRes.status === 'fulfilled') setUsers(usersRes.value);
       if (sucursalesRes.status === 'fulfilled') setSucursales(sucursalesRes.value);
       if (rolesRes.status === 'fulfilled') setRoles(rolesRes.value);
-      const fallos = [usersRes, sucursalesRes, rolesRes].filter(
+      if (departamentosRes.status === 'fulfilled') setDepartamentos(departamentosRes.value);
+      const fallos = [usersRes, sucursalesRes, rolesRes, departamentosRes].filter(
         (r): r is PromiseRejectedResult => r.status === 'rejected',
       );
       if (fallos.length > 0) {
@@ -109,6 +112,12 @@ export default function RrhhPage(): ReactElement {
       cell: ({ row }) => <span className="text-xs font-medium text-slate-600">{getNombreById(sucursales, row.original.sucursal) || 'Todas'}</span>,
     },
     {
+      accessorKey: 'departamento',
+      header: 'Departamento',
+      enableSorting: false,
+      cell: ({ row }) => <span className="text-xs font-medium text-slate-600">{getNombreById(departamentos, row.original.departamento) || '—'}</span>,
+    },
+    {
       accessorKey: 'is_active',
       header: () => <div className="text-center">Estado</div>,
       cell: ({ row }) => (
@@ -150,7 +159,7 @@ export default function RrhhPage(): ReactElement {
       ),
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  ], [roles, sucursales]);
+  ], [roles, sucursales, departamentos]);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -189,6 +198,7 @@ export default function RrhhPage(): ReactElement {
           onSave={handleSaveUser}
           roles={roles}
           sucursales={sucursales}
+          departamentos={departamentos}
           usuario={editandoUsuario}
         />
       )}

@@ -15,10 +15,10 @@ interface CartLineItemProps {
   currencySymbol: string;
   /** Convierte un monto desde la moneda propia del producto a la moneda de venta seleccionada. */
   convertirPrecio: (monto: number, monedaOrigenCodigo?: string | null) => number;
-  onRemove: (productId: number) => void;
-  onIncrement: (productId: number) => void;
-  onDecrement: (productId: number) => void;
-  onQuantityChange: (productId: number, newQuantity: number) => void;
+  onRemove: (cartKey: string) => void;
+  onIncrement: (cartKey: string) => void;
+  onDecrement: (cartKey: string) => void;
+  onQuantityChange: (cartKey: string, newQuantity: number) => void;
 }
 
 /**
@@ -37,17 +37,17 @@ const CartLineItem = memo(function CartLineItem({
   return (
     <div className="flex items-center gap-3 p-2 rounded-lg bg-slate-50 border">
       <div className="flex-grow min-w-0">
-        <p className="font-bold text-sm text-slate-800 truncate">{item.nombre}</p>
+        <p className="font-bold text-sm text-slate-800 truncate">{item.nombreCarrito}</p>
         <p className="text-xs text-slate-500">
           {currencySymbol}
-          {convertirPrecio(parseFloat(item.precio || '0'), item.moneda_codigo).toFixed(2)}
+          {convertirPrecio(parseFloat(item.precioLinea || '0'), item.moneda_codigo).toFixed(2)}
         </p>
       </div>
 
       <div className="flex items-center gap-1.5">
         <button
           type="button"
-          onClick={() => onDecrement(item.id)}
+          onClick={() => onDecrement(item.cartKey)}
           disabled={item.quantity <= 1}
           aria-label="Disminuir cantidad"
           className="w-7 h-7 flex items-center justify-center border rounded-md text-slate-500 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed"
@@ -58,7 +58,7 @@ const CartLineItem = memo(function CartLineItem({
         <input
           type="number"
           value={item.quantity}
-          onChange={(e) => onQuantityChange(item.id, parseInt(e.target.value, 10) || 1)}
+          onChange={(e) => onQuantityChange(item.cartKey, parseInt(e.target.value, 10) || 1)}
           className="w-12 text-center text-sm font-bold border rounded-md py-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
           min="1"
           aria-label="Cantidad"
@@ -66,7 +66,7 @@ const CartLineItem = memo(function CartLineItem({
 
         <button
           type="button"
-          onClick={() => onIncrement(item.id)}
+          onClick={() => onIncrement(item.cartKey)}
           aria-label="Aumentar cantidad"
           className="w-7 h-7 flex items-center justify-center border rounded-md text-slate-500 hover:bg-slate-100"
         >
@@ -75,7 +75,7 @@ const CartLineItem = memo(function CartLineItem({
 
         <button
           type="button"
-          onClick={() => onRemove(item.id)}
+          onClick={() => onRemove(item.cartKey)}
           aria-label="Quitar del carrito"
           className="text-slate-400 hover:text-red-500 p-1"
         >

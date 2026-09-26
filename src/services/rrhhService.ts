@@ -2,7 +2,10 @@
  * @file Servicio para encapsular la lógica de API para el módulo de RRHH.
  */
 import { apiPrivada } from '@/services/api';
-import { UserManaged, UserManagedRequest, Rol, Sucursal, SucursalRequest } from '@/types/api';
+import {
+  UserManaged, UserManagedRequest, Rol, Sucursal, SucursalRequest, Departamento, DepartamentoRequest,
+  PeriodoNomina, GenerarPeriodoNominaRequest, ConceptoNomina, ConceptoNominaRequest,
+} from '@/types/api';
 
 /**
  * Obtiene la lista de usuarios gestionados (empleados) del tenant.
@@ -81,4 +84,82 @@ export const createSucursal = async (data: SucursalRequest): Promise<Sucursal> =
  */
 export const deleteSucursal = async (id: number): Promise<void> => {
   await apiPrivada.delete(`/rrhh/sucursales/${id}/`);
+};
+
+/**
+ * Obtiene la lista de departamentos (equipos de trabajo: Cocina, Almacén,
+ * Taller...) del tenant -- ver `apps.rrhh.models.Departamento`.
+ * @returns {Promise<Departamento[]>}
+ */
+export const getDepartamentos = async (): Promise<Departamento[]> => {
+  const response = await apiPrivada.get<Departamento[]>('/rrhh/departamentos/');
+  return response.data;
+};
+
+export const createDepartamento = async (data: DepartamentoRequest): Promise<Departamento> => {
+  const response = await apiPrivada.post<Departamento>('/rrhh/departamentos/', data);
+  return response.data;
+};
+
+export const updateDepartamento = async (id: number, data: Partial<DepartamentoRequest>): Promise<Departamento> => {
+  const response = await apiPrivada.patch<Departamento>(`/rrhh/departamentos/${id}/`, data);
+  return response.data;
+};
+
+export const deleteDepartamento = async (id: number): Promise<void> => {
+  await apiPrivada.delete(`/rrhh/departamentos/${id}/`);
+};
+
+// --- Nómina ---
+
+export const getPeriodosNomina = async (): Promise<PeriodoNomina[]> => {
+  const response = await apiPrivada.get<PeriodoNomina[]>('/rrhh/nomina/');
+  return response.data;
+};
+
+/** Genera un nuevo período de nómina (una línea por empleado con sueldo asignado, descontando ausencias reales). */
+export const generarPeriodoNomina = async (data: GenerarPeriodoNominaRequest): Promise<PeriodoNomina> => {
+  const response = await apiPrivada.post<PeriodoNomina>('/rrhh/nomina/', data);
+  return response.data;
+};
+
+/** Marca el período como pagado y genera su asiento contable automático (Gasto de Sueldos / Caja). */
+export const pagarPeriodoNomina = async (periodoId: number): Promise<PeriodoNomina> => {
+  const response = await apiPrivada.post<PeriodoNomina>(`/rrhh/nomina/${periodoId}/pagar/`);
+  return response.data;
+};
+
+/**
+ * Descarga el recibo de pago (PDF) de una línea de nómina y lo abre en una
+ * pestaña nueva -- mismo patrón que `verFacturaPdf`: el endpoint exige
+ * autenticación, así que se pide como blob con el token ya inyectado por
+ * `apiPrivada` en vez de enlazar directo con un `<a href>`.
+ */
+export const verReciboNominaPdf = async (nominaEmpleadoId: number): Promise<void> => {
+  const response = await apiPrivada.get(`/rrhh/recibo-nomina/${nominaEmpleadoId}/`, { responseType: 'blob' });
+  const blobUrl = window.URL.createObjectURL(response.data as Blob);
+  window.open(blobUrl, '_blank');
+  setTimeout(() => window.URL.revokeObjectURL(blobUrl), 30_000);
+};
+
+// --- Conceptos de Nómina (bonos/deducciones configurables) ---
+
+export const getConceptosNomina = async (): Promise<ConceptoNomina[]> => {
+  const response = await apiPrivada.get<ConceptoNomina[]>('/rrhh/conceptos-nomina/');
+  return response.data;
+};
+
+export const crearConceptoNomina = async (data: ConceptoNominaRequest): Promise<ConceptoNomina> => {
+  const response = await apiPrivada.post<ConceptoNomina>('/rrhh/conceptos-nomina/', data);
+  return response.data;
+};
+
+export const actualizarConceptoNomina = async (id: number, data: Partial<ConceptoNominaRequest>): Promise<ConceptoNomina> => {
+  const response = await apiPrivada.patch<ConceptoNomina>(`/rrhh/conceptos-nomina/${id}/`, data);
+  return response.data;
+};
+
+/** Desactiva el concepto (no lo borra físicamente -- puede estar snapshoteado en nóminas pasadas). */
+export const eliminarConceptoNomina = async (id: number): Promise<void> => {
+  await apiPrivada.delete(`/rrhh/conceptos-nomina/${id}/`);
 };

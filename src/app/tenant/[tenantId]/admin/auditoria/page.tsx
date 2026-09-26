@@ -6,6 +6,7 @@ import { ShieldCheck, Search, Eye } from 'lucide-react';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { getRegistrosAuditoria, type FiltrosAuditoria } from '@/services/auditoriaService';
+import { getHistorialAccesos, type IntentoLogin } from '@/services/authService';
 import { getApiErrorMessages } from '@/utils/helpers';
 import { DataTable, PageHeader, Card, Badge, TableSkeleton } from '@/components/ui';
 import type { RegistroAuditoria } from '@/types/api';
@@ -49,6 +50,7 @@ function accionLabel(accion: string): string {
  * DIAN, SUNAT) mostrando la trazabilidad completa del sistema.
  */
 export default function AuditoriaPage(): ReactElement {
+  const [tab, setTab] = useState<'cambios' | 'accesos'>('cambios');
   const [registros, setRegistros] = useState<RegistroAuditoria[]>([]);
   const [cargando, setCargando] = useState(true);
   const [modelo, setModelo] = useState('');
@@ -85,6 +87,19 @@ export default function AuditoriaPage(): ReactElement {
   useEffect(() => {
     cargar();
   }, [cargar]);
+
+  const [accesos, setAccesos] = useState<IntentoLogin[]>([]);
+  const [cargandoAccesos, setCargandoAccesos] = useState(false);
+  const [accesosCargados, setAccesosCargados] = useState(false);
+
+  useEffect(() => {
+    if (tab !== 'accesos' || accesosCargados) return;
+    setCargandoAccesos(true);
+    getHistorialAccesos()
+      .then((data) => { setAccesos(data); setAccesosCargados(true); })
+      .catch(() => toast.error('No se pudo cargar el historial de accesos.'))
+      .finally(() => setCargandoAccesos(false));
+  }, [tab, accesosCargados]);
 
   const columns = useMemo<ColumnDef<RegistroAuditoria>[]>(() => [
     {
@@ -144,6 +159,24 @@ export default function AuditoriaPage(): ReactElement {
         description="Trazabilidad completa del sistema: quién hizo qué cambio, cuándo, y con qué valores antes/después -- para poder responder ante una fiscalización."
       />
 
+      <div className="flex gap-2">
+        {([
+          { value: 'cambios', label: 'Cambios' },
+          { value: 'accesos', label: 'Accesos' },
+        ] as const).map((t) => (
+          <button
+            key={t.value}
+            onClick={() => setTab(t.value)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${
+              tab === t.value ? 'bg-primary-600 text-white border-primary-600' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'cambios' && (
       <Card>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           <div>
@@ -215,23 +248,63 @@ export default function AuditoriaPage(): ReactElement {
           </div>
         </div>
       </Card>
+      )}
 
-      {cargando ? (
-        <TableSkeleton rows={8} />
-      ) : (
-        <Card padding="none" className="overflow-hidden">
-          <DataTable
-            columns={columns}
-            data={registros}
-            pageSize={20}
-            resultLabel="registros"
-            emptyState={
-              <div className="p-12 text-center text-slate-400 text-sm">
-                No hay registros de auditoría para los filtros seleccionados.
+      {tab === 'cambios' && (
+        cargando ? (
+          <TableSkeleton rows={8} />
+        ) : (
+          <Card padding="none" className="overflow-hidden">
+            <DataTable
+              columns={columns}
+              data={registros}
+              pageSize={20}
+              resultLabel="registros"
+              emptyState={
+                <div className="p-12 text-center text-slate-400 text-sm">
+                  No hay registros de auditoría para los filtros seleccionados.
+                </div>
+              }
+            />
+          </Card>
+        )
+      )}
+
+      {tab === 'accesos' && (
+        cargandoAccesos ? (
+          <TableSkeleton rows={8} />
+        ) : (
+          <Card padding="none" className="overflow-hidden">
+            {accesos.length === 0 ? (
+              <div className="p-12 text-center text-slate-400 text-sm">No hay intentos de inicio de sesión registrados.</div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-slate-50 text-slate-500 text-[10px] font-bold uppercase border-b border-slate-200">
+                      <th className="p-3 text-left">Fecha</th>
+                      <th className="p-3 text-left">Usuario</th>
+                      <th className="p-3 text-left">IP</th>
+                      <th className="p-3 text-center">Resultado</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {accesos.map((a) => (
+                      <tr key={a.id} className="hover:bg-slate-50">
+                        <td className="p-3 text-xs text-slate-600 whitespace-nowrap">{new Date(a.timestamp).toLocaleString('es-VE', { dateStyle: 'short', timeStyle: 'short' })}</td>
+                        <td className="p-3 font-medium text-slate-700">{a.usuario_nombre}</td>
+                        <td className="p-3 font-mono text-xs text-slate-500">{a.ip || '—'}</td>
+                        <td className="p-3 text-center">
+                          <Badge tone={a.success ? 'green' : 'red'}>{a.success ? 'Exitoso' : 'Fallido'}</Badge>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-            }
-          />
-        </Card>
+            )}
+          </Card>
+        )
       )}
 
       {seleccionado && (

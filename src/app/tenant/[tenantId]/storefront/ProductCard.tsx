@@ -25,9 +25,26 @@ export default function ProductCard({
   onIncrement,
   onDecrement,
 }: ProductCardProps): ReactElement {
-  const agotado = producto.stock_disponible <= 0;
-  const enCarrito = cantidadEnCarrito > 0;
+  // Un producto con variantes o presentaciones siempre pasa por el selector
+  // (ver `ProductOptionsModal`, abierto por el padre) -- el stepper +/- de
+  // aquí abajo no tiene sentido para él, porque "cantidadEnCarrito" es la
+  // suma de TODAS sus líneas (una por variante/presentación elegida), no la
+  // cantidad de una línea concreta que este botón pudiera incrementar.
+  const tieneVariantes = producto.tipo === 'variable' && (producto.variantes?.length ?? 0) > 0;
+  const tienePresentaciones = (producto.presentaciones?.length ?? 0) > 0;
+  const tieneOpciones = tieneVariantes || tienePresentaciones;
+  // `producto.stock_disponible` es el de `Producto.cantidad`, que para un
+  // 'variable' no representa nada (el stock real vive en cada variante) --
+  // sin esto, un producto con variantes siempre se veía "Agotado".
+  const stockReal = tieneVariantes
+    ? (producto.variantes || []).reduce((acc, v) => acc + Math.max(v.stock_disponible, 0), 0)
+    : producto.stock_disponible;
+  const agotado = stockReal <= 0;
+  const enCarrito = !tieneOpciones && cantidadEnCarrito > 0;
   const alTope = cantidadEnCarrito >= producto.stock_disponible;
+  const precioDesde = tieneVariantes
+    ? Math.min(...(producto.variantes || []).map((v) => parseFloat(v.precio)))
+    : parseFloat(producto.precio_venta);
 
   return (
     <motion.div
@@ -58,16 +75,16 @@ export default function ProductCard({
             Agotado
           </span>
         )}
-        {!agotado && producto.stock_disponible <= 3 && (
+        {!agotado && stockReal <= 3 && (
           <motion.span
             animate={{ scale: [1, 1.06, 1] }}
             transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
             className="absolute top-3 left-3 flex items-center gap-1 bg-accent-500 text-white text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full shadow-md shadow-accent-500/30"
           >
-            <Sparkles size={10} /> ¡Últimas {producto.stock_disponible}!
+            <Sparkles size={10} /> ¡Últimas {stockReal}!
           </motion.span>
         )}
-        {enCarrito && (
+        {(enCarrito || (tieneOpciones && cantidadEnCarrito > 0)) && (
           <motion.span
             initial={{ scale: 0, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
@@ -88,9 +105,10 @@ export default function ProductCard({
         <div className="mt-auto pt-4 flex items-end justify-between gap-3">
           <div className="min-w-0">
             <span className="text-xl font-black text-slate-900">
-              {simbolo} {parseFloat(producto.precio_venta).toFixed(2)}
+              {tieneVariantes && <span className="text-xs font-bold text-slate-400 mr-1">Desde </span>}
+              {simbolo} {precioDesde.toFixed(2)}
             </span>
-            {equivalente && <p className="text-xs text-slate-400">≈ {equivalente}</p>}
+            {equivalente && !tieneVariantes && <p className="text-xs text-slate-400">≈ {equivalente}</p>}
             {producto.iva_porcentaje > 0 && (
               <span className="inline-block mt-1 text-[9px] font-bold uppercase tracking-wide text-primary-600 bg-primary-50 px-1.5 py-0.5 rounded">
                 IVA ({producto.iva_porcentaje}%) incluido

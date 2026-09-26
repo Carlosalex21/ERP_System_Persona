@@ -35,31 +35,64 @@ export const GRUPOS_MODULOS_PANEL: GrupoModulosPanel[] = [
     etiqueta: 'General',
     modulos: [
       { codigo: 'dashboard', etiqueta: 'Dashboard', path: '/admin' },
+      { codigo: 'alertas', etiqueta: 'Centro de Alertas', path: '/admin/alertas' },
     ],
   },
   {
     etiqueta: 'Gestión',
     modulos: [
+      { codigo: 'clientes', etiqueta: 'Clientes', path: '/admin/clientes' },
       { codigo: 'inventario', etiqueta: 'Inventario', path: '/admin/inventario', tiposNegocio: TIPOS_CON_INVENTARIO },
       { codigo: 'categorias', etiqueta: 'Categorías', path: '/admin/inventario/categorias', tiposNegocio: TIPOS_CON_INVENTARIO },
       { codigo: 'ajustes_inventario', etiqueta: 'Ajustes de Inventario', path: '/admin/inventario/ajustes', tiposNegocio: TIPOS_CON_INVENTARIO },
+      { codigo: 'traslados_inventario', etiqueta: 'Traslados entre Almacenes', path: '/admin/inventario/traslados', tiposNegocio: TIPOS_CON_INVENTARIO },
       { codigo: 'proveedores', etiqueta: 'Proveedores', path: '/admin/proveedores', tiposNegocio: TIPOS_CON_INVENTARIO },
+      { codigo: 'ordenes_compra', etiqueta: 'Órdenes de Compra', path: '/admin/proveedores/ordenes-compra', tiposNegocio: TIPOS_CON_INVENTARIO },
+      { codigo: 'cuentas_por_pagar', etiqueta: 'Cuentas por Pagar', path: '/admin/proveedores/cuentas-por-pagar', tiposNegocio: TIPOS_CON_INVENTARIO },
       { codigo: 'pedidos', etiqueta: 'Pedidos', path: '/admin/pedidos', tiposNegocio: TIPOS_CON_INVENTARIO },
+      { codigo: 'notas_entrega', etiqueta: 'Notas de Entrega', path: '/admin/facturacion/notas-entrega', tiposNegocio: TIPOS_CON_INVENTARIO },
       { codigo: 'pos', etiqueta: 'Punto de Venta (POS)', path: '/admin/pos', tiposNegocio: ['retail', 'farmacia', 'servicios', 'restaurante'] },
       { codigo: 'mesas', etiqueta: 'Mesas y Pedidos', path: '/admin/restaurante/mesas', tiposNegocio: ['restaurante'] },
-      { codigo: 'lotes_vencimientos', etiqueta: 'Lotes y Vencimientos', path: '/admin/farmacia/lotes', tiposNegocio: ['farmacia'] },
+      { codigo: 'cocina', etiqueta: 'Cocina', path: '/admin/restaurante/cocina', tiposNegocio: ['restaurante'] },
+      // Sin restringir a 'farmacia' -- LoteProducto siempre fue opcional
+      // por producto (cualquier negocio con mercancía perecedera/con fecha
+      // de caducidad lo puede usar), y el backend nunca lo restringió.
+      { codigo: 'lotes_vencimientos', etiqueta: 'Lotes y Vencimientos', path: '/admin/farmacia/lotes', tiposNegocio: TIPOS_CON_INVENTARIO },
       { codigo: 'ordenes_servicio', etiqueta: 'Órdenes de Servicio', path: '/admin/servicios/ordenes', tiposNegocio: ['servicios'] },
       { codigo: 'empresas_contables', etiqueta: 'Empresas (Clientes)', path: '/admin/contabilidad/empresas', tiposNegocio: ['contador'] },
       { codigo: 'servicios_facturables', etiqueta: 'Servicios y Honorarios', path: '/admin/contabilidad/servicios', tiposNegocio: ['contador'] },
-      { codigo: 'asientos_contables', etiqueta: 'Asientos Contables', path: '/admin/contabilidad/asientos', tiposNegocio: ['contador'] },
-      { codigo: 'plan_cuentas', etiqueta: 'Plan de Cuentas', path: '/admin/contabilidad/cuentas', tiposNegocio: ['contador'] },
-      { codigo: 'libro_mayor', etiqueta: 'Libro Mayor', path: '/admin/contabilidad/libro-mayor', tiposNegocio: ['contador'] },
-      { codigo: 'balance_comprobacion', etiqueta: 'Balance de Comprobación', path: '/admin/contabilidad/balance', tiposNegocio: ['contador'] },
-      { codigo: 'estados_financieros', etiqueta: 'Estados Financieros', path: '/admin/contabilidad/estados', tiposNegocio: ['contador'] },
+      // Sin `tiposNegocio` (antes restringido a 'contador'): cualquier
+      // negocio lleva su propia contabilidad ahora -- ver
+      // `EmpresaSelector`, que le resuelve/auto-crea su única empresa
+      // contable propia, y `apps.contabilidad.services.generar_asiento_automatico_venta`
+      // / `generar_asiento_automatico_ajuste_inventario`, que la alimentan solos.
+      { codigo: 'asientos_contables', etiqueta: 'Asientos Contables', path: '/admin/contabilidad/asientos' },
+      { codigo: 'plan_cuentas', etiqueta: 'Plan de Cuentas', path: '/admin/contabilidad/cuentas' },
+      { codigo: 'libro_mayor', etiqueta: 'Libro Mayor', path: '/admin/contabilidad/libro-mayor' },
+      { codigo: 'balance_comprobacion', etiqueta: 'Balance de Comprobación', path: '/admin/contabilidad/balance' },
+      { codigo: 'estados_financieros', etiqueta: 'Estados Financieros', path: '/admin/contabilidad/estados' },
       { codigo: 'conciliacion_bancaria', etiqueta: 'Conciliación Bancaria', path: '/admin/contabilidad/conciliacion', tiposNegocio: ['contador'] },
       { codigo: 'cobros', etiqueta: 'Cobros', path: '/admin/facturacion/cobros' },
+      { codigo: 'cuentas_por_cobrar', etiqueta: 'Cuentas por Cobrar', path: '/admin/facturacion/cuentas-por-cobrar' },
+      { codigo: 'caja_bancos', etiqueta: 'Caja y Bancos', path: '/admin/facturacion/caja-bancos' },
       { codigo: 'clientes_b2b', etiqueta: 'Red de Clientes', path: '/admin/clientes/b2b', tiposNegocio: ['b2b'] },
       { codigo: 'empleados', etiqueta: 'Empleados', path: '/admin/rrhh' },
+      { codigo: 'departamentos', etiqueta: 'Departamentos', path: '/admin/rrhh/departamentos' },
+      { codigo: 'nomina', etiqueta: 'Nómina', path: '/admin/rrhh/nomina' },
+    ],
+  },
+  {
+    etiqueta: 'CRM',
+    modulos: [
+      { codigo: 'oportunidades', etiqueta: 'Oportunidades', path: '/admin/crm/oportunidades' },
+      { codigo: 'cotizaciones', etiqueta: 'Cotizaciones', path: '/admin/crm/cotizaciones' },
+    ],
+  },
+  {
+    etiqueta: 'Postventa',
+    modulos: [
+      { codigo: 'garantias', etiqueta: 'Garantías', path: '/admin/postventa/garantias', tiposNegocio: TIPOS_CON_INVENTARIO },
+      { codigo: 'reclamos_postventa', etiqueta: 'Reclamos Postventa', path: '/admin/postventa/reclamos' },
     ],
   },
   {
@@ -84,6 +117,7 @@ export const GRUPOS_MODULOS_PANEL: GrupoModulosPanel[] = [
     etiqueta: 'Configuración',
     modulos: [
       { codigo: 'suscripcion', etiqueta: 'Mi Suscripción', path: '/admin/suscripcion' },
+      { codigo: 'referidos', etiqueta: 'Programa de Referidos', path: '/admin/referidos' },
       { codigo: 'datos_empresa', etiqueta: 'Datos de la Empresa', path: '/admin/configuracion/empresa' },
       { codigo: 'almacenes', etiqueta: 'Almacenes', path: '/admin/inventario/almacenes', tiposNegocio: TIPOS_CON_INVENTARIO },
       { codigo: 'impuestos', etiqueta: 'Impuestos', path: '/admin/configuracion/iva' },

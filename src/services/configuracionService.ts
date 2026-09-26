@@ -285,6 +285,23 @@ export const updateConfiguracionEmpresa = async (
 };
 
 /**
+ * Si el tenant exige PIN para eliminar renglones (POS, mesas, etc.) --
+ * cualquier usuario logueado puede consultarlo (un cajero, no solo el
+ * admin, necesita saberlo para decidir si pedir el PIN). Nunca expone el
+ * PIN en sí, solo este booleano.
+ */
+export const getRequierePinEliminar = async (): Promise<boolean> => {
+  const response = await apiPrivada.get<{ requiere_pin_eliminar: boolean }>('/configuracion/requiere-pin-eliminar/');
+  return response.data.requiere_pin_eliminar;
+};
+
+/** Verifica un PIN ingresado -- nunca revela el PIN real, solo si coincide. */
+export const verificarPinAutorizacion = async (pin: string): Promise<boolean> => {
+  const response = await apiPrivada.post<{ valido: boolean }>('/configuracion/verificar-pin/', { pin });
+  return response.data.valido;
+};
+
+/**
  * Obtiene la numeración de facturas (correlativo) del tenant.
  * @returns {Promise<ConfiguracionCorrelativo>}
  */

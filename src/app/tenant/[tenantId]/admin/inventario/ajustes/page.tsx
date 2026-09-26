@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, type ReactElement } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
-import { Plus, ArrowLeftRight, PackagePlus, PackageMinus } from 'lucide-react';
+import { Plus, ArrowLeftRight, PackagePlus, PackageMinus, Pencil } from 'lucide-react';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 
@@ -10,11 +10,13 @@ import { DataTable, Badge, PageHeader, Card, TableSkeleton } from '@/components/
 import { getAjustesInventario } from '@/services/inventoryService';
 import type { AjusteInventario } from '@/types/api';
 import AjusteModal from './AjusteModal';
+import AjusteEditModal from './AjusteEditModal';
 
 export default function AjustesInventarioPage(): ReactElement {
   const [ajustes, setAjustes] = useState<AjusteInventario[]>([]);
   const [cargando, setCargando] = useState(true);
   const [modalAbierto, setModalAbierto] = useState(false);
+  const [ajusteEditando, setAjusteEditando] = useState<AjusteInventario | null>(null);
 
   const cargar = useCallback(async (): Promise<void> => {
     setCargando(true);
@@ -67,6 +69,18 @@ export default function AjustesInventarioPage(): ReactElement {
       cell: ({ row }) => <span className="font-mono text-slate-500">{row.original.numero_documento || '—'}</span>,
     },
     {
+      id: 'fecha_documento',
+      header: 'Fecha del doc.',
+      enableSorting: false,
+      cell: ({ row }) => (
+        <span className="text-slate-500 text-xs">
+          {row.original.fecha_documento
+            ? new Date(row.original.fecha_documento + 'T00:00:00').toLocaleDateString('es-VE')
+            : '—'}
+        </span>
+      ),
+    },
+    {
       id: 'lineas',
       header: () => <div className="text-center">Líneas</div>,
       enableSorting: false,
@@ -89,6 +103,23 @@ export default function AjustesInventarioPage(): ReactElement {
       header: 'Registrado por',
       enableSorting: false,
       cell: ({ row }) => <span className="text-slate-500 text-xs">{row.original.usuario_nombre || '—'}</span>,
+    },
+    {
+      id: 'acciones',
+      header: () => <div className="text-right">Acciones</div>,
+      enableSorting: false,
+      cell: ({ row }) => (
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={() => setAjusteEditando(row.original)}
+            className="p-2 text-slate-400 hover:text-primary-600 transition-colors"
+            aria-label="Corregir ajuste"
+          >
+            <Pencil size={15} />
+          </button>
+        </div>
+      ),
     },
   ], []);
 
@@ -132,6 +163,17 @@ export default function AjustesInventarioPage(): ReactElement {
           onSaved={() => {
             setModalAbierto(false);
             cargar();
+          }}
+        />
+      )}
+
+      {ajusteEditando && (
+        <AjusteEditModal
+          ajuste={ajusteEditando}
+          onClose={() => setAjusteEditando(null)}
+          onSaved={(actualizado) => {
+            setAjustes((prev) => prev.map((a) => (a.id === actualizado.id ? actualizado : a)));
+            setAjusteEditando(null);
           }}
         />
       )}

@@ -20,12 +20,24 @@ import TotalsBreakdown from './TotalsBreakdown';
 
 export interface CartItem extends Producto {
   quantity: number;
+  // Identidad de la línea del carrito -- NO es `product.id`: el mismo
+  // producto con dos variantes o presentaciones distintas debe verse como
+  // dos líneas separadas (ver `armarCartKey` en `PosView.tsx`).
+  cartKey: string;
+  varianteId?: number | null;
+  presentacionId?: number | null;
+  /** Nombre a mostrar en el carrito -- ya incluye la variante/presentación elegida, si aplica. */
+  nombreCarrito: string;
+  /** Precio unitario de ESTA línea (el de la variante o presentación elegida, no siempre `producto.precio`). */
+  precioLinea: string;
+  /** Tope de cantidad para ESTA línea (stock de la variante, o unidades de presentación disponibles). */
+  stockLinea: number;
 }
 
 interface SaleCartProps {
   cartItems: CartItem[];
-  onRemoveItem: (productId: number) => void;
-  onUpdateQuantity: (productId: number, newQuantity: number) => void;
+  onRemoveItem: (cartKey: string) => void;
+  onUpdateQuantity: (cartKey: string, newQuantity: number) => void;
   onClearCart: () => void;
   onProceedToPayment: () => void;
   clients: Cliente[];
@@ -46,8 +58,10 @@ interface SaleCartProps {
   /** Convierte un monto desde la moneda propia del producto a la moneda de venta seleccionada. */
   convertirPrecio: (monto: number, monedaOrigenCodigo?: string | null) => number;
 
-  condicionPago: 'contado' | 'credito';
-  onCondicionPagoChange: (valor: 'contado' | 'credito') => void;
+  condicionPago: 'contado' | 'credito' | 'nota_entrega';
+  onCondicionPagoChange: (valor: 'contado' | 'credito' | 'nota_entrega') => void;
+  /** true mientras se está creando la nota de entrega (ver `handleGenerarNotaEntrega`) -- deshabilita el botón de acción. */
+  generandoNotaEntrega?: boolean;
   vendedores: Vendedor[];
   vendedorId: number | null;
   onVendedorChange: (id: number | null) => void;
@@ -81,6 +95,7 @@ export default function SaleCart({
   convertirPrecio,
   condicionPago,
   onCondicionPagoChange,
+  generandoNotaEntrega = false,
   vendedores,
   vendedorId,
   onVendedorChange,
@@ -107,32 +122,32 @@ export default function SaleCart({
   // useCallback: handlers de incremento/decremento con referencias estables.
   // El padre (PosView) se encarga de validar stock y de eliminar cuando llega a 0.
   const handleIncrement = useCallback(
-    (productId: number) => {
-      const item = cartItems.find(i => i.id === productId);
+    (cartKey: string) => {
+      const item = cartItems.find(i => i.cartKey === cartKey);
       if (!item) return;
-      onUpdateQuantity(productId, item.quantity + 1);
+      onUpdateQuantity(cartKey, item.quantity + 1);
     },
     [cartItems, onUpdateQuantity],
   );
 
   const handleDecrement = useCallback(
-    (productId: number) => {
-      const item = cartItems.find(i => i.id === productId);
+    (cartKey: string) => {
+      const item = cartItems.find(i => i.cartKey === cartKey);
       if (!item) return;
-      onUpdateQuantity(productId, item.quantity - 1);
+      onUpdateQuantity(cartKey, item.quantity - 1);
     },
     [cartItems, onUpdateQuantity],
   );
 
   const handleQuantityChange = useCallback(
-    (productId: number, newQuantity: number) => {
-      onUpdateQuantity(productId, newQuantity);
+    (cartKey: string, newQuantity: number) => {
+      onUpdateQuantity(cartKey, newQuantity);
     },
     [onUpdateQuantity],
   );
 
   const handleRemove = useCallback(
-    (productId: number) => onRemoveItem(productId),
+    (cartKey: string) => onRemoveItem(cartKey),
     [onRemoveItem],
   );
 
@@ -230,20 +245,28 @@ export default function SaleCart({
       <div className="p-3 border-b grid grid-cols-2 gap-2 shrink-0">
         <div>
           <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Condición</label>
-          <div className="flex rounded-lg border border-slate-200 overflow-hidden text-xs font-bold">
+          <div className="flex rounded-lg border border-slate-200 overflow-hidden text-[11px] font-bold">
             <button
               type="button"
               onClick={() => onCondicionPagoChange('contado')}
-              className={`flex-1 py-1.5 transition-colors ${condicionPago === 'contado' ? 'bg-primary-600 text-white' : 'bg-white text-slate-500 hover:bg-slate-50'}`}
+              className={`flex-1 py-1.5 px-1 transition-colors ${condicionPago === 'contado' ? 'bg-primary-600 text-white' : 'bg-white text-slate-500 hover:bg-slate-50'}`}
             >
               Contado
             </button>
             <button
               type="button"
               onClick={() => onCondicionPagoChange('credito')}
-              className={`flex-1 py-1.5 transition-colors ${condicionPago === 'credito' ? 'bg-primary-600 text-white' : 'bg-white text-slate-500 hover:bg-slate-50'}`}
+              className={`flex-1 py-1.5 px-1 transition-colors ${condicionPago === 'credito' ? 'bg-primary-600 text-white' : 'bg-white text-slate-500 hover:bg-slate-50'}`}
             >
               Crédito
+            </button>
+            <button
+              type="button"
+              onClick={() => onCondicionPagoChange('nota_entrega')}
+              title="Entrega la mercancía ya (descuenta stock) sin facturarla todavía"
+              className={`flex-1 py-1.5 px-1 transition-colors ${condicionPago === 'nota_entrega' ? 'bg-primary-600 text-white' : 'bg-white text-slate-500 hover:bg-slate-50'}`}
+            >
+              Nota entrega
             </button>
           </div>
         </div>
@@ -293,7 +316,7 @@ export default function SaleCart({
         ) : (
           cartItems.map(item => (
             <CartLineItem
-              key={item.id}
+              key={item.cartKey}
               item={item}
               currencySymbol={currencySymbol}
               convertirPrecio={convertirPrecio}
@@ -319,10 +342,12 @@ export default function SaleCart({
             whileTap={{ scale: 0.97 }}
             type="button"
             onClick={onProceedToPayment}
-            disabled={cartItems.length === 0 || !selectedClient}
+            disabled={cartItems.length === 0 || !selectedClient || generandoNotaEntrega}
             className="w-full mt-3 bg-primary-600 text-white font-bold py-2.5 rounded-xl hover:bg-primary-700 transition-colors shadow-lg disabled:bg-slate-400"
           >
-            Proceder al Pago
+            {condicionPago === 'nota_entrega'
+              ? (generandoNotaEntrega ? 'Generando...' : 'Generar Nota de Entrega')
+              : 'Proceder al Pago'}
           </motion.button>
         </div>
       )}

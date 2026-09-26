@@ -35,10 +35,19 @@ interface ApiEnvelope<T> {
 }
 
 export interface PublicMesaItem {
+  id: number;
   nombre: string;
   cantidad: number;
   precio_unitario: string;
   subtotal: string;
+  persona_asignada: number | null;
+  preparado: boolean;
+}
+
+export interface DesglosePersona {
+  persona: number;
+  subtotal: string;
+  total_con_propina: string;
 }
 
 export interface PublicPedidoMesa {
@@ -50,6 +59,14 @@ export interface PublicPedidoMesa {
   propina_pct: string;
   mesero_solicitado: boolean;
   cuenta_solicitada: boolean;
+  /** Datos de pago (banco, titular, teléfono, etc.) de quien va a cobrarle al resto del grupo -- texto libre, compartido entre todos los que escanearon el QR. */
+  datos_pago_anfitrion: string;
+  /** `true` si ya hay un PIN fijado -- el valor del PIN nunca viaja aquí (ver `pin_anfitrion_nuevo`, que solo aparece la vez que se crea). */
+  tiene_pin_anfitrion: boolean;
+  comprobante_pago: string | null;
+  desglose_por_persona: DesglosePersona[];
+  /** Solo presente en la respuesta que ACABA de fijar el PIN por primera vez -- anótalo, no vuelve a aparecer. */
+  pin_anfitrion_nuevo?: string;
 }
 
 export const getPedidoMesaPublico = async (subdominio: string, token: string): Promise<PublicPedidoMesa> => {
@@ -63,7 +80,7 @@ export const getPedidoMesaPublico = async (subdominio: string, token: string): P
 export const actualizarDivisionPublico = async (
   subdominio: string,
   token: string,
-  data: { division_personas?: number; propina_pct?: number },
+  data: { division_personas?: number; propina_pct?: number; datos_pago_anfitrion?: string; pin_anfitrion?: string },
 ): Promise<PublicPedidoMesa> => {
   const response = await axios.patch<ApiEnvelope<PublicPedidoMesa>>(
     `${baseUrl(subdominio)}/restaurantes/publico/${token}/`,
@@ -87,4 +104,26 @@ export const pedirCuentaPublico = async (subdominio: string, token: string): Pro
     {},
     { headers: tenantHeaders(subdominio) },
   );
+};
+
+export const asignarPersonaPublico = async (
+  subdominio: string, token: string, itemId: number, personaAsignada: number | null,
+): Promise<PublicPedidoMesa> => {
+  const response = await axios.post<ApiEnvelope<PublicPedidoMesa>>(
+    `${baseUrl(subdominio)}/restaurantes/publico/${token}/asignar-persona/`,
+    { item_id: itemId, persona_asignada: personaAsignada },
+    { headers: tenantHeaders(subdominio) },
+  );
+  return response.data.data;
+};
+
+export const subirComprobantePagoPublico = async (subdominio: string, token: string, archivo: File): Promise<PublicPedidoMesa> => {
+  const formData = new FormData();
+  formData.append('comprobante_pago', archivo);
+  const response = await axios.post<ApiEnvelope<PublicPedidoMesa>>(
+    `${baseUrl(subdominio)}/restaurantes/publico/${token}/comprobante-pago/`,
+    formData,
+    { headers: { ...tenantHeaders(subdominio), 'Content-Type': 'multipart/form-data' } },
+  );
+  return response.data.data;
 };

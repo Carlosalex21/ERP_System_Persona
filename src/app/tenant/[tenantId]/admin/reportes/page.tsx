@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useMemo, type ReactElement } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
-import { BarChart3, Loader2, Search, Wallet, TrendingUp } from 'lucide-react';
+import { BarChart3, Loader2, Search, Wallet, TrendingUp, LineChart } from 'lucide-react';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import {
@@ -14,7 +14,8 @@ import {
 } from '@/services/reportesService';
 import { getApiErrorMessages, parseDecimal } from '@/utils/helpers';
 import { getMonedas } from '@/services/configuracionService';
-import { DataTable, PageHeader, Card, TableSkeleton } from '@/components/ui';
+import { DataTable, PageHeader, Card, TableSkeleton, ExportButton } from '@/components/ui';
+import AnaliticaTab from './AnaliticaTab';
 
 function hoyISO(): string {
   return new Date().toISOString().slice(0, 10);
@@ -162,7 +163,7 @@ function ReporteVentasTab(): ReactElement {
               className="w-full px-3 py-2 border rounded-lg text-sm"
             />
           </div>
-          <div className="flex items-end lg:col-span-2">
+          <div className="flex items-end gap-2 lg:col-span-2">
             <motion.button
               whileTap={{ scale: 0.96 }}
               onClick={cargar}
@@ -172,6 +173,17 @@ function ReporteVentasTab(): ReactElement {
               {cargando ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />}
               Consultar
             </motion.button>
+            <ExportButton
+              data={ventas}
+              filename={`ventas_${fechaInicio}_a_${fechaFin}`}
+              columns={[
+                { label: 'Fecha', value: (v) => new Date(v.fecha_operacion).toLocaleDateString('es-VE') },
+                { label: 'N° Factura', value: 'correlativo' },
+                { label: 'Cliente', value: (v) => v.cliente_nombre || '' },
+                { label: 'Estado', value: 'estado' },
+                { label: `Total (${simboloBase})`, value: (v) => parseDecimal(v.total_base).toFixed(2) },
+              ]}
+            />
           </div>
         </div>
       </Card>
@@ -330,14 +342,14 @@ function CierreCajaTab(): ReactElement {
 }
 
 export default function ReportesPage(): ReactElement {
-  const [tab, setTab] = useState<'ventas' | 'caja'>('ventas');
+  const [tab, setTab] = useState<'ventas' | 'caja' | 'analitica'>('ventas');
 
   return (
     <div className="space-y-6 animate-fade-in">
       <PageHeader
         icon={<BarChart3 size={20} />}
         title="Reportes"
-        description="Consulta tus ventas históricas y el cierre de caja diario."
+        description="Consulta tus ventas históricas, el cierre de caja diario y la analítica de tendencias."
       />
 
       <div className="flex gap-2 border-b border-slate-200">
@@ -357,9 +369,17 @@ export default function ReportesPage(): ReactElement {
         >
           <Wallet size={16} /> Cierre de Caja
         </button>
+        <button
+          onClick={() => setTab('analitica')}
+          className={`px-4 py-2.5 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${
+            tab === 'analitica' ? 'border-primary-600 text-primary-700' : 'border-transparent text-slate-400 hover:text-slate-600'
+          }`}
+        >
+          <LineChart size={16} /> Analítica
+        </button>
       </div>
 
-      {tab === 'ventas' ? <ReporteVentasTab /> : <CierreCajaTab />}
+      {tab === 'ventas' ? <ReporteVentasTab /> : tab === 'caja' ? <CierreCajaTab /> : <AnaliticaTab />}
     </div>
   );
 }

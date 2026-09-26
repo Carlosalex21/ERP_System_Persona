@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, memo } from "react";
+import { useCallback, useMemo, useState, useEffect, memo } from "react";
 import { useTenant } from "@/hooks/useTenant";
 import { useUsuarioActual } from "@/hooks/useUsuarioActual";
 import { usePedidosPendientes } from "@/hooks/usePedidosPendientes";
@@ -26,26 +26,37 @@ import {
   Landmark,
   Globe2,
   Wallet,
+  HandCoins,
+  TriangleAlert,
+  ClipboardList,
   ExternalLink,
   Truck,
   Smartphone,
   Building2,
   ArrowLeftRight,
+  Shuffle,
   Sparkles,
   Hash,
   ShieldCheck,
   SlidersHorizontal,
   Utensils,
+  ChefHat,
   FlaskConical,
   Wrench,
   Calculator,
   BookOpen,
   Scale,
   FileBarChart,
+  Target,
+  LifeBuoy,
+  Gift,
+  UserRound,
+  ChevronDown,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { TipoNegocio } from "@/utils/modulosPanel";
+import CambiarPasswordModal from "@/components/CambiarPasswordModal";
 
 /** Mismos tipos que habilitan el módulo 'pos' en `utils/modulosPanel.ts` -- un negocio de mostrador (farmacia, taller) o de barra rápida (restaurante) también cobra por el POS clásico, no solo retail. */
 const POS_TIPOS_NEGOCIO: TipoNegocio[] = ['retail', 'farmacia', 'servicios', 'restaurante'];
@@ -94,6 +105,70 @@ function SidebarGroupLabel({ children }: { children: React.ReactNode }) {
   return <div className="mt-5 mb-1.5 px-4 text-[10px] font-bold uppercase tracking-widest text-slate-500">{children}</div>;
 }
 
+interface SidebarGroupProps {
+  label: string;
+  /** Prefijos de ruta que pertenecen a este grupo -- si la página activa cae en alguno, el grupo se abre solo. */
+  paths: string[];
+  children: React.ReactNode;
+}
+
+/**
+ * Sección colapsable del menú (CRM, Postventa, Fiscal, etc.) -- antes todo
+ * el sidebar era una sola lista plana de más de 40 enlaces, que con tantos
+ * módulos se volvía difícil de escanear. "Gestión" (lo que se usa a
+ * diario) se deja siempre visible; el resto empieza cerrado y solo se abre
+ * solo si la página activa vive ahí, o si el usuario lo abre a mano (se
+ * recuerda por sesión, no por tenant, con `sessionStorage`).
+ */
+function SidebarGroup({ label, paths, children }: SidebarGroupProps) {
+  const pathname = usePathname();
+  const contieneActivo = paths.some((p) => pathname.startsWith(p));
+  const storageKey = `sidebar-grupo-abierto:${label}`;
+
+  const [abierto, setAbierto] = useState(contieneActivo);
+
+  useEffect(() => {
+    if (contieneActivo) {
+      setAbierto(true);
+      return;
+    }
+    try {
+      setAbierto(window.sessionStorage.getItem(storageKey) === '1');
+    } catch {
+      // sessionStorage puede no estar disponible (modo privado) -- se queda cerrado, no es crítico.
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contieneActivo]);
+
+  const alternar = useCallback(() => {
+    setAbierto((prev) => {
+      const next = !prev;
+      try {
+        window.sessionStorage.setItem(storageKey, next ? '1' : '0');
+      } catch {
+        // Ignorado a propósito -- ver comentario arriba.
+      }
+      return next;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storageKey]);
+
+  return (
+    <div className="mt-3">
+      <button
+        type="button"
+        onClick={alternar}
+        className="w-full flex items-center justify-between px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-500 hover:text-slate-300 transition-colors"
+        aria-expanded={abierto}
+      >
+        <span>{label}</span>
+        <ChevronDown size={12} className={`transition-transform duration-200 ${abierto ? '' : '-rotate-90'}`} />
+      </button>
+      {abierto && <div className="space-y-1 mt-0.5">{children}</div>}
+    </div>
+  );
+}
+
 export default function Sidebar({
   menuMovilAbierto,
   setMenuMovilAbierto,
@@ -128,8 +203,18 @@ export default function Sidebar({
             <LayoutDashboard size={18} /> Dashboard
           </SidebarLink>
         )}
+        {!oculto('alertas') && (
+          <SidebarLink href="/admin/alertas">
+            <TriangleAlert size={18} /> Centro de Alertas
+          </SidebarLink>
+        )}
 
         <SidebarGroupLabel>Gestión</SidebarGroupLabel>
+        {!oculto('clientes') && (
+          <SidebarLink href="/admin/clientes">
+            <UserRound size={18} /> Clientes
+          </SidebarLink>
+        )}
         {tenant?.tipo_negocio && TIPOS_CON_INVENTARIO.includes(tenant.tipo_negocio) && !oculto('inventario') && (
           <SidebarLink href="/admin/inventario" dataTour="inventario">
             <Package size={18} /> Inventario
@@ -145,9 +230,24 @@ export default function Sidebar({
             <ArrowLeftRight size={18} /> Ajustes de Inventario
           </SidebarLink>
         )}
+        {tenant?.tipo_negocio && TIPOS_CON_INVENTARIO.includes(tenant.tipo_negocio) && !oculto('traslados_inventario') && (
+          <SidebarLink href="/admin/inventario/traslados" dataTour="traslados-inventario">
+            <Shuffle size={18} /> Traslados entre Almacenes
+          </SidebarLink>
+        )}
         {tenant?.tipo_negocio && TIPOS_CON_INVENTARIO.includes(tenant.tipo_negocio) && !oculto('proveedores') && (
           <SidebarLink href="/admin/proveedores">
             <Truck size={18} /> Proveedores
+          </SidebarLink>
+        )}
+        {tenant?.tipo_negocio && TIPOS_CON_INVENTARIO.includes(tenant.tipo_negocio) && !oculto('ordenes_compra') && (
+          <SidebarLink href="/admin/proveedores/ordenes-compra">
+            <ClipboardList size={18} /> Órdenes de Compra
+          </SidebarLink>
+        )}
+        {tenant?.tipo_negocio && TIPOS_CON_INVENTARIO.includes(tenant.tipo_negocio) && !oculto('cuentas_por_pagar') && (
+          <SidebarLink href="/admin/proveedores/cuentas-por-pagar">
+            <HandCoins size={18} /> Cuentas por Pagar
           </SidebarLink>
         )}
         {tenant?.tipo_negocio && TIPOS_CON_INVENTARIO.includes(tenant.tipo_negocio) && !oculto('pedidos') && (
@@ -160,6 +260,11 @@ export default function Sidebar({
             )}
           </SidebarLink>
         )}
+        {tenant?.tipo_negocio && TIPOS_CON_INVENTARIO.includes(tenant.tipo_negocio) && !oculto('notas_entrega') && (
+          <SidebarLink href="/admin/facturacion/notas-entrega">
+            <ReceiptText size={18} /> Notas de Entrega
+          </SidebarLink>
+        )}
 
         {tenant?.tipo_negocio && POS_TIPOS_NEGOCIO.includes(tenant.tipo_negocio) && !oculto('pos') && (
           <SidebarLink href="/admin/pos">
@@ -167,11 +272,16 @@ export default function Sidebar({
           </SidebarLink>
         )}
         {tenant?.tipo_negocio === "restaurante" && !oculto('mesas') && (
-          <SidebarLink href="/admin/restaurante/mesas">
+          <SidebarLink href="/admin/restaurante/mesas" dataTour="mesas">
             <Utensils size={18} /> Mesas y Pedidos
           </SidebarLink>
         )}
-        {tenant?.tipo_negocio === "farmacia" && !oculto('lotes_vencimientos') && (
+        {tenant?.tipo_negocio === "restaurante" && !oculto('cocina') && (
+          <SidebarLink href="/admin/restaurante/cocina">
+            <ChefHat size={18} /> Cocina
+          </SidebarLink>
+        )}
+        {tenant?.tipo_negocio && TIPOS_CON_INVENTARIO.includes(tenant.tipo_negocio) && !oculto('lotes_vencimientos') && (
           <SidebarLink href="/admin/farmacia/lotes">
             <FlaskConical size={18} /> Lotes y Vencimientos
           </SidebarLink>
@@ -191,27 +301,27 @@ export default function Sidebar({
             <Wrench size={18} /> Servicios y Honorarios
           </SidebarLink>
         )}
-        {tenant?.tipo_negocio === "contador" && !oculto('asientos_contables') && (
-          <SidebarLink href="/admin/contabilidad/asientos">
+        {!oculto('asientos_contables') && (
+          <SidebarLink href="/admin/contabilidad/asientos" dataTour="asientos-contables">
             <BookOpen size={18} /> Asientos Contables
           </SidebarLink>
         )}
-        {tenant?.tipo_negocio === "contador" && !oculto('plan_cuentas') && (
+        {!oculto('plan_cuentas') && (
           <SidebarLink href="/admin/contabilidad/cuentas">
             <Calculator size={18} /> Plan de Cuentas
           </SidebarLink>
         )}
-        {tenant?.tipo_negocio === "contador" && !oculto('libro_mayor') && (
+        {!oculto('libro_mayor') && (
           <SidebarLink href="/admin/contabilidad/libro-mayor">
             <FileBarChart size={18} /> Libro Mayor
           </SidebarLink>
         )}
-        {tenant?.tipo_negocio === "contador" && !oculto('balance_comprobacion') && (
+        {!oculto('balance_comprobacion') && (
           <SidebarLink href="/admin/contabilidad/balance">
             <Scale size={18} /> Balance de Comprobación
           </SidebarLink>
         )}
-        {tenant?.tipo_negocio === "contador" && !oculto('estados_financieros') && (
+        {!oculto('estados_financieros') && (
           <SidebarLink href="/admin/contabilidad/estados">
             <FileBarChart size={18} /> Estados Financieros
           </SidebarLink>
@@ -226,6 +336,16 @@ export default function Sidebar({
             <Landmark size={18} /> Cobros
           </SidebarLink>
         )}
+        {!oculto('cuentas_por_cobrar') && (
+          <SidebarLink href="/admin/facturacion/cuentas-por-cobrar">
+            <Landmark size={18} /> Cuentas por Cobrar
+          </SidebarLink>
+        )}
+        {!oculto('caja_bancos') && (
+          <SidebarLink href="/admin/facturacion/caja-bancos">
+            <Wallet size={18} /> Caja y Bancos
+          </SidebarLink>
+        )}
 
         {tenant?.tipo_negocio === "b2b" && !oculto('clientes_b2b') && (
           <SidebarLink href="/admin/clientes/b2b">
@@ -237,112 +357,159 @@ export default function Sidebar({
             <Users size={18} /> Empleados
           </SidebarLink>
         )}
-
-        <SidebarGroupLabel>Fiscal</SidebarGroupLabel>
-        {!oculto('notas_credito') && (
-          <SidebarLink href="/admin/facturacion/notas-credito">
-            <FileText size={18} /> Notas de Crédito
+        {!oculto('departamentos') && (
+          <SidebarLink href="/admin/rrhh/departamentos">
+            <Building2 size={18} /> Departamentos
           </SidebarLink>
         )}
-        {!oculto('notas_debito') && (
-          <SidebarLink href="/admin/facturacion/notas-debito">
-            <FileText size={18} /> Notas de Débito
-          </SidebarLink>
-        )}
-        {!oculto('libros_fiscales') && (
-          <SidebarLink href="/admin/facturacion/libros">
-            <Landmark size={18} /> Libros Fiscales
-          </SidebarLink>
-        )}
-        {!oculto('retenciones') && (
-          <SidebarLink href="/admin/facturacion/retenciones">
-            <ReceiptText size={18} /> Retenciones
-          </SidebarLink>
-        )}
-        {!oculto('auditoria') && (
-          <SidebarLink href="/admin/auditoria">
-            <ShieldCheck size={18} /> Auditoría
+        {!oculto('nomina') && (
+          <SidebarLink href="/admin/rrhh/nomina">
+            <Wallet size={18} /> Nómina
           </SidebarLink>
         )}
 
-        <SidebarGroupLabel>Cargas Masivas</SidebarGroupLabel>
-        {tenant?.tipo_negocio && TIPOS_CON_INVENTARIO.includes(tenant.tipo_negocio) && !oculto('importar_productos') && (
-          <SidebarLink href="/admin/inventario/importar">
-            <UploadCloud size={18} /> Importar Productos
-          </SidebarLink>
-        )}
-        {tenant?.tipo_negocio !== "b2b" && !oculto('importar_clientes') && (
-          <SidebarLink href="/admin/clientes/importar">
-            <UserPlus size={18} /> Importar Clientes
-          </SidebarLink>
-        )}
-        {tenant?.tipo_negocio === "b2b" && !oculto('importar_clientes_b2b') && (
-          <SidebarLink href="/admin/clientes/b2b/importar">
-            <UserPlus size={18} /> Importar Clientes
-          </SidebarLink>
-        )}
+        <SidebarGroup label="CRM" paths={['/admin/crm']}>
+          {!oculto('oportunidades') && (
+            <SidebarLink href="/admin/crm/oportunidades">
+              <Target size={18} /> Oportunidades
+            </SidebarLink>
+          )}
+          {!oculto('cotizaciones') && (
+            <SidebarLink href="/admin/crm/cotizaciones">
+              <FileText size={18} /> Cotizaciones
+            </SidebarLink>
+          )}
+        </SidebarGroup>
 
-        <SidebarGroupLabel>Configuración</SidebarGroupLabel>
-        {!oculto('suscripcion') && (
-          <SidebarLink href="/admin/suscripcion">
-            <Sparkles size={18} /> Mi Suscripción
-          </SidebarLink>
-        )}
-        {!oculto('datos_empresa') && (
-          <SidebarLink href="/admin/configuracion/empresa" dataTour="datos-empresa">
-            <Building2 size={18} /> Datos de la Empresa
-          </SidebarLink>
-        )}
-        {tenant?.tipo_negocio && TIPOS_CON_INVENTARIO.includes(tenant.tipo_negocio) && !oculto('almacenes') && (
-          <SidebarLink href="/admin/inventario/almacenes">
-            <Warehouse size={18} /> Almacenes
-          </SidebarLink>
-        )}
-        {!oculto('impuestos') && (
-          <SidebarLink href="/admin/configuracion/iva">
-            <ReceiptText size={18} /> Impuestos
-          </SidebarLink>
-        )}
-        {!oculto('monedas') && (
-          <SidebarLink href="/admin/configuracion/monedas">
-            <Coins size={18} /> Monedas
-          </SidebarLink>
-        )}
-        {!oculto('tasas_cambio') && (
-          <SidebarLink href="/admin/configuracion/tasas-cambio">
-            <Repeat size={18} /> Tasas de Cambio
-          </SidebarLink>
-        )}
-        {!oculto('metodos_pago') && (
-          <SidebarLink href="/admin/configuracion/metodos-pago">
-            <Wallet size={18} /> Métodos de Pago
-          </SidebarLink>
-        )}
-        {!oculto('bancos') && (
-          <SidebarLink href="/admin/configuracion/bancos">
-            <Landmark size={18} /> Bancos
-          </SidebarLink>
-        )}
-        {tenant?.tipo_negocio && TIPOS_CON_INVENTARIO.includes(tenant.tipo_negocio) && !oculto('pagos_online') && (
-          <SidebarLink href="/admin/configuracion/pagos-online">
-            <Smartphone size={18} /> Pagos en Línea
-          </SidebarLink>
-        )}
-        {!oculto('fiscal') && (
-          <SidebarLink href="/admin/configuracion/fiscal">
-            <Globe2 size={18} /> País y Fiscalidad
-          </SidebarLink>
-        )}
-        {!oculto('correlativo') && (
-          <SidebarLink href="/admin/configuracion/correlativo">
-            <Hash size={18} /> Numeración de Facturas
-          </SidebarLink>
-        )}
-        {esAdmin && (
-          <SidebarLink href="/admin/configuracion/permisos">
-            <SlidersHorizontal size={18} /> Permisos por Rol
-          </SidebarLink>
-        )}
+        <SidebarGroup label="Postventa" paths={['/admin/postventa']}>
+          {tenant?.tipo_negocio && TIPOS_CON_INVENTARIO.includes(tenant.tipo_negocio) && !oculto('garantias') && (
+            <SidebarLink href="/admin/postventa/garantias">
+              <ShieldCheck size={18} /> Garantías
+            </SidebarLink>
+          )}
+          {!oculto('reclamos_postventa') && (
+            <SidebarLink href="/admin/postventa/reclamos">
+              <LifeBuoy size={18} /> Reclamos Postventa
+            </SidebarLink>
+          )}
+        </SidebarGroup>
+
+        <SidebarGroup
+          label="Fiscal"
+          paths={['/admin/facturacion/notas-credito', '/admin/facturacion/notas-debito', '/admin/facturacion/libros', '/admin/facturacion/retenciones', '/admin/auditoria']}
+        >
+          {!oculto('notas_credito') && (
+            <SidebarLink href="/admin/facturacion/notas-credito">
+              <FileText size={18} /> Notas de Crédito
+            </SidebarLink>
+          )}
+          {!oculto('notas_debito') && (
+            <SidebarLink href="/admin/facturacion/notas-debito">
+              <FileText size={18} /> Notas de Débito
+            </SidebarLink>
+          )}
+          {!oculto('libros_fiscales') && (
+            <SidebarLink href="/admin/facturacion/libros">
+              <Landmark size={18} /> Libros Fiscales
+            </SidebarLink>
+          )}
+          {!oculto('retenciones') && (
+            <SidebarLink href="/admin/facturacion/retenciones">
+              <ReceiptText size={18} /> Retenciones
+            </SidebarLink>
+          )}
+          {!oculto('auditoria') && (
+            <SidebarLink href="/admin/auditoria">
+              <ShieldCheck size={18} /> Auditoría
+            </SidebarLink>
+          )}
+        </SidebarGroup>
+
+        <SidebarGroup label="Cargas Masivas" paths={['/admin/inventario/importar', '/admin/clientes/importar', '/admin/clientes/b2b/importar']}>
+          {tenant?.tipo_negocio && TIPOS_CON_INVENTARIO.includes(tenant.tipo_negocio) && !oculto('importar_productos') && (
+            <SidebarLink href="/admin/inventario/importar">
+              <UploadCloud size={18} /> Importar Productos
+            </SidebarLink>
+          )}
+          {tenant?.tipo_negocio !== "b2b" && !oculto('importar_clientes') && (
+            <SidebarLink href="/admin/clientes/importar">
+              <UserPlus size={18} /> Importar Clientes
+            </SidebarLink>
+          )}
+          {tenant?.tipo_negocio === "b2b" && !oculto('importar_clientes_b2b') && (
+            <SidebarLink href="/admin/clientes/b2b/importar">
+              <UserPlus size={18} /> Importar Clientes
+            </SidebarLink>
+          )}
+        </SidebarGroup>
+
+        <SidebarGroup label="Configuración" paths={['/admin/suscripcion', '/admin/referidos', '/admin/configuracion', '/admin/inventario/almacenes']}>
+          {!oculto('suscripcion') && (
+            <SidebarLink href="/admin/suscripcion">
+              <Sparkles size={18} /> Mi Suscripción
+            </SidebarLink>
+          )}
+          {!oculto('referidos') && (
+            <SidebarLink href="/admin/referidos">
+              <Gift size={18} /> Programa de Referidos
+            </SidebarLink>
+          )}
+          {!oculto('datos_empresa') && (
+            <SidebarLink href="/admin/configuracion/empresa" dataTour="datos-empresa">
+              <Building2 size={18} /> Datos de la Empresa
+            </SidebarLink>
+          )}
+          {tenant?.tipo_negocio && TIPOS_CON_INVENTARIO.includes(tenant.tipo_negocio) && !oculto('almacenes') && (
+            <SidebarLink href="/admin/inventario/almacenes">
+              <Warehouse size={18} /> Almacenes
+            </SidebarLink>
+          )}
+          {!oculto('impuestos') && (
+            <SidebarLink href="/admin/configuracion/iva">
+              <ReceiptText size={18} /> Impuestos
+            </SidebarLink>
+          )}
+          {!oculto('monedas') && (
+            <SidebarLink href="/admin/configuracion/monedas">
+              <Coins size={18} /> Monedas
+            </SidebarLink>
+          )}
+          {!oculto('tasas_cambio') && (
+            <SidebarLink href="/admin/configuracion/tasas-cambio">
+              <Repeat size={18} /> Tasas de Cambio
+            </SidebarLink>
+          )}
+          {!oculto('metodos_pago') && (
+            <SidebarLink href="/admin/configuracion/metodos-pago">
+              <Wallet size={18} /> Métodos de Pago
+            </SidebarLink>
+          )}
+          {!oculto('bancos') && (
+            <SidebarLink href="/admin/configuracion/bancos">
+              <Landmark size={18} /> Bancos
+            </SidebarLink>
+          )}
+          {tenant?.tipo_negocio && TIPOS_CON_INVENTARIO.includes(tenant.tipo_negocio) && !oculto('pagos_online') && (
+            <SidebarLink href="/admin/configuracion/pagos-online">
+              <Smartphone size={18} /> Pagos en Línea
+            </SidebarLink>
+          )}
+          {!oculto('fiscal') && (
+            <SidebarLink href="/admin/configuracion/fiscal">
+              <Globe2 size={18} /> País y Fiscalidad
+            </SidebarLink>
+          )}
+          {!oculto('correlativo') && (
+            <SidebarLink href="/admin/configuracion/correlativo">
+              <Hash size={18} /> Numeración de Facturas
+            </SidebarLink>
+          )}
+          {esAdmin && (
+            <SidebarLink href="/admin/configuracion/permisos">
+              <SlidersHorizontal size={18} /> Permisos por Rol
+            </SidebarLink>
+          )}
+        </SidebarGroup>
       </nav>
     ),
     [tenant?.tipo_negocio, pedidosPendientes, modulosOcultos, oculto, esAdmin],
@@ -404,6 +571,7 @@ export default function Sidebar({
         </div>
 
         <div className="mt-auto pt-2 border-t border-white/5">
+          <CambiarPasswordModal />
           <button
             onClick={ejecutarLogout}
             className="w-full flex items-center justify-center gap-2 text-sm text-slate-400 hover:bg-red-500/10 hover:text-red-400 font-bold py-2.5 rounded-xl transition-colors"

@@ -19,6 +19,11 @@ const COLOR_TIPO: Record<string, string> = {
   costo: 'bg-orange-50 text-orange-700 border-orange-200',
   gasto: 'bg-red-50 text-red-700 border-red-200',
 };
+const ETIQUETA_ROL: Record<string, string> = {
+  caja: 'Caja', banco: 'Bancos', cuentas_por_cobrar: 'Cuentas por Cobrar', inventario: 'Inventario',
+  iva_por_cobrar: 'IVA por Cobrar', iva_por_pagar: 'IVA por Pagar', cuentas_por_pagar: 'Cuentas por Pagar',
+  ventas: 'Ventas', costo_venta: 'Costo de Venta', otros_ingresos: 'Otros Ingresos',
+};
 
 export default function PlanDeCuentasPage(): ReactElement {
   const notify = useNotify();
@@ -99,6 +104,7 @@ export default function PlanDeCuentasPage(): ReactElement {
                 <th className="p-4">Código</th>
                 <th className="p-4">Nombre</th>
                 <th className="p-4">Tipo</th>
+                <th className="p-4">Rol</th>
                 <th className="p-4 text-center">Acepta Movimiento</th>
                 <th className="p-4 text-right">Acciones</th>
               </tr>
@@ -112,6 +118,11 @@ export default function PlanDeCuentasPage(): ReactElement {
                   </td>
                   <td className="p-4">
                     <span className={`px-2 py-0.5 rounded-lg text-xs font-bold border ${COLOR_TIPO[c.tipo]}`}>{ETIQUETA_TIPO[c.tipo]}</span>
+                  </td>
+                  <td className="p-4">
+                    {c.rol ? (
+                      <span className="px-2 py-0.5 rounded-lg text-xs font-bold border bg-slate-50 text-slate-600 border-slate-200">{ETIQUETA_ROL[c.rol]}</span>
+                    ) : <span className="text-slate-300">—</span>}
                   </td>
                   <td className="p-4 text-center">{c.acepta_movimiento ? '✓' : <span className="text-slate-300">—</span>}</td>
                   <td className="p-4">

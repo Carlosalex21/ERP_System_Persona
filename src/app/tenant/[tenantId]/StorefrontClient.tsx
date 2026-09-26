@@ -21,14 +21,14 @@ import {
 import StorefrontHero from './storefront/StorefrontHero';
 import ProductGrid from './storefront/ProductGrid';
 import CategoryFilter from './storefront/CategoryFilter';
-import CartDrawer from './storefront/CartDrawer';
+import CartDrawer, { type ItemCarrito } from './storefront/CartDrawer';
 import CheckoutModal from './storefront/CheckoutModal';
 import FloatingCartButton from './storefront/FloatingCartButton';
+import ProductOptionsModal from './storefront/ProductOptionsModal';
 
-interface ItemCarrito {
-  producto: PublicProducto;
-  cantidad: number;
-}
+/** Identidad de una línea del carrito: el mismo producto con distinta variante/presentación es una línea distinta. */
+const armarCartKey = (productoId: number, varianteId?: number | null, presentacionId?: number | null): string =>
+  `${productoId}-${varianteId ?? 'x'}-${presentacionId ?? 'x'}`;
 
 interface StorefrontClientProps {
   subdominio: string;
@@ -69,6 +69,10 @@ export default function StorefrontClient({ subdominio, productosIniciales }: Sto
   const [tasas, setTasas] = useState<Record<string, PublicTasaMoneda>>({});
   // null = "todas las categorías" (sin filtrar).
   const [categoriaSeleccionada, setCategoriaSeleccionada] = useState<number | null>(null);
+  // Producto con variantes/presentaciones que el cliente acaba de tocar --
+  // mientras esto no sea null, se muestra el selector antes de agregarlo de
+  // verdad al carrito (ver `ProductOptionsModal`).
+  const [productoParaOpciones, setProductoParaOpciones] = useState<PublicProducto | null>(null);
 
   // Nombre real de la tienda para el navbar/hero: mejor primera impresión
   // que el slug crudo del subdominio ("mi-tienda-2" -> "MI TIENDA 2").
@@ -197,25 +201,68 @@ export default function StorefrontClient({ subdominio, productosIniciales }: Sto
     }
   }, [subdominio]);
 
-  // Lógica del carrito (nunca deja agregar más de lo que hay realmente disponible)
-  const agregarAlCarrito = useCallback((producto: PublicProducto): void => {
-    if (producto.stock_disponible <= 0) return;
+  // Agrega una línea concreta (producto base, o una variante/presentación
+  // específica) -- lo que `ProductCard` llama directo para un producto
+  // simple, y lo que el selector (`ProductOptionsModal`) llama una vez el
+  // cliente elige. Nunca dos veces la misma variante/presentación como
+  // líneas separadas: si ya existe, solo sube la cantidad de esa línea.
+  const agregarLinea = useCallback((
+    producto: PublicProducto,
+    opts?: { varianteId?: number; presentacionId?: number },
+  ): void => {
+    const varianteId = opts?.varianteId ?? null;
+    const presentacionId = opts?.presentacionId ?? null;
+    const variante = varianteId ? (producto.variantes || []).find(v => v.id === varianteId) : null;
+    const presentacion = presentacionId ? (producto.presentaciones || []).find(p => p.id === presentacionId) : null;
+
+    const cartKey = armarCartKey(producto.id, varianteId, presentacionId);
+    const nombreCarrito = variante
+      ? `${producto.nombre} (${variante.nombre})`
+      : presentacion
+        ? `${producto.nombre} - ${presentacion.nombre}`
+        : producto.nombre;
+    const precioLinea = variante
+      ? variante.precio
+      : presentacion
+        ? presentacion.precio
+        : producto.precio_venta;
+    // Tope de cantidad de ESTA línea: stock propio de la variante, o cuántas
+    // unidades de la presentación caben en el stock base disponible.
+    const stockLinea = variante
+      ? variante.stock_disponible
+      : presentacion
+        ? Math.floor(producto.stock_disponible / presentacion.factor_conversion)
+        : producto.stock_disponible;
+
+    if (stockLinea <= 0) return;
+
     setCarrito(prev => {
-      const existe = prev.find(item => item.producto.id === producto.id);
+      const existe = prev.find(item => item.cartKey === cartKey);
       if (existe) {
-        const nuevaCantidad = Math.min(existe.cantidad + 1, producto.stock_disponible);
-        return prev.map(item => (item.producto.id === producto.id ? { ...item, cantidad: nuevaCantidad } : item));
+        const nuevaCantidad = Math.min(existe.cantidad + 1, stockLinea);
+        return prev.map(item => (item.cartKey === cartKey ? { ...item, cantidad: nuevaCantidad } : item));
       }
-      return [...prev, { producto, cantidad: 1 }];
+      return [...prev, { producto, cantidad: 1, cartKey, varianteId, presentacionId, nombreCarrito, precioLinea, stockLinea }];
     });
     setCarritoAbierto(true);
   }, []);
 
-  const modificarCantidad = useCallback((id: number, delta: number): void => {
+  // Punto de entrada desde `ProductCard`: si el producto tiene variantes o
+  // presentaciones, abre el selector en vez de agregar directo.
+  const agregarAlCarrito = useCallback((producto: PublicProducto): void => {
+    const tieneOpciones = (producto.variantes && producto.variantes.length > 0) || (producto.presentaciones && producto.presentaciones.length > 0);
+    if (tieneOpciones) {
+      setProductoParaOpciones(producto);
+      return;
+    }
+    agregarLinea(producto);
+  }, [agregarLinea]);
+
+  const modificarCantidad = useCallback((cartKey: string, delta: number): void => {
     setCarrito(prev =>
       prev.map(item => {
-        if (item.producto.id === id) {
-          const nueva = Math.min(item.cantidad + delta, item.producto.stock_disponible);
+        if (item.cartKey === cartKey) {
+          const nueva = Math.min(item.cantidad + delta, item.stockLinea);
           return nueva > 0 ? { ...item, cantidad: nueva } : item;
         }
         return item;
@@ -223,38 +270,45 @@ export default function StorefrontClient({ subdominio, productosIniciales }: Sto
     );
   }, []);
 
-  const eliminarItem = useCallback((id: number): void => {
-    setCarrito(prev => prev.filter(item => item.producto.id !== id));
+  const eliminarItem = useCallback((cartKey: string): void => {
+    setCarrito(prev => prev.filter(item => item.cartKey !== cartKey));
   }, []);
 
-  // Cuántas unidades de cada producto hay ya en el carrito -- alimenta el
-  // stepper (- cantidad +) que `ProductCard` muestra en vez del botón
-  // "Agregar" una vez el producto ya está en el carrito.
-  const cantidadPorProducto = useMemo(
-    () => new Map(carrito.map(item => [item.producto.id, item.cantidad])),
-    [carrito],
-  );
+  // Cuántas unidades de cada PRODUCTO (sumando todas sus variantes/presentaciones
+  // en el carrito) hay ya agregadas -- alimenta el stepper (- cantidad +) que
+  // `ProductCard` muestra en vez del botón "Agregar" para un producto simple
+  // ya agregado, y el badge "En tu carrito" para uno con opciones.
+  const cantidadPorProducto = useMemo(() => {
+    const mapa = new Map<number, number>();
+    for (const item of carrito) {
+      mapa.set(item.producto.id, (mapa.get(item.producto.id) ?? 0) + item.cantidad);
+    }
+    return mapa;
+  }, [carrito]);
 
-  // Variantes de `agregarAlCarrito`/`eliminarItem` para el stepper de la
-  // tarjeta de producto: a diferencia de `agregarAlCarrito`, no abren el
-  // drawer del carrito -- el cliente ya está viendo el catálogo y sumar/restar
-  // ahí mismo no debería sacarlo de esa vista.
+  // Variantes de `agregarLinea`/`eliminarItem` para el stepper de la tarjeta
+  // de producto (solo productos SIN variantes/presentaciones, ver
+  // `ProductCard`): a diferencia de `agregarAlCarrito`, no abren el drawer
+  // del carrito -- el cliente ya está viendo el catálogo y sumar/restar ahí
+  // mismo no debería sacarlo de esa vista.
   const incrementarDesdeCard = useCallback((id: number): void => {
+    const cartKey = armarCartKey(id, null, null);
     setCarrito(prev =>
       prev.map(item =>
-        item.producto.id === id
-          ? { ...item, cantidad: Math.min(item.cantidad + 1, item.producto.stock_disponible) }
+        item.cartKey === cartKey
+          ? { ...item, cantidad: Math.min(item.cantidad + 1, item.stockLinea) }
           : item,
       ),
     );
   }, []);
 
   const decrementarDesdeCard = useCallback((id: number): void => {
+    const cartKey = armarCartKey(id, null, null);
     setCarrito(prev => {
-      const item = prev.find(i => i.producto.id === id);
+      const item = prev.find(i => i.cartKey === cartKey);
       if (!item) return prev;
-      if (item.cantidad <= 1) return prev.filter(i => i.producto.id !== id);
-      return prev.map(i => (i.producto.id === id ? { ...i, cantidad: i.cantidad - 1 } : i));
+      if (item.cantidad <= 1) return prev.filter(i => i.cartKey !== cartKey);
+      return prev.map(i => (i.cartKey === cartKey ? { ...i, cantidad: i.cantidad - 1 } : i));
     });
   }, []);
 
@@ -266,7 +320,7 @@ export default function StorefrontClient({ subdominio, productosIniciales }: Sto
   const totalCarrito = useMemo(
     () =>
       carrito.reduce(
-        (sum, item) => sum + aMonedaBase(parseFloat(item.producto.precio_venta), item.producto.moneda_codigo) * item.cantidad,
+        (sum, item) => sum + aMonedaBase(parseFloat(item.precioLinea), item.producto.moneda_codigo) * item.cantidad,
         0,
       ),
     [carrito, aMonedaBase],
@@ -274,12 +328,18 @@ export default function StorefrontClient({ subdominio, productosIniciales }: Sto
   const totalItems = useMemo(() => carrito.reduce((sum, item) => sum + item.cantidad, 0), [carrito]);
   // Desglose fiscal del carrito -- antes solo se veía el total final, sin
   // mostrarle al cliente cuánto de eso es base imponible vs. IVA.
+  // `producto.iva_monto` es el IVA del precio BASE del producto -- inválido
+  // para una línea con variante/presentación (precio distinto), así que se
+  // recalcula proporcionalmente con la misma tasa (`iva_porcentaje`), que sí
+  // es una propiedad fija del producto (su categoría fiscal), no del precio.
   const ivaTotalCarrito = useMemo(
     () =>
-      carrito.reduce(
-        (sum, item) => sum + aMonedaBase(parseFloat(item.producto.iva_monto || '0'), item.producto.moneda_codigo) * item.cantidad,
-        0,
-      ),
+      carrito.reduce((sum, item) => {
+        const precioLineaBase = aMonedaBase(parseFloat(item.precioLinea), item.producto.moneda_codigo);
+        const tasa = item.producto.iva_porcentaje || 0;
+        const ivaUnitario = tasa > 0 ? precioLineaBase - precioLineaBase / (1 + tasa / 100) : 0;
+        return sum + ivaUnitario * item.cantidad;
+      }, 0),
     [carrito, aMonedaBase],
   );
   const baseImponibleCarrito = totalCarrito - ivaTotalCarrito;
@@ -319,6 +379,8 @@ export default function StorefrontClient({ subdominio, productosIniciales }: Sto
     try {
       const items: PublicOrderItemRequest[] = carrito.map(item => ({
         producto_id: item.producto.id,
+        variante_id: item.varianteId ?? undefined,
+        presentacion_id: item.presentacionId ?? undefined,
         cantidad: item.cantidad,
       }));
       const metodoElegido = metodosPago.find((m) => m.id === metodoPagoId);
@@ -399,8 +461,8 @@ export default function StorefrontClient({ subdominio, productosIniciales }: Sto
     let mensaje = `👋 Hola *${nombreTienda.toUpperCase()}*, quisiera realizar el siguiente pedido:\n\n`;
     carrito.forEach((item, index) => {
       const simbolo = simboloProducto(item.producto);
-      const precio = parseFloat(item.producto.precio_venta);
-      mensaje += `*${index + 1}.* ${item.producto.nombre}\n`;
+      const precio = parseFloat(item.precioLinea);
+      mensaje += `*${index + 1}.* ${item.nombreCarrito}\n`;
       mensaje += `   Cantidad: ${item.cantidad} x ${simbolo}${precio.toFixed(2)}\n`;
       mensaje += `   _Subtotal: ${simbolo}${(item.cantidad * precio).toFixed(2)}_\n\n`;
     });
@@ -526,6 +588,22 @@ export default function StorefrontClient({ subdominio, productosIniciales }: Sto
         totalItems={totalItems}
         onClick={() => setCarritoAbierto(true)}
       />
+
+      {productoParaOpciones && (
+        <ProductOptionsModal
+          producto={productoParaOpciones}
+          simbolo={simboloProducto(productoParaOpciones)}
+          onClose={() => setProductoParaOpciones(null)}
+          onSelectVariante={(varianteId) => {
+            agregarLinea(productoParaOpciones, { varianteId });
+            setProductoParaOpciones(null);
+          }}
+          onSelectPresentacion={(presentacionId) => {
+            agregarLinea(productoParaOpciones, { presentacionId });
+            setProductoParaOpciones(null);
+          }}
+        />
+      )}
     </div>
   );
 }

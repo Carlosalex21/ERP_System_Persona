@@ -2,9 +2,9 @@
 
 import { useState, useEffect, useCallback, useMemo, type ReactElement } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
-import { ShoppingBag, Loader2, CheckCircle2, XCircle, Package, Globe2, Smartphone, Mail, Eye, HandCoins } from 'lucide-react';
+import { ShoppingBag, Loader2, CheckCircle2, XCircle, Package, Globe2, Smartphone, Mail, Eye, HandCoins, PackageCheck } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { getFacturas, actualizarEstadoFactura, anularFactura, getMetodosDePago, getTransaccionesPago } from '@/services/facturacionService';
+import { getFacturas, actualizarEstadoFactura, anularFactura, getMetodosDePago, getTransaccionesPago, marcarPedidoPreparado } from '@/services/facturacionService';
 import { getClientes } from '@/services/clientesService';
 import { getTransaccionesPasarela, confirmarTransaccionPasarela } from '@/services/pagosOnlineService';
 import { getMonedas } from '@/services/configuracionService';
@@ -122,6 +122,19 @@ export default function PedidosPage(): ReactElement {
     }
   };
 
+  const marcarPreparado = async (factura: Factura) => {
+    setProcesandoId(factura.id);
+    try {
+      await marcarPedidoPreparado(factura.id);
+      toast.success(`Pedido #${factura.correlativo || factura.id} marcado como preparado.`);
+      await cargar(true);
+    } catch {
+      toast.error('No se pudo marcar el pedido como preparado.');
+    } finally {
+      setProcesandoId(null);
+    }
+  };
+
   const [pedidoARechazar, setPedidoARechazar] = useState<Factura | null>(null);
 
   const rechazarPedido = (factura: Factura) => setPedidoARechazar(factura);
@@ -189,12 +202,19 @@ export default function PedidosPage(): ReactElement {
     {
       id: 'cliente',
       header: 'Cliente',
-      cell: ({ row }) => (
-        <span className="text-slate-700 flex items-center gap-1.5" title="Pedido del catálogo público">
-          <Globe2 size={12} className="text-primary-400 shrink-0" />
-          {getNombreById(clientes, row.original.cliente) || 'Cliente sin registrar'}
-        </span>
-      ),
+      cell: ({ row }) => {
+        // El ícono de globo solo tiene sentido para pedidos que en verdad
+        // vinieron del catálogo público -- antes se mostraba igual para
+        // pedidos cerrados desde una Mesa, con un tooltip que decía "Pedido
+        // del catálogo público" aunque no lo fuera.
+        const esDelCatalogoPublico = !transaccionesPago.some((t) => t.factura === row.original.id);
+        return (
+          <span className="text-slate-700 flex items-center gap-1.5" title={esDelCatalogoPublico ? 'Pedido del catálogo público' : 'Cobrado desde el panel'}>
+            {esDelCatalogoPublico && <Globe2 size={12} className="text-primary-400 shrink-0" />}
+            {getNombreById(clientes, row.original.cliente) || 'Cliente sin registrar'}
+          </span>
+        );
+      },
     },
     {
       id: 'items',
@@ -212,16 +232,33 @@ export default function PedidosPage(): ReactElement {
       enableSorting: false,
       cell: ({ row }) => {
         const transaccion = transacciones.find((t) => t.factura === row.original.id);
-        if (!transaccion) return <span className="text-xs text-slate-300">—</span>;
+        if (transaccion) {
+          return (
+            <div className="text-xs">
+              <span className="flex items-center gap-1 font-bold text-slate-700">
+                {transaccion.metodo_pago_nombre?.toLowerCase().includes('zelle') ? <Mail size={11} /> : <Smartphone size={11} />}
+                {transaccion.metodo_pago_nombre}
+              </span>
+              {transaccion.referencia_externa && (
+                <span className="font-mono text-slate-500">Ref: {transaccion.referencia_externa}</span>
+              )}
+            </div>
+          );
+        }
+        // Pago cobrado desde el panel (POS, Mesa, honorarios, etc.) -- vive
+        // en `Transaccionpago`, no en `TransaccionPasarela` (esa es solo para
+        // pagos auto-reportados desde el catálogo público). Antes esta
+        // columna solo miraba `transacciones` y por eso siempre mostraba "—"
+        // para un pedido cerrado desde una Mesa, aunque el método de pago sí
+        // había quedado registrado.
+        const pago = transaccionesPago.find((t) => t.factura === row.original.id);
+        if (!pago) return <span className="text-xs text-slate-300">—</span>;
         return (
           <div className="text-xs">
             <span className="flex items-center gap-1 font-bold text-slate-700">
-              {transaccion.metodo_pago_nombre?.toLowerCase().includes('zelle') ? <Mail size={11} /> : <Smartphone size={11} />}
-              {transaccion.metodo_pago_nombre}
+              <HandCoins size={11} /> {pago.metodo_pago_nombre || 'Pago registrado'}
             </span>
-            {transaccion.referencia_externa && (
-              <span className="font-mono text-slate-500">Ref: {transaccion.referencia_externa}</span>
-            )}
+            {pago.referencia && <span className="font-mono text-slate-500">Ref: {pago.referencia}</span>}
           </div>
         );
       },
@@ -232,6 +269,24 @@ export default function PedidosPage(): ReactElement {
       cell: ({ row }) => (
         <div className="text-center">
           <EstadoBadge estado={row.original.estado} />
+        </div>
+      ),
+    },
+    {
+      id: 'preparacion',
+      header: () => <div className="text-center">Preparación</div>,
+      enableSorting: false,
+      cell: ({ row }) => (
+        <div className="text-center">
+          {row.original.estado_preparacion === 'listo' ? (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg font-bold text-[11px] border bg-emerald-50 text-emerald-700 border-emerald-200">
+              <PackageCheck size={11} /> Listo
+            </span>
+          ) : (
+            <span className="inline-flex items-center px-2 py-0.5 rounded-lg font-bold text-[11px] border bg-slate-100 text-slate-500 border-slate-200">
+              Pendiente
+            </span>
+          )}
         </div>
       ),
     },
@@ -269,6 +324,17 @@ export default function PedidosPage(): ReactElement {
             >
               <Eye size={16} />
             </button>
+            {row.original.estado_preparacion !== 'listo' && (
+              <button
+                onClick={() => marcarPreparado(row.original)}
+                disabled={procesando}
+                className="p-2 text-slate-400 hover:text-emerald-600 transition-colors disabled:opacity-40"
+                aria-label="Marcar como preparado"
+                title="Marcar como preparado (almacén)"
+              >
+                <PackageCheck size={16} />
+              </button>
+            )}
             {esPendiente && esCredito && (
               <button
                 onClick={() => setPedidoAAbonar(row.original)}

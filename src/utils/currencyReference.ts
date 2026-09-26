@@ -31,3 +31,27 @@ export function referenciaEnMonedaBase(
   if (!Number.isFinite(equivalente)) return null;
   return `${base.simbolo || base.codigo} ${equivalente.toFixed(2)}`;
 }
+
+/**
+ * Convierte un monto que está expresado en la moneda de REFERENCIA del
+ * tenant (la no-base, ej. USD -- así se guardan los precios de los
+ * productos) a la moneda que el usuario eligió para cobrar/mostrar.
+ *
+ * Si la moneda elegida ES la de referencia, el monto ya está correcto tal
+ * cual. Si es la moneda BASE (ej. Bs.), hay que multiplicarlo por la tasa
+ * vigente -- sin esto, un total de "$17" se mostraba como "Bs. 17" con solo
+ * cambiar el símbolo, sin convertir el número (ver `PedidoMesaModal`).
+ * Si no hay tasa cargada, devuelve el monto sin convertir (mejor mostrar el
+ * número de referencia que romper la pantalla).
+ */
+export function convertirAMoneda(
+  montoEnReferencia: number,
+  monedaDestinoEsBase: boolean | undefined,
+  tasas: Record<string, TasaMonedaRef>,
+): number {
+  if (!monedaDestinoEsBase) return montoEnReferencia;
+  const noBase = Object.values(tasas).find((t) => !t.es_base && t.tasa);
+  const tasaNum = noBase?.tasa ? parseFloat(noBase.tasa) : NaN;
+  if (!Number.isFinite(tasaNum)) return montoEnReferencia;
+  return montoEnReferencia * tasaNum;
+}

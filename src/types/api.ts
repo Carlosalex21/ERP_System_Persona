@@ -52,9 +52,18 @@ export interface Cliente {
   documento?: string | null;
   fecha_registro: string;
   activo: boolean;
+  /** Venezuela: cliente calificado por el SENIAT como agente de retención de IVA. */
+  contribuyente_especial?: boolean;
+  /** A cuántos días le das crédito a este cliente -- vacío = sin crédito definido. */
+  dias_credito?: number | null;
 }
 
 export type ClienteRequest = Omit<Cliente, 'id' | 'fecha_registro'>;
+
+export interface TipoDocumentoOpcion {
+  value: string;
+  label: string;
+}
 
 // --- Tipos B2B (mayoristas/distribuidores) ---
 // Ver `apps/clientes/models.py` en el backend: `ClienteB2B` es un modelo
@@ -120,6 +129,148 @@ export interface Proveedor {
 
 export type ProveedorRequest = Omit<Proveedor, 'id'>;
 
+// --- Órdenes de Compra ---
+
+export type EstadoOrdenCompra = 'borrador' | 'enviada' | 'recibida_parcial' | 'recibida' | 'cancelada';
+
+export interface OrdenCompraDetalle {
+  id: number;
+  producto: number;
+  producto_nombre: string;
+  cantidad_pedida: number;
+  cantidad_recibida: number;
+  cantidad_pendiente: number;
+  costo_unitario_esperado: string | null;
+}
+
+export interface OrdenCompra {
+  id: number;
+  numero: string;
+  proveedor: number;
+  proveedor_nombre: string;
+  almacen: number | null;
+  almacen_nombre: string | null;
+  estado: EstadoOrdenCompra;
+  observaciones: string;
+  usuario: number | null;
+  usuario_nombre: string | null;
+  fecha_creacion: string;
+  fecha_envio: string | null;
+  fecha_recepcion_completa: string | null;
+  detalles: OrdenCompraDetalle[];
+}
+
+export interface OrdenCompraDetalleRequest {
+  producto_id: number;
+  cantidad: number;
+  costo_unitario_esperado?: string | null;
+}
+
+export interface CrearOrdenCompraRequest {
+  proveedor_id: number;
+  almacen_id?: number | null;
+  observaciones?: string;
+  detalles: OrdenCompraDetalleRequest[];
+}
+
+export interface LineaRecepcionRequest {
+  detalle_id: number;
+  cantidad: number;
+  costo_unitario?: string | null;
+}
+
+export interface RegistrarRecepcionRequest {
+  numero_documento?: string;
+  lineas: LineaRecepcionRequest[];
+}
+
+// --- Cuentas por Pagar (AP) ---
+
+export interface PagoProveedor {
+  id: number;
+  cuenta_por_pagar: number;
+  monto: string;
+  metodo_pago: number | null;
+  metodo_pago_nombre: string | null;
+  referencia: string;
+  usuario_nombre: string | null;
+  fecha: string;
+}
+
+export type EstadoCuentaPorPagar = 'pendiente' | 'pagada' | 'anulada';
+
+export interface CuentaPorPagar {
+  id: number;
+  proveedor: number;
+  proveedor_nombre: string;
+  numero_documento: string;
+  fecha_emision: string;
+  fecha_vencimiento: string | null;
+  monto: string;
+  monto_pagado: string;
+  saldo_pendiente: string;
+  estado: EstadoCuentaPorPagar;
+  ajuste_origen: number | null;
+  observaciones: string;
+  fecha_creacion: string;
+  pagos: PagoProveedor[];
+}
+
+export interface RegistrarPagoProveedorRequest {
+  monto: number;
+  metodo_pago_id?: number | null;
+  referencia?: string;
+}
+
+export interface FilaAgingCuenta {
+  id: number;
+  numero_documento: string;
+  fecha_emision: string;
+  fecha_vencimiento: string | null;
+  monto: string;
+  saldo_pendiente: string;
+  dias: number;
+}
+
+export interface FilaReporteCuentasPorPagar {
+  proveedor_id: number;
+  proveedor_nombre: string;
+  total: string;
+  '0_30': string;
+  '31_60': string;
+  '61_90': string;
+  mas_90: string;
+  cuentas: FilaAgingCuenta[];
+}
+
+// --- Cuentas por Cobrar (AR) ---
+
+export interface FilaFacturaAging {
+  id: number;
+  correlativo: string | null;
+  fecha_operacion: string;
+  total_base: string;
+  saldo_pendiente_base: string;
+  dias: number;
+  /** Moneda propia de la factura (no la base) -- la que espera `registrarPago` al cobrar. */
+  moneda_id: number | null;
+  moneda_codigo: string | null;
+  moneda_simbolo: string | null;
+  saldo_pendiente: string;
+}
+
+export interface FilaReporteCuentasPorCobrar {
+  cliente_id: number;
+  cliente_nombre: string;
+  cliente_telefono: string | null;
+  total: string;
+  '0_30': string;
+  '31_60': string;
+  '61_90': string;
+  mas_90: string;
+  facturas: FilaFacturaAging[];
+}
+
 export interface Categoria {
   id: number;
   nombre: string;
@@ -152,6 +303,15 @@ export interface Sucursal {
 export type SucursalRequest = Omit<Sucursal, 'id'>;
 export type PatchedSucursalRequest = Partial<SucursalRequest>;
 
+export interface Departamento {
+  id: number;
+  nombre: string;
+  descripcion: string;
+  activo: boolean;
+}
+
+export type DepartamentoRequest = Omit<Departamento, 'id' | 'activo'>;
+export type PatchedDepartamentoRequest = Partial<DepartamentoRequest>;
 
 export interface UserManaged {
   id: number;
@@ -161,6 +321,8 @@ export interface UserManaged {
   is_active: boolean;
   rol: number | null;
   sucursal: number | null;
+  departamento: number | null;
+  sueldo_base: string | null;
 }
 
 export interface UserManagedRequest {
@@ -170,10 +332,93 @@ export interface UserManagedRequest {
   is_active: boolean;
   rol: number | null;
   sucursal: number | null;
+  departamento?: number | null;
+  sueldo_base?: string | number | null;
   password?: string;
 }
 
 export type PatchedUserManagedRequest = Partial<UserManagedRequest>;
+
+// --- Nómina ---
+
+export type TipoConceptoNomina = 'bono' | 'deduccion';
+export type ModoConceptoNomina = 'porcentaje' | 'fijo';
+
+/**
+ * Bono/deducción configurable por el propio tenant (ej. "Bono de
+ * Alimentación", "Seguro Social") -- el sistema NO asume tasas legales
+ * fijas (varían por país y cambian con el tiempo); el usuario/su contador
+ * las define una vez y, si `recurrente`, se aplican solas en cada nómina
+ * nueva (ver `apps.rrhh.services._aplicar_conceptos_recurrentes`).
+ */
+export interface ConceptoNomina {
+  id: number;
+  nombre: string;
+  tipo: TipoConceptoNomina;
+  modo: ModoConceptoNomina;
+  /** Porcentaje del sueldo base (ej. "4.00" = 4%) o monto fijo, según `modo`. */
+  valor: string;
+  recurrente: boolean;
+  activo: boolean;
+  fecha_creacion: string;
+}
+
+export interface ConceptoNominaRequest {
+  nombre: string;
+  tipo: TipoConceptoNomina;
+  modo: ModoConceptoNomina;
+  valor: string;
+  recurrente?: boolean;
+  activo?: boolean;
+}
+
+/** Snapshot de un `ConceptoNomina` ya aplicado a una línea de nómina de un período específico. */
+export interface NominaEmpleadoConcepto {
+  id: number;
+  concepto: number;
+  nombre: string;
+  tipo: TipoConceptoNomina;
+  monto: string;
+}
+
+export interface NominaEmpleado {
+  id: number;
+  usuario: number;
+  usuario_nombre: string;
+  numero_empleado: string | null;
+  sueldo_base: string;
+  dias_ausencia: number;
+  deduccion_ausencias: string;
+  /** Horas por encima del `Horario` oficial, calculadas solas desde los marcajes reales de `Asistencia`. */
+  horas_extra: string;
+  pago_horas_extra: string;
+  /** Suma de los `ConceptoNomina` tipo 'bono' aplicados -- ver `conceptos`. */
+  bonificaciones: string;
+  /** Suma de los `ConceptoNomina` tipo 'deduccion' aplicados -- ver `conceptos`. */
+  otras_deducciones: string;
+  total_pagar: string;
+  conceptos: NominaEmpleadoConcepto[];
+}
+
+export type EstadoPeriodoNomina = 'borrador' | 'pagada';
+
+export interface PeriodoNomina {
+  id: number;
+  fecha_desde: string;
+  fecha_hasta: string;
+  estado: EstadoPeriodoNomina;
+  fecha_pago: string | null;
+  usuario: number | null;
+  usuario_nombre: string | null;
+  fecha_creacion: string;
+  empleados: NominaEmpleado[];
+  total_nomina: string;
+}
+
+export interface GenerarPeriodoNominaRequest {
+  fecha_desde: string;
+  fecha_hasta: string;
+}
 
 export interface Iva {
   id: number;
@@ -215,8 +460,12 @@ export interface Producto {
   descripcion?: string | null;
   precio?: string | null;
   cantidad?: number | null;
+  /** Costo promedio ponderado por unidad -- para valorizar el inventario (a costo, no a precio de venta). Solo se actualiza al registrar una entrada con costo (ver Ajustes de Inventario). */
+  costo_promedio?: string | null;
   /** Umbral de "bajo stock" propio de este producto. Vacío = usa el umbral general. */
   stock_minimo?: number | null;
+  /** Meses de garantía al venderse -- vacío = sin garantía rastreada (ver `apps.postventa`). */
+  meses_garantia?: number | null;
   codigo_barras?: string | null;
   disponible_online?: boolean | null;
   /** Insumo/materia prima interna (ej. papas en un restaurante) -- se excluye de los selectores de venta (POS, Mesas). */
@@ -236,13 +485,16 @@ export interface Producto {
   moneda?: number | null;
   moneda_codigo?: string | null;
   moneda_simbolo?: string | null;
+  /** Qué departamento prepara/despacha este producto (ej. Cocina, Almacén) -- ver `apps.rrhh.models.Departamento`. */
+  departamento?: number | null;
+  departamento_nombre?: string | null;
 }
 
 /**
  * Para la creación y actualización de productos.
  * Omitimos campos de solo lectura y manejamos la imagen como un archivo.
  */
-export type ProductoRequest = Omit<Producto, 'id' | 'variantes' | 'presentaciones' | 'slug' | 'imagen' | 'moneda_codigo' | 'moneda_simbolo'> & {
+export type ProductoRequest = Omit<Producto, 'id' | 'variantes' | 'presentaciones' | 'slug' | 'imagen' | 'moneda_codigo' | 'moneda_simbolo' | 'departamento_nombre'> & {
   imagen?: File | null;
 };
 
@@ -293,8 +545,20 @@ export interface AjusteInventario {
   usuario: number | null;
   usuario_nombre: string | null;
   fecha_creacion: string;
+  /** Fecha del documento del proveedor (nota/factura) -- vacía = se usa `fecha_creacion`. Editable después de creado. */
+  fecha_documento: string | null;
   activo: boolean;
   detalles: AjusteInventarioDetalle[];
+}
+
+/** Campos editables de un ajuste ya aplicado -- NO incluye tipo/almacén/líneas (ver `AjusteInventarioEditSerializer` en el backend). */
+export interface AjusteInventarioEditRequest {
+  motivo?: MotivoAjusteInventario;
+  proveedor?: number | null;
+  numero_documento?: string;
+  numero_control?: string;
+  fecha_documento?: string | null;
+  observaciones?: string;
 }
 
 export interface AjusteInventarioRequest {
@@ -308,6 +572,50 @@ export interface AjusteInventarioRequest {
   detalles_para_crear: AjusteInventarioDetalleRequest[];
 }
 
+export interface Inventario {
+  id: number;
+  producto: number;
+  producto_nombre: string | null;
+  almacen: number;
+  almacen_nombre: string | null;
+  cantidad: number;
+  activo: boolean;
+}
+
+export interface TrasladoInventarioDetalle {
+  id: number;
+  producto: number;
+  producto_nombre: string | null;
+  cantidad: number;
+  stock_resultante_origen: number | null;
+  stock_resultante_destino: number | null;
+}
+
+export interface TrasladoInventarioDetalleRequest {
+  producto: number;
+  cantidad: number;
+}
+
+export interface TrasladoInventario {
+  id: number;
+  almacen_origen: number;
+  almacen_origen_nombre: string | null;
+  almacen_destino: number;
+  almacen_destino_nombre: string | null;
+  observaciones: string;
+  usuario: number | null;
+  usuario_nombre: string | null;
+  fecha_creacion: string;
+  detalles: TrasladoInventarioDetalle[];
+}
+
+export interface TrasladoInventarioRequest {
+  almacen_origen: number;
+  almacen_destino: number;
+  observaciones?: string;
+  detalles_para_crear: TrasladoInventarioDetalleRequest[];
+}
+
 export interface Variacionproducto {
   id: number;
   base_imponible: string;
@@ -315,6 +623,7 @@ export interface Variacionproducto {
   sku?: string | null;
   precio?: string | null;
   cantidad?: number | null;
+  costo_promedio?: string | null;
   codigo_barras?: string | null;
   imagen?: string | null; // URL de la imagen
   producto?: number | null; // ID Padre
@@ -360,11 +669,13 @@ export interface Detallefactura {
   total_linea: string;
   producto?: number | null;
   variante?: number | null;
+  presentacion?: number | null;
 }
 
 export interface DetallefacturaRequest {
   producto: number;
   variante?: number | null;
+  presentacion?: number | null;
   cantidad: number;
   precio_unitario: string;
   descuento?: string | null;
@@ -405,6 +716,15 @@ export interface Factura {
   orden?: number | null;
   almacen?: number | null;
   metodo_pago?: number | null;
+  /** true si ya se descontó el stock de esta factura/nota de entrega. */
+  inventario_afectado?: boolean;
+  /** Seguimiento de preparación/despacho (ej. "el almacenista ya lo armó") -- separado del ciclo fiscal/de cobro. */
+  estado_preparacion?: 'pendiente' | 'listo';
+  departamento_preparacion?: number | null;
+  departamento_preparacion_nombre?: string | null;
+  preparado_por?: number | null;
+  preparado_por_nombre?: string | null;
+  fecha_preparado?: string | null;
 }
 
 export interface FacturaRequest {
@@ -699,10 +1019,16 @@ export interface ConfiguracionEmpresa {
   telefono?: string | null;
   direccion?: string | null;
   logo?: string | null;
+  /** true si eliminar un renglón (POS, mesas, etc.) exige el PIN de autorización. */
+  requiere_pin_eliminar?: boolean;
+  /** Plantilla del mensaje de WhatsApp al cerrar una venta -- variables: {cliente} {factura} {total} {moneda}. El link al PDF se agrega siempre aparte. */
+  mensaje_whatsapp_venta?: string;
 }
 
 export type ConfiguracionEmpresaRequest = Omit<ConfiguracionEmpresa, 'logo'> & {
   logo?: File | null;
+  /** Solo escritura -- fija/cambia el PIN (4-6 dígitos). Vacío/omitido = no lo toca. */
+  pin?: string;
 };
 
 /** Numeración de facturas (correlativo SENIAT-style: prefijo + número). */
@@ -896,4 +1222,90 @@ export interface RegistroAuditoria {
   objeto_repr: string;
   cambios: Record<string, CambioAuditoria> | null;
   ip_address: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// Postventa: garantías (generadas solas al pagarse una venta de un producto
+// con `meses_garantia`) y reclamos/tickets de soporte -- ver `apps.postventa`.
+// ---------------------------------------------------------------------------
+
+export interface Garantia {
+  id: number;
+  detalle_factura: number;
+  factura: number;
+  factura_correlativo: string | null;
+  producto: number | null;
+  producto_nombre: string | null;
+  cliente: number | null;
+  cliente_nombre: string | null;
+  cliente_telefono: string | null;
+  fecha_inicio: string;
+  fecha_vencimiento: string;
+  meses_garantia: number;
+  esta_vigente: boolean;
+  tiene_reclamo_abierto: boolean;
+  fecha_creacion: string;
+}
+
+export type EstadoReclamoPostventa = 'abierto' | 'en_proceso' | 'resuelto' | 'rechazado';
+export type PrioridadReclamoPostventa = 'baja' | 'media' | 'alta';
+
+export interface ReclamoPostventa {
+  id: number;
+  garantia: number | null;
+  garantia_vigente: boolean | null;
+  factura: number | null;
+  factura_correlativo: string | null;
+  producto: number | null;
+  producto_nombre: string | null;
+  cliente: number | null;
+  nombre_contacto_libre: string;
+  telefono_contacto: string;
+  nombre_contacto: string;
+  titulo: string;
+  descripcion: string;
+  estado: EstadoReclamoPostventa;
+  prioridad: PrioridadReclamoPostventa;
+  usuario_asignado: number | null;
+  usuario_asignado_nombre: string | null;
+  resolucion: string;
+  fecha_apertura: string;
+  fecha_actualizacion: string;
+  fecha_cierre: string | null;
+}
+
+export interface CrearReclamoRequest {
+  titulo: string;
+  descripcion?: string;
+  cliente?: number | null;
+  nombre_contacto_libre?: string;
+  telefono_contacto?: string;
+  factura?: number | null;
+  producto?: number | null;
+  garantia?: number | null;
+  prioridad?: PrioridadReclamoPostventa;
+}
+
+// ---------------------------------------------------------------------------
+// Programa de Referidos -- ver `apps.tenants.models.Referido` y
+// `ReferidoProgramaView`. El código de invitación de cada tenant ES su
+// propio `schema_name`, no un campo aparte.
+// ---------------------------------------------------------------------------
+
+export type EstadoReferido = 'pendiente' | 'recompensado';
+
+export interface ReferidoItem {
+  nombre_empresa: string;
+  fecha_registro: string;
+  estado: EstadoReferido;
+}
+
+export interface ReferidoPrograma {
+  codigo_referido: string;
+  link_invitacion: string;
+  total_referidos: number;
+  referidos_pendientes: number;
+  referidos_recompensados: number;
+  meses_ganados: number;
+  referidos: ReferidoItem[];
 }

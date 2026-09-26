@@ -4,12 +4,18 @@ import { useState, useRef, useEffect, use, type ReactElement } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import Cookies from 'js-cookie';
-import { Menu, Bell, Globe2, Sparkles, AlertTriangle, ShoppingBag, ArrowRight, Lock } from 'lucide-react';
+import { Menu, Bell, BellRing, Globe2, Sparkles, AlertTriangle, ShoppingBag, ArrowRight, Lock, TriangleAlert, PackageX, Landmark, Truck, FlaskConical, PhoneCall, LifeBuoy, Search, ShieldCheck } from 'lucide-react';
+import { pushDisponible, tieneNotificacionesActivas, activarNotificacionesPush } from '@/utils/pushNotifications';
+import InstallPwaButton from '@/components/pwa/InstallPwaButton';
 import Sidebar from '@/components/Sidebar';
 import { SessionProvider, useSession } from '@/context/SessionContext';
 import { usePedidosPendientesDetalle } from '@/hooks/usePedidosPendientes';
+import { useAlertas } from '@/hooks/useAlertas';
+import type { AlertaItem, TipoAlerta } from '@/services/reportesService';
 import { getPaisInfo } from '@/utils/paises';
 import OnboardingTour from '@/components/tour/OnboardingTour';
+import CommandPalette from '@/components/CommandPalette';
+import toast from 'react-hot-toast';
 import { getSharedCookieDomain } from '@/utils/cookieDomain';
 import { limpiarCacheReferencia } from '@/utils/offlineDb';
 import { moduloDeRuta, primerModuloVisible } from '@/utils/modulosPanel';
@@ -137,6 +143,145 @@ function NotificacionesBell(): ReactElement {
   );
 }
 
+const ICONO_ALERTA: Record<TipoAlerta, ReactElement> = {
+  cxc: <Landmark size={15} />,
+  cxp: <Truck size={15} />,
+  stock: <PackageX size={15} />,
+  lote: <FlaskConical size={15} />,
+  seguimiento: <PhoneCall size={15} />,
+  reclamo: <LifeBuoy size={15} />,
+  garantia: <ShieldCheck size={15} />,
+};
+
+/**
+ * Campana separada de "Pedidos Pendientes" a propósito -- esa es sobre
+ * pedidos nuevos del catálogo público esperando confirmación; esta es sobre
+ * cosas que ya venían andando y necesitan seguimiento (cobros/pagos
+ * vencidos, stock por agotarse). Mezclarlas en una sola campana habría
+ * escondido las urgentes de contabilidad detrás del ruido de pedidos.
+ */
+function AlertasBell(): ReactElement {
+  const { alertas, total, urgentes, cargando } = useAlertas();
+  const [abierto, setAbierto] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const cerrarSiAfuera = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setAbierto(false);
+    };
+    document.addEventListener('mousedown', cerrarSiAfuera);
+    return () => document.removeEventListener('mousedown', cerrarSiAfuera);
+  }, []);
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        onClick={() => setAbierto(v => !v)}
+        className="relative p-2 rounded-full text-slate-500 hover:bg-slate-100 transition-colors"
+        aria-label="Centro de Alertas"
+        title={total > 0 ? `${total} alerta(s)` : 'Sin alertas'}
+      >
+        <TriangleAlert size={18} />
+        {total > 0 && (
+          <span className={`absolute top-0.5 right-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-[10px] font-black text-white ${urgentes > 0 ? 'bg-red-500' : 'bg-amber-500'}`}>
+            {total > 9 ? '9+' : total}
+          </span>
+        )}
+      </button>
+
+      {abierto && (
+        <div className="absolute right-0 mt-2 w-80 bg-white rounded-2xl border border-slate-200 shadow-xl z-40 overflow-hidden animate-fade-in">
+          <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+            <h4 className="font-bold text-sm text-slate-800">Centro de Alertas</h4>
+            {total > 0 && <span className="text-[10px] font-black text-red-600 bg-red-50 px-2 py-0.5 rounded-full">{total}</span>}
+          </div>
+          <div className="max-h-80 overflow-y-auto">
+            {cargando ? (
+              <p className="text-center text-xs text-slate-400 py-6">Cargando...</p>
+            ) : alertas.length === 0 ? (
+              <div className="text-center py-8 px-4">
+                <TriangleAlert size={28} className="mx-auto text-slate-200 mb-2" />
+                <p className="text-xs text-slate-400">Todo al día -- sin alertas pendientes.</p>
+              </div>
+            ) : (
+              alertas.slice(0, 6).map((a: AlertaItem, i: number) => (
+                <Link
+                  key={`${a.tipo}-${i}`}
+                  href={a.link}
+                  onClick={() => setAbierto(false)}
+                  className="flex items-start gap-3 px-4 py-3 border-b border-slate-50 hover:bg-slate-50 transition-colors"
+                >
+                  <span className={`mt-0.5 shrink-0 ${a.nivel === 'urgente' ? 'text-red-500' : 'text-amber-500'}`}>
+                    {ICONO_ALERTA[a.tipo]}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-slate-800 truncate">{a.titulo}</p>
+                    <p className="text-[11px] text-slate-400 truncate">{a.descripcion}</p>
+                  </div>
+                </Link>
+              ))
+            )}
+          </div>
+          <Link
+            href="/admin/alertas"
+            onClick={() => setAbierto(false)}
+            className="flex items-center justify-center gap-1.5 px-4 py-3 text-xs font-bold text-primary-600 hover:bg-primary-50 transition-colors"
+          >
+            Ver todas las alertas <ArrowRight size={13} />
+          </Link>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Botón para activar notificaciones push del navegador (Web Push) -- antes
+ * solo existía en la pantalla de Mesas de restaurante ("llaman al mesero").
+ * Generalizado aquí porque el mismo mecanismo ya sirve para cualquier
+ * aviso urgente del sistema (ver `apps.postventa.services.crear_reclamo`,
+ * que dispara uno cuando entra un reclamo de prioridad alta). Se oculta
+ * solo una vez activo -- no hace falta una UI para desactivar desde acá,
+ * el navegador ya lo permite desde su propio panel de permisos del sitio.
+ */
+function PushToggleButton(): ReactElement | null {
+  const [disponible, setDisponible] = useState(false);
+  const [activo, setActivo] = useState(false);
+  const [activando, setActivando] = useState(false);
+
+  useEffect(() => {
+    if (!pushDisponible()) return;
+    setDisponible(true);
+    tieneNotificacionesActivas().then(setActivo);
+  }, []);
+
+  if (!disponible || activo) return null;
+
+  const activar = async (): Promise<void> => {
+    setActivando(true);
+    const ok = await activarNotificacionesPush();
+    setActivando(false);
+    if (ok) {
+      setActivo(true);
+      toast.success('Notificaciones activadas -- avisamos aunque tengas el panel cerrado.');
+    } else {
+      toast.error('No se pudo activar. Revisa los permisos de notificaciones del navegador.');
+    }
+  };
+
+  return (
+    <button
+      onClick={activar}
+      disabled={activando}
+      className="p-2 rounded-full text-slate-500 hover:bg-slate-100 transition-colors disabled:opacity-40"
+      aria-label="Activar notificaciones"
+      title="Activar notificaciones del navegador"
+    >
+      <BellRing size={18} />
+    </button>
+  );
+}
+
 function AdminTopbar({ onOpenMenu }: { onOpenMenu: () => void }): ReactElement {
   const { tenant } = useSession();
   const pais = getPaisInfo(tenant?.pais_codigo);
@@ -144,13 +289,21 @@ function AdminTopbar({ onOpenMenu }: { onOpenMenu: () => void }): ReactElement {
   return (
     <header className="bg-white border-b border-slate-200 sticky top-0 z-30">
       <div className="flex items-center justify-between gap-4 px-4 sm:px-8 h-16">
-        <div className="flex items-center gap-3 min-w-0">
-          <button onClick={onOpenMenu} className="md:hidden p-2 -ml-2 text-slate-600">
+        <div className="flex items-center gap-3 min-w-0 flex-1">
+          <button onClick={onOpenMenu} className="md:hidden p-2 -ml-2 text-slate-600 shrink-0">
             <Menu size={22} />
           </button>
           <span className="font-black text-slate-900 tracking-tight capitalize truncate md:hidden">
             {tenant?.nombre_empresa}
           </span>
+          <button
+            onClick={() => window.dispatchEvent(new Event('erp:abrir-buscador'))}
+            className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-200 text-slate-400 hover:text-slate-600 hover:border-slate-300 transition-colors text-xs max-w-xs w-full"
+          >
+            <Search size={14} />
+            <span className="flex-1 text-left">Buscar en el panel...</span>
+            <kbd className="text-[10px] font-mono bg-slate-50 border border-slate-200 rounded px-1.5 py-0.5">Ctrl K</kbd>
+          </button>
         </div>
 
         <div className="flex items-center gap-3 shrink-0">
@@ -160,7 +313,10 @@ function AdminTopbar({ onOpenMenu }: { onOpenMenu: () => void }): ReactElement {
               <Globe2 size={13} /> {pais.nombre} · {pais.moneda}
             </span>
           )}
+          <InstallPwaButton />
+          <AlertasBell />
           <NotificacionesBell />
+          <PushToggleButton />
         </div>
       </div>
     </header>
@@ -308,6 +464,7 @@ export default function AdminLayout({ params, children }: AdminLayoutProps): Rea
         {children}
       </AdminShell>
       <OnboardingTour />
+      <CommandPalette />
     </SessionProvider>
   );
 }

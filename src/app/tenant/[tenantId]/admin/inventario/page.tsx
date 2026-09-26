@@ -16,13 +16,14 @@ import { roundMoney } from '@/utils/taxCalculator';
 import { DataTable, PageHeader, StatCard, Card, Stagger, StaggerItem, TableSkeleton, ConfirmDialog } from '@/components/ui';
 import ProductModal from '../inventario/components/ProductModal';
 import type { PresentacionForm } from '../inventario/components/PresentacionesFields';
-import { Almacen, Categoria, Iva, Moneda, Producto, ProductoRequest, VariacionproductoRequest } from '@/types/api';
+import { Almacen, Categoria, Departamento, Iva, Moneda, Producto, ProductoRequest, VariacionproductoRequest } from '@/types/api';
 import {
   createProducto, updateProducto, createVarianteProducto, deleteProducto, getAlmacenes, getCategorias, getProductos,
   createPresentacionProducto, updatePresentacionProducto, deletePresentacionProducto,
 } from '@/services/inventoryService';
 import { getIvas } from '@/services/configService';
 import { getMonedas } from '@/services/configuracionService';
+import { getDepartamentos } from '@/services/rrhhService';
 
 export default function InventarioPage({ params }: { params: Promise<{ tenantId: string }> }): ReactElement {
   const { tenantId } = use(params);
@@ -40,6 +41,7 @@ export default function InventarioPage({ params }: { params: Promise<{ tenantId:
   const [ivas, setIvas] = useState<Iva[]>([]);
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [monedas, setMonedas] = useState<Moneda[]>([]);
+  const [departamentos, setDepartamentos] = useState<Departamento[]>([]);
 
   const [modalProducto, setModalProducto] = useState(false);
   const [editandoId, setEditandoId] = useState<number | null>(null);
@@ -56,9 +58,9 @@ export default function InventarioPage({ params }: { params: Promise<{ tenantId:
   // saber, al guardar, cuáles se quitaron del formulario y hay que borrar.
   const [presentacionesOriginalIds, setPresentacionesOriginalIds] = useState<number[]>([]);
   const [formProducto, setFormProducto] = useState({
-    nombre: '', descripcion: '', precio: '', cantidad: 0, stock_minimo: '', sku: '',
+    nombre: '', descripcion: '', precio: '', cantidad: 0, stock_minimo: '', meses_garantia: '', sku: '',
     codigo_barras: '', disponible_online: true, es_insumo: false, tipo: 'simple' as 'simple' | 'variable' | 'servicio',
-    almacen: '', configuracion_iva: '', categoria: '', moneda: '', imagen: null as File | null,
+    almacen: '', configuracion_iva: '', categoria: '', moneda: '', departamento: '', imagen: null as File | null,
   });
 
   const cargarDatosMaestros = useCallback(async (): Promise<void> => {
@@ -66,12 +68,13 @@ export default function InventarioPage({ params }: { params: Promise<{ tenantId:
     // Promise.allSettled en vez de Promise.all: si un solo endpoint falla
     // (ej. IVA 500), antes tumbaba TODO el batch y dejaba almacenes/productos
     // vacíos aunque sus propias peticiones sí hubieran funcionado.
-    const [resProd, resAlm, resIva, resCat, resMon] = await Promise.allSettled([
+    const [resProd, resAlm, resIva, resCat, resMon, resDep] = await Promise.allSettled([
       getProductos(),
       getAlmacenes(),
       getIvas(),
       getCategorias(),
       getMonedas(),
+      getDepartamentos(),
     ]);
 
     if (resProd.status === 'fulfilled') setProductos(resProd.value);
@@ -79,8 +82,9 @@ export default function InventarioPage({ params }: { params: Promise<{ tenantId:
     if (resIva.status === 'fulfilled') setIvas(resIva.value);
     if (resCat.status === 'fulfilled') setCategorias(resCat.value);
     if (resMon.status === 'fulfilled') setMonedas(resMon.value);
+    if (resDep.status === 'fulfilled') setDepartamentos(resDep.value);
 
-    const fallos = [resProd, resAlm, resIva, resCat, resMon].filter(r => r.status === 'rejected');
+    const fallos = [resProd, resAlm, resIva, resCat, resMon, resDep].filter(r => r.status === 'rejected');
     if (fallos.length > 0) {
       console.error("Error cargando inventario:", fallos.map(f => (f as PromiseRejectedResult).reason));
       const error401 = fallos.find(f => (f as PromiseRejectedResult).reason?.response?.status === 401);
@@ -128,7 +132,15 @@ export default function InventarioPage({ params }: { params: Promise<{ tenantId:
     // 'servicio' no tiene stock real (siempre cantidad 0) -- sin excluirlo,
     // cada servicio del catálogo aparecía contado como "agotado".
     const agotados = productos.filter(p => p.tipo !== 'servicio' && (!p.cantidad || p.cantidad <= 0)).length;
-    const valor = productos.reduce((acc, p) => acc + (parseFloat(p.precio || '0') * (p.cantidad || 0)), 0);
+    // A COSTO (`costo_promedio`), no a precio de venta -- ver misma nota en
+    // `apps.reportes.core.dashboard_service.obtener_metricas_dashboard`.
+    // Un producto 'variable' no tiene costo/cantidad propios: viven en cada variante.
+    const valor = productos.reduce((acc, p) => {
+      if (p.tipo === 'variable') {
+        return acc + p.variantes.reduce((accV, v) => accV + (parseFloat(v.costo_promedio || '0') * (v.cantidad || 0)), 0);
+      }
+      return acc + (parseFloat(p.costo_promedio || '0') * (p.cantidad || 0));
+    }, 0);
     return { total, bajoStock, agotados, valor };
   }, [productos]);
 
@@ -136,9 +148,9 @@ export default function InventarioPage({ params }: { params: Promise<{ tenantId:
     setModalProducto(false);
     setEditandoId(null);
     setFormProducto({
-      nombre: '', descripcion: '', precio: '', cantidad: 0, stock_minimo: '', sku: '',
+      nombre: '', descripcion: '', precio: '', cantidad: 0, stock_minimo: '', meses_garantia: '', sku: '',
       codigo_barras: '', disponible_online: true, es_insumo: false, tipo: 'simple' as 'simple' | 'variable' | 'servicio',
-      almacen: '', configuracion_iva: '', categoria: '', moneda: '', imagen: null,
+      almacen: '', configuracion_iva: '', categoria: '', moneda: '', departamento: '', imagen: null,
     });
     setVariantes([{ nombre: '', sku: '', precio: '', cantidad: 0, codigo_barras: '' }]);
     setPresentaciones([]);
@@ -165,6 +177,7 @@ export default function InventarioPage({ params }: { params: Promise<{ tenantId:
       precio: producto.precio || '',
       cantidad: producto.cantidad || 0,
       stock_minimo: producto.stock_minimo != null ? String(producto.stock_minimo) : '',
+      meses_garantia: producto.meses_garantia != null ? String(producto.meses_garantia) : '',
       sku: producto.sku || '',
       codigo_barras: producto.codigo_barras || '',
       disponible_online: producto.disponible_online ?? true,
@@ -174,6 +187,7 @@ export default function InventarioPage({ params }: { params: Promise<{ tenantId:
       configuracion_iva: producto.configuracion_iva != null ? String(producto.configuracion_iva) : '',
       categoria: producto.categoria != null ? String(producto.categoria) : '',
       moneda: producto.moneda != null ? String(producto.moneda) : '',
+      departamento: producto.departamento != null ? String(producto.departamento) : '',
       imagen: null,
     });
     const presentacionesActivas = (producto.presentaciones || []).filter(p => p.activo);
@@ -205,12 +219,14 @@ export default function InventarioPage({ params }: { params: Promise<{ tenantId:
       codigo_barras: esServicio ? null : (formProducto.codigo_barras.trim() || null),
       sku: esServicio ? null : (formProducto.sku.trim() || null),
       stock_minimo: esServicio ? null : (formProducto.stock_minimo.trim() !== '' ? Number(formProducto.stock_minimo) : null),
+      meses_garantia: esServicio ? null : (formProducto.meses_garantia.trim() !== '' ? Number(formProducto.meses_garantia) : null),
       cantidad: esServicio ? 0 : formProducto.cantidad,
       almacen: esServicio ? null : (Number(formProducto.almacen) || null),
       es_insumo: esServicio ? false : formProducto.es_insumo,
       configuracion_iva: Number(formProducto.configuracion_iva) || null,
       categoria: Number(formProducto.categoria) || null,
       moneda: Number(formProducto.moneda) || null,
+      departamento: Number(formProducto.departamento) || null,
       activo: true,
       tipo: esServicio ? 'servicio' : (esProductoConVariantes ? 'variable' : 'simple'),
     };
@@ -535,6 +551,7 @@ export default function InventarioPage({ params }: { params: Promise<{ tenantId:
           ivas={ivas}
           categorias={categorias}
           monedas={monedas}
+          departamentos={departamentos}
           guardarProducto={guardarProducto}
           cargando={cargando}
           setModalProducto={(abierto) => { if (!abierto) cerrarModalProducto(); }}

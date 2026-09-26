@@ -81,6 +81,12 @@ function AuthContent() {
   const router = useRouter();
 
   const planElegido = searchParams.get('plan');
+  // Programa de referidos: `?ref=<schema_name del tenant que invitó>` (ver
+  // `apps.tenants.api.views_subscription.ReferidoProgramaView`, que arma
+  // este mismo link). Se manda tal cual al registrar -- el backend valida
+  // que exista y no sea el propio subdominio, así que un valor inválido
+  // simplemente no genera ningún `Referido`.
+  const codigoReferido = searchParams.get('ref');
 
   // Estados de Interfaz
   // Si el usuario vino de un plan, primero elegimos el tipo de negocio (retail/b2b).
@@ -257,6 +263,7 @@ function AuthContent() {
       tipo_negocio: businessType,
       pais_codigo: paisCodigo,
       ...(businessType === 'restaurante' ? { cantidad_mesas: cantidadMesas } : {}),
+      ...(codigoReferido ? { codigo_referido: codigoReferido } : {}),
     };
 
     try {
@@ -372,18 +379,20 @@ function AuthContent() {
             Continuar al Pago <ArrowRight size={18} />
           </button>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* Tarjeta 1: Tienda Pública */}
-            <div className="border border-slate-200 p-6 rounded-2xl bg-slate-50 flex flex-col justify-between group">
-              <div>
-                <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center mb-4 border border-blue-100"><Globe size={20} /></div>
-                <h4 className="font-bold text-slate-900 text-sm">Catálogo Público Online</h4>
-                <p className="text-xs text-slate-400 mt-1 mb-4">La dirección web donde tus clientes comprarán tus productos.</p>
+          <div className={`grid grid-cols-1 gap-4 ${businessType !== 'contador' ? 'sm:grid-cols-2' : ''}`}>
+            {/* Tarjeta 1: Tienda Pública -- un contador no vende nada, no tiene catálogo público que mostrar. */}
+            {businessType !== 'contador' && (
+              <div className="border border-slate-200 p-6 rounded-2xl bg-slate-50 flex flex-col justify-between group">
+                <div>
+                  <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center mb-4 border border-blue-100"><Globe size={20} /></div>
+                  <h4 className="font-bold text-slate-900 text-sm">Catálogo Público Online</h4>
+                  <p className="text-xs text-slate-400 mt-1 mb-4">La dirección web donde tus clientes comprarán tus productos.</p>
+                </div>
+                <a href={tenantUrl(subdominio)} target="_blank" rel="noopener noreferrer" className="w-full py-2.5 bg-white border border-slate-200 text-slate-700 font-bold text-xs rounded-xl flex items-center justify-center gap-2 shadow-sm hover:bg-slate-50 transition-colors">
+                  Ver Catálogo <ExternalLink size={14} />
+                </a>
               </div>
-              <a href={tenantUrl(subdominio)} target="_blank" rel="noopener noreferrer" className="w-full py-2.5 bg-white border border-slate-200 text-slate-700 font-bold text-xs rounded-xl flex items-center justify-center gap-2 shadow-sm hover:bg-slate-50 transition-colors">
-                Ver Catálogo <ExternalLink size={14} />
-              </a>
-            </div>
+            )}
 
             {/* Tarjeta 2: Panel Administrativo */}
             <div className="border border-primary-200 p-6 rounded-2xl bg-primary-50/50 flex flex-col justify-between relative overflow-hidden group">

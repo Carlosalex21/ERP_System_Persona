@@ -5,11 +5,30 @@
  */
 import axios from 'axios';
 
+/** Una variante (talla/color/etc.) comprable desde el catálogo público. */
+export interface PublicVariacion {
+  id: number;
+  nombre: string;
+  precio: string;
+  stock_disponible: number;
+  imagen_url?: string | null;
+}
+
+/** Una presentación (Unidad/Bulto x12/Docena/etc.) comprable desde el catálogo público. */
+export interface PublicPresentacion {
+  id: number;
+  nombre: string;
+  factor_conversion: number;
+  precio: string;
+  es_default: boolean;
+}
+
 /** Producto expuesto en el catálogo público. */
 export interface PublicProducto {
   id: number;
   nombre: string;
   descripcion?: string;
+  tipo?: 'simple' | 'variable' | 'servicio';
   /** Precio de venta -- final, con IVA incluido (string decimal). */
   precio_venta: string;
   /** Base imponible (precio sin IVA), para el desglose fiscal. */
@@ -27,11 +46,18 @@ export interface PublicProducto {
   imagen_url?: string | null;
   categoria_id?: number | null;
   categoria_nombre?: string | null;
+  /** Solo para `tipo='variable'` -- vacío en cualquier otro caso. */
+  variantes?: PublicVariacion[];
+  /** Presentaciones activas de este producto (unidad/bulto/docena/etc.), si tiene alguna cargada. */
+  presentaciones?: PublicPresentacion[];
 }
 
 /** Item de un pedido público. */
 export interface PublicOrderItemRequest {
   producto_id: number;
+  /** Opcionales -- vienen de `producto.variantes`/`producto.presentaciones`; nunca coexisten entre sí. */
+  variante_id?: number;
+  presentacion_id?: number;
   cantidad: number;
 }
 

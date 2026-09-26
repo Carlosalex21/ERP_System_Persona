@@ -12,6 +12,8 @@ export interface Mesa {
   activo: boolean;
   estado: 'libre' | 'ocupada';
   pedido_abierto_id: number | null;
+  mesero_solicitado: boolean;
+  cuenta_solicitada: boolean;
 }
 
 export interface PedidoMesaItem {
@@ -22,6 +24,12 @@ export interface PedidoMesaItem {
   precio_unitario: string;
   notas: string | null;
   subtotal: string;
+  persona_asignada: number | null;
+  preparado: boolean;
+  departamento: number | null;
+  departamento_nombre: string | null;
+  preparado_por_nombre: string | null;
+  fecha_preparado: string | null;
 }
 
 export interface PedidoMesa {
@@ -43,6 +51,7 @@ export interface PedidoMesa {
   fecha_cierre: string | null;
   items: PedidoMesaItem[];
   total: string;
+  comprobante_pago: string | null;
 }
 
 export const getMesas = async (): Promise<Mesa[]> => {
@@ -69,6 +78,12 @@ export const getPedidoMesa = async (id: number): Promise<PedidoMesa> => {
   return response.data;
 };
 
+/** Todos los pedidos abiertos con sus ítems -- para la vista de cocina. */
+export const getPedidosAbiertos = async (): Promise<PedidoMesa[]> => {
+  const response = await apiPrivada.get<PedidoMesa[]>('/restaurantes/pedidos/', { params: { estado: 'abierto' } });
+  return response.data;
+};
+
 /** Abre un pedido nuevo para una mesa (la mesa debe estar libre). */
 export const abrirPedidoMesa = async (mesaId: number, clienteId?: number | null): Promise<PedidoMesa> => {
   const response = await apiPrivada.post<PedidoMesa>('/restaurantes/pedidos/', { mesa: mesaId, cliente: clienteId ?? null });
@@ -83,8 +98,11 @@ export const agregarItemPedido = async (
   return response.data;
 };
 
-export const quitarItemPedido = async (pedidoId: number, itemId: number): Promise<PedidoMesa> => {
-  const response = await apiPrivada.post<PedidoMesa>(`/restaurantes/pedidos/${pedidoId}/quitar-item/`, { item_id: itemId });
+export const quitarItemPedido = async (pedidoId: number, itemId: number, eliminarTodo = false): Promise<PedidoMesa> => {
+  const response = await apiPrivada.post<PedidoMesa>(`/restaurantes/pedidos/${pedidoId}/quitar-item/`, {
+    item_id: itemId,
+    ...(eliminarTodo ? { eliminar_todo: true } : {}),
+  });
   return response.data;
 };
 
@@ -100,8 +118,34 @@ export const cancelarPedidoMesa = async (pedidoId: number): Promise<void> => {
 
 export const cerrarPedidoMesa = async (
   pedidoId: number,
-  data: { metodo_pago_id: number; condicion_pago?: 'contado' | 'credito'; moneda_id?: number },
+  data: { metodo_pago_id: number; condicion_pago?: 'contado' | 'credito'; moneda_id?: number; cliente_id?: number | null },
 ): Promise<{ mensaje: string; factura_id: number; correlativo: string | null }> => {
   const response = await apiPrivada.post(`/restaurantes/pedidos/${pedidoId}/cerrar/`, data);
   return response.data;
+};
+
+/** Vista de cocina: alterna si un ítem ya se preparó. */
+export const marcarItemPreparado = async (pedidoId: number, itemId: number): Promise<PedidoMesa> => {
+  const response = await apiPrivada.post<PedidoMesa>(`/restaurantes/pedidos/${pedidoId}/marcar-item-preparado/`, { item_id: itemId });
+  return response.data;
+};
+
+export const asignarPersonaItem = async (pedidoId: number, itemId: number, personaAsignada: number | null): Promise<PedidoMesa> => {
+  const response = await apiPrivada.post<PedidoMesa>(`/restaurantes/pedidos/${pedidoId}/asignar-persona-item/`, {
+    item_id: itemId, persona_asignada: personaAsignada,
+  });
+  return response.data;
+};
+
+export const subirComprobantePagoPrivado = async (pedidoId: number, archivo: File): Promise<PedidoMesa> => {
+  const formData = new FormData();
+  formData.append('comprobante_pago', archivo);
+  const response = await apiPrivada.post<PedidoMesa>(`/restaurantes/pedidos/${pedidoId}/comprobante-pago/`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return response.data;
+};
+
+export const registrarPushSubscription = async (data: { endpoint: string; p256dh: string; auth: string }): Promise<void> => {
+  await apiPrivada.post('/restaurantes/push-subscriptions/', data);
 };

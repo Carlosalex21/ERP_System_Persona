@@ -5,7 +5,7 @@ import { ImagePlus, Package, X } from 'lucide-react';
 import VariantFields from './VariantFields';
 import PresentacionesFields, { PresentacionForm } from './PresentacionesFields';
 import IvaVisualSelector from './IvaVisualSelector';
-import { Almacen, Categoria, Iva, Moneda } from '@/types/api';
+import { Almacen, Categoria, Departamento, Iva, Moneda } from '@/types/api';
 import { AppModal, ActionButton } from '@/components/ui';
 
 /**
@@ -15,6 +15,7 @@ import { AppModal, ActionButton } from '@/components/ui';
  * @property {string} precio - Precio del producto.
  * @property {number} cantidad - Cantidad en stock.
  * @property {string} stock_minimo - Umbral de "bajo stock" propio del producto (vacío = usa el general).
+ * @property {string} meses_garantia - Meses de garantía al vender este producto (vacío = sin garantía rastreada).
  * @property {string} sku - SKU interno (distinto del código de barras; para sincronizar con otras plataformas).
  * @property {string} codigo_barras - Código de barras o SKU.
  * @property {boolean} disponible_online - Si está disponible online.
@@ -29,6 +30,7 @@ interface ProductForm {
   precio: string;
   cantidad: number;
   stock_minimo: string;
+  meses_garantia: string;
   sku: string;
   codigo_barras: string;
   disponible_online: boolean;
@@ -38,6 +40,7 @@ interface ProductForm {
   configuracion_iva: string;
   categoria: string;
   moneda: string;
+  departamento: string;
   imagen: File | null;
 }
 
@@ -99,6 +102,7 @@ interface ProductModalProps {
   ivas: Iva[];
   categorias: Categoria[];
   monedas: Moneda[];
+  departamentos: Departamento[];
   guardarProducto: (e: React.FormEvent) => Promise<void>;
   cargando: boolean;
   setModalProducto: (abierto: boolean) => void;
@@ -124,7 +128,7 @@ export default function ProductModal({
   variantes, setVariantes,
   handleAñadirVariante, handleEliminarVariante, handleCambioVariante,
   presentaciones, handleAñadirPresentacion, handleEliminarPresentacion, handleCambioPresentacion,
-  almacenes, ivas, categorias, monedas,
+  almacenes, ivas, categorias, monedas, departamentos,
   guardarProducto, cargando, setModalProducto, editando = false,
 }: ProductModalProps): React.ReactElement {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -283,6 +287,18 @@ export default function ProductModal({
                 En qu&eacute; moneda escribiste el precio de arriba. Si cambias de tienda de moneda en el POS, se convierte autom&aacute;ticamente.
               </p>
             </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Meses de Garantía</label>
+              <input
+                type="number"
+                min="0"
+                value={formProducto.meses_garantia}
+                onChange={e => setFormProducto({ ...formProducto, meses_garantia: e.target.value })}
+                className="w-full px-3 py-2 border rounded-lg text-sm"
+                placeholder="Opcional"
+              />
+              <p className="text-[11px] text-slate-400 mt-1">Al venderse, genera una garantía rastreable por este tiempo. Vacío = sin garantía.</p>
+            </div>
             {!esServicio && (
               <>
                 <div>
@@ -365,6 +381,14 @@ export default function ProductModal({
               <option value="">Selecciona una categoría...</option>
               {categorias.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
             </select>
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Departamento (opcional)</label>
+            <select value={formProducto.departamento} onChange={e => setFormProducto({...formProducto, departamento: e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm bg-white">
+              <option value="">Sin departamento</option>
+              {departamentos.map(d => <option key={d.id} value={d.id}>{d.nombre}</option>)}
+            </select>
+            <p className="text-[11px] text-slate-400 mt-1">Quién lo prepara/despacha (ej. Cocina, Barra, Almacén) -- se hereda automáticamente en Mesas/Cocina.</p>
           </div>
 
           <label className="md:col-span-2 flex items-center gap-3 p-3 bg-slate-50 border rounded-lg cursor-pointer">

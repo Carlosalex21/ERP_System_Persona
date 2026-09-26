@@ -77,3 +77,30 @@ export const confirmarResetPassword = async (uid: string, token: string, newPass
   });
   return response.data;
 };
+
+/**
+ * Autoservicio: el usuario ya autenticado cambia su propia contraseña
+ * (distinto de `confirmarResetPassword`, que no requiere sesión y se usa
+ * cuando el usuario la olvidó). Exige la contraseña actual.
+ */
+export const cambiarMiPassword = async (passwordActual: string, passwordNueva: string): Promise<{ message: string }> => {
+  const response = await apiPrivada.post<{ message: string }>('/auth/me/cambiar-password/', {
+    password_actual: passwordActual,
+    password_nueva: passwordNueva,
+  });
+  return response.data;
+};
+
+/** Historial de inicios de sesión del tenant (solo admin) -- últimos 200 intentos, éxito y fallo. */
+export interface IntentoLogin {
+  id: number;
+  usuario_nombre: string;
+  ip: string | null;
+  success: boolean;
+  timestamp: string;
+}
+
+export const getHistorialAccesos = async (): Promise<IntentoLogin[]> => {
+  const response = await apiPrivada.get<IntentoLogin[]>('/auth/login-attempts/');
+  return response.data;
+};

@@ -5,6 +5,8 @@ import type { ColumnDef } from '@tanstack/react-table';
 import { Plus, Wrench, Receipt, Share2 } from 'lucide-react';
 import { PageHeader, Card, EmptyState, TableSkeleton, DataTable, ActionButton } from '@/components/ui';
 import { getOrdenesServicio, updateOrdenServicio, type OrdenServicio, type EstadoOrdenServicio } from '@/services/serviciosService';
+import { getDepartamentos } from '@/services/rrhhService';
+import type { Departamento } from '@/types/api';
 import { useNotify } from '@/hooks/useNotify';
 import NuevaOrdenModal from './components/NuevaOrdenModal';
 import CerrarOrdenModal from './components/CerrarOrdenModal';
@@ -21,6 +23,7 @@ const ESTADOS: { valor: EstadoOrdenServicio; etiqueta: string; clase: string }[]
 export default function OrdenesServicioPage(): ReactElement {
   const notify = useNotify();
   const [ordenes, setOrdenes] = useState<OrdenServicio[]>([]);
+  const [departamentos, setDepartamentos] = useState<Departamento[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalNueva, setModalNueva] = useState(false);
   const [ordenACerrar, setOrdenACerrar] = useState<OrdenServicio | null>(null);
@@ -39,6 +42,7 @@ export default function OrdenesServicioPage(): ReactElement {
   }, []);
 
   useEffect(() => { cargar(); }, [cargar]);
+  useEffect(() => { getDepartamentos().then(setDepartamentos).catch(() => {}); }, []);
 
   const cambiarEstado = async (orden: OrdenServicio, estado: EstadoOrdenServicio): Promise<void> => {
     try {
@@ -47,6 +51,16 @@ export default function OrdenesServicioPage(): ReactElement {
       cargar();
     } catch {
       notify.error('No se pudo actualizar el estado.');
+    }
+  };
+
+  const cambiarDepartamento = async (orden: OrdenServicio, departamento: string): Promise<void> => {
+    try {
+      await updateOrdenServicio(orden.id, { departamento: departamento ? Number(departamento) : null });
+      notify.success('Departamento asignado.');
+      cargar();
+    } catch {
+      notify.error('No se pudo asignar el departamento.');
     }
   };
 
@@ -82,6 +96,27 @@ export default function OrdenesServicioPage(): ReactElement {
         );
       },
     },
+    {
+      id: 'departamento',
+      header: 'Departamento',
+      enableSorting: false,
+      cell: ({ row }) => {
+        const orden = row.original;
+        if (orden.factura) {
+          return <span className="text-xs text-slate-500">{orden.departamento_nombre || '—'}</span>;
+        }
+        return (
+          <select
+            value={orden.departamento ?? ''}
+            onChange={(e) => cambiarDepartamento(orden, e.target.value)}
+            className="text-xs font-bold border rounded-lg px-2 py-1 bg-white"
+          >
+            <option value="">Sin asignar</option>
+            {departamentos.map((d) => <option key={d.id} value={d.id}>{d.nombre}</option>)}
+          </select>
+        );
+      },
+    },
     { accessorKey: 'fecha_recepcion', header: 'Recibido', cell: ({ row }) => new Date(row.original.fecha_recepcion).toLocaleDateString() },
     {
       id: 'acciones',
@@ -108,7 +143,7 @@ export default function OrdenesServicioPage(): ReactElement {
       ),
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  ], [ordenes]);
+  ], [ordenes, departamentos]);
 
   return (
     <div className="space-y-6">

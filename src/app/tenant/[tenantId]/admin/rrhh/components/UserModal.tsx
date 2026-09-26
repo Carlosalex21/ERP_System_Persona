@@ -2,7 +2,7 @@
 
 import { useState, type ReactElement } from 'react';
 import { UserPlus } from 'lucide-react';
-import { Rol, Sucursal, UserManaged, UserManagedRequest } from '@/types/api';
+import { Rol, Sucursal, Departamento, UserManaged, UserManagedRequest } from '@/types/api';
 import { createManagedUser, updateManagedUser } from '@/services/rrhhService';
 import { AppModal, ActionButton } from '@/components/ui';
 
@@ -12,11 +12,12 @@ interface UserModalProps {
   onSave: () => void;
   roles: Rol[];
   sucursales: Sucursal[];
+  departamentos: Departamento[];
   /** Si viene un empleado, el modal edita ese registro en vez de invitar uno nuevo. */
   usuario?: UserManaged | null;
 }
 
-export default function UserModal({ isOpen, onClose, onSave, roles, sucursales, usuario = null }: UserModalProps): ReactElement {
+export default function UserModal({ isOpen, onClose, onSave, roles, sucursales, departamentos, usuario = null }: UserModalProps): ReactElement {
   const editando = usuario !== null;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -27,6 +28,8 @@ export default function UserModal({ isOpen, onClose, onSave, roles, sucursales, 
     password: '',
     rol: usuario.rol ?? undefined,
     sucursal: usuario.sucursal ?? undefined,
+    departamento: usuario.departamento ?? undefined,
+    sueldo_base: usuario.sueldo_base ?? '',
     is_active: usuario.is_active,
   } : {
     first_name: '',
@@ -35,6 +38,8 @@ export default function UserModal({ isOpen, onClose, onSave, roles, sucursales, 
     password: '',
     rol: undefined,
     sucursal: undefined,
+    departamento: undefined,
+    sueldo_base: '',
     is_active: true,
   });
 
@@ -80,6 +85,8 @@ export default function UserModal({ isOpen, onClose, onSave, roles, sucursales, 
           email: formData.email || '',
           rol: formData.rol ? Number(formData.rol) : null,
           sucursal: formData.sucursal ? Number(formData.sucursal) : null,
+          departamento: formData.departamento ? Number(formData.departamento) : null,
+          sueldo_base: formData.sueldo_base ? String(formData.sueldo_base) : null,
           is_active: formData.is_active || false,
         };
         if (formData.password && formData.password.trim() !== '') {
@@ -94,6 +101,8 @@ export default function UserModal({ isOpen, onClose, onSave, roles, sucursales, 
           password: formData.password || '',
           rol: formData.rol ? Number(formData.rol) : null,
           sucursal: formData.sucursal ? Number(formData.sucursal) : null,
+          departamento: formData.departamento ? Number(formData.departamento) : null,
+          sueldo_base: formData.sueldo_base ? String(formData.sueldo_base) : null,
           is_active: formData.is_active || false,
         };
         await createManagedUser(payload);
@@ -160,7 +169,7 @@ export default function UserModal({ isOpen, onClose, onSave, roles, sucursales, 
               required={!editando}
             />
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Rol</label>
               <select name="rol" value={formData.rol || ''} onChange={handleChange} className="w-full px-3 py-2 border rounded-lg text-sm bg-white" required>
@@ -175,6 +184,23 @@ export default function UserModal({ isOpen, onClose, onSave, roles, sucursales, 
                 {sucursales.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
               </select>
             </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Departamento</label>
+              <select name="departamento" value={formData.departamento || ''} onChange={handleChange} className="w-full px-3 py-2 border rounded-lg text-sm bg-white">
+                <option value="">Sin departamento</option>
+                {departamentos.map(d => <option key={d.id} value={d.id}>{d.nombre}</option>)}
+              </select>
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Sueldo Base (opcional)</label>
+            <input
+              type="number" min={0} step="0.01" name="sueldo_base"
+              value={formData.sueldo_base ?? ''} onChange={handleChange}
+              placeholder="Déjalo vacío si no participa en nómina"
+              className="w-full px-3 py-2 border rounded-lg text-sm"
+            />
+            <p className="text-[11px] text-slate-400 mt-1">Monto a pagar por período de nómina (el rango de fechas lo eliges al generarla en RRHH → Nómina).</p>
           </div>
           <div className="flex items-center gap-3 pt-2">
             <input type="checkbox" name="is_active" checked={formData.is_active} onChange={handleChange} className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
