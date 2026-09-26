@@ -3,6 +3,7 @@
  * que se corresponden con los esquemas de la API del backend.
  * Proporciona una única fuente de verdad para las estructuras de datos.
  */
+import type { TipoNegocio } from '@/utils/modulosPanel';
 
 // --- Tipos de Autenticación y Usuarios ---
 
@@ -1143,6 +1144,8 @@ export interface MiCliente {
   nombre_empresa: string;
   schema_name: string;
   pais_codigo: 'VE' | 'CO' | 'PE';
+  /** Módulo con el que se registró el negocio -- solo se le ofrecen planes de ese tipo. */
+  tipo_negocio: TipoNegocio;
   subscription: MiSubscripcion | null;
 }
 

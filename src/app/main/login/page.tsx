@@ -242,7 +242,7 @@ function AuthContent() {
     // prueba sin importar este valor).
     let planId: number | undefined;
     try {
-      const planes = await getPlanesPublicos();
+      const planes = await getPlanesPublicos(businessType ?? undefined);
       planId = planes.find((p) => p.slug === planElegido)?.id;
     } catch {
       planId = undefined;

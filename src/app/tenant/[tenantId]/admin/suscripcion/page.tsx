@@ -131,7 +131,8 @@ function SuscripcionAdminContent(): ReactElement {
     (async () => {
       try {
         const [planesData, periodosData, info] = await Promise.all([
-          getPlanesPublicos(),
+          // Solo los planes del módulo con el que se registró el negocio.
+          getPlanesPublicos(tenant?.tipo_negocio),
           getPeriodosSuscripcion(),
           getPlatformPaymentInfo(),
         ]);

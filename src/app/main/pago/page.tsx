@@ -127,9 +127,11 @@ function PagoContent(): ReactElement {
 
     (async () => {
       try {
-        const [miCliente, planesData, periodosData, info] = await Promise.all([
-          getMiCliente(),
-          getPlanesPublicos(),
+        // Primero el cliente: los planes se filtran por el módulo con el que
+        // se registró (un restaurante solo ve planes de restaurante).
+        const miCliente = await getMiCliente();
+        const [planesData, periodosData, info] = await Promise.all([
+          getPlanesPublicos(miCliente.tipo_negocio),
           getPeriodosSuscripcion(),
           getPlatformPaymentInfo(),
         ]);
