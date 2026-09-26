@@ -7,6 +7,7 @@ import { getFacturasPorCliente, verFacturaPdf } from '@/services/facturacionServ
 import { useNotify } from '@/hooks/useNotify';
 import type { Factura } from '@/types/api';
 import type { EmpresaContable } from '@/services/contabilidadService';
+import { useMonedaVista } from '@/context/MonedaVistaContext';
 
 interface HistorialFacturasModalProps {
   empresa: EmpresaContable;
@@ -16,6 +17,7 @@ interface HistorialFacturasModalProps {
 const mesISO = (fecha: string): string => fecha.slice(0, 7);
 
 export default function HistorialFacturasModal({ empresa, onClose }: HistorialFacturasModalProps): ReactElement {
+  const { formatear, formatearDocumento } = useMonedaVista();
   const notify = useNotify();
   const [facturas, setFacturas] = useState<Factura[]>([]);
   const [loading, setLoading] = useState(true);
@@ -71,7 +73,7 @@ export default function HistorialFacturasModal({ empresa, onClose }: HistorialFa
               {facturasFiltradas.length > 0 && (
                 <div className="text-right">
                   <span className="block text-xs font-bold text-slate-400 uppercase">Total {mes ? 'del mes' : 'histórico'}</span>
-                  <span className="text-lg font-black text-slate-900">${total.toFixed(2)}</span>
+                  <span className="text-lg font-black text-slate-900">{formatear(total)}</span>
                 </div>
               )}
             </div>
@@ -96,7 +98,7 @@ export default function HistorialFacturasModal({ empresa, onClose }: HistorialFa
                       <tr key={f.id} className="hover:bg-slate-50">
                         <td className="p-3">{new Date(f.fecha_operacion).toLocaleDateString()}</td>
                         <td className="p-3 font-mono text-slate-500">{f.correlativo || `#${f.id}`}</td>
-                        <td className="p-3 text-right font-semibold">${parseFloat(f.total_base || f.total).toFixed(2)}</td>
+                        <td className="p-3 text-right font-semibold">{formatearDocumento(f.total, f.total_base, f.moneda_codigo)}</td>
                         <td className="p-3 text-right">
                           <button
                             onClick={() => verPdf(f.id)}

@@ -7,8 +7,10 @@ import { getEstadosFinancieros, exportarEstadosFinancieros, type EstadosFinancie
 import { useNotify } from '@/hooks/useNotify';
 import EmpresaSelector from '../components/EmpresaSelector';
 import CerrarEjercicioModal from './components/CerrarEjercicioModal';
+import { useMonedaVista } from '@/context/MonedaVistaContext';
 
 function GrupoCuentas({ titulo, filas, total }: { titulo: string; filas: FilaBalanceComprobacion[]; total: string }): ReactElement {
+  const { formatearEnBase } = useMonedaVista();
   return (
     <div>
       <p className="text-xs font-bold text-slate-400 uppercase mb-2">{titulo}</p>
@@ -19,20 +21,21 @@ function GrupoCuentas({ titulo, filas, total }: { titulo: string; filas: FilaBal
           {filas.map((f) => (
             <div key={f.cuenta_id} className="flex justify-between text-sm pl-2">
               <span className="text-slate-600">{f.nombre}</span>
-              <span className="font-semibold text-slate-800">${parseFloat(f.saldo).toFixed(2)}</span>
+              <span className="font-semibold text-slate-800">{formatearEnBase(parseFloat(f.saldo))}</span>
             </div>
           ))}
         </div>
       )}
       <div className="flex justify-between text-sm font-black text-slate-900 border-t border-dashed mt-2 pt-2">
         <span>Total {titulo}</span>
-        <span>${parseFloat(total).toFixed(2)}</span>
+        <span>{formatearEnBase(parseFloat(total))}</span>
       </div>
     </div>
   );
 }
 
 export default function EstadosFinancierosPage(): ReactElement {
+  const { formatearEnBase } = useMonedaVista();
   const notify = useNotify();
   const [empresaId, setEmpresaId] = useState<number | null>(null);
   const [desde, setDesde] = useState('');
@@ -131,7 +134,7 @@ export default function EstadosFinancierosPage(): ReactElement {
                 <GrupoCuentas titulo="Patrimonio" filas={datos.balance_general.patrimonio} total={datos.balance_general.total_patrimonio} />
                 <div className="flex justify-between text-sm font-semibold text-slate-500 pl-2">
                   <span>Utilidad del período (no cerrada a Patrimonio)</span>
-                  <span>${parseFloat(datos.balance_general.utilidad_periodo).toFixed(2)}</span>
+                  <span>{formatearEnBase(parseFloat(datos.balance_general.utilidad_periodo))}</span>
                 </div>
               </div>
             </Card>
@@ -149,7 +152,7 @@ export default function EstadosFinancierosPage(): ReactElement {
                     {parseFloat(datos.estado_resultados.utilidad_periodo) >= 0 ? 'Utilidad del Período' : 'Pérdida del Período'}
                   </span>
                   <span className={`text-lg font-black ${parseFloat(datos.estado_resultados.utilidad_periodo) >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>
-                    ${Math.abs(parseFloat(datos.estado_resultados.utilidad_periodo)).toFixed(2)}
+                    {formatearEnBase(Math.abs(parseFloat(datos.estado_resultados.utilidad_periodo)))}
                   </span>
                 </div>
               </div>

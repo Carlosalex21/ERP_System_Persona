@@ -12,6 +12,7 @@ import { useNotify } from '@/hooks/useNotify';
 import EmpresaSelector from '../components/EmpresaSelector';
 import NuevoAsientoModal from './components/NuevoAsientoModal';
 import GuardarPlantillaModal from './components/GuardarPlantillaModal';
+import { useMonedaVista } from '@/context/MonedaVistaContext';
 
 const ESTADO_ESTILOS: Record<string, string> = {
   anulado: 'bg-red-50 text-red-600 border-red-200',
@@ -32,6 +33,7 @@ interface FilaExpandibleProps {
 }
 
 function FilaExpandible({ asiento, onAnular, onContabilizar, onSubirComprobante, onGuardarPlantilla, subiendoComprobante }: FilaExpandibleProps): ReactElement {
+  const { formatearEnBase } = useMonedaVista();
   const [abierto, setAbierto] = useState(false);
   const inputArchivoRef = useRef<HTMLInputElement>(null);
 
@@ -45,7 +47,7 @@ function FilaExpandible({ asiento, onAnular, onContabilizar, onSubirComprobante,
         </td>
         <td className="p-4">{new Date(asiento.fecha + 'T00:00:00').toLocaleDateString()}</td>
         <td className="p-4 font-semibold text-slate-800">{asiento.descripcion}</td>
-        <td className="p-4 text-right font-bold">${parseFloat(asiento.total).toFixed(2)}</td>
+        <td className="p-4 text-right font-bold">{formatearEnBase(parseFloat(asiento.total))}</td>
         <td className="p-4">
           <span className={`px-2.5 py-1 rounded-lg font-bold text-xs border ${ESTADO_ESTILOS[asiento.estado]}`}>
             {ESTADO_ETIQUETAS[asiento.estado]}

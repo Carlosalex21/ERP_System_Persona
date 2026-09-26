@@ -10,6 +10,7 @@ import {
 } from '@/services/clientesService';
 import { ClienteB2B, ClienteB2BRequest, NivelPrecio, NivelPrecioRequest } from '@/types/api';
 import { PageHeader, Card, EmptyState, TableSkeleton, ConfirmDialog } from '@/components/ui';
+import { useMonedaVista } from '@/context/MonedaVistaContext';
 
 const ESTADO_ESTILOS: Record<string, string> = {
   activo: 'bg-green-100 text-green-700',
@@ -267,6 +268,10 @@ function NivelesPrecioModal({ onClose }: { onClose: () => void }): ReactElement 
  * Página para listar y gestionar la red de clientes B2B.
  */
 export default function RedClientesPage(): ReactElement {
+  // Crédito y volumen B2B se expresan en la moneda de referencia (ver
+  // `credit_service` en el backend) y se muestran en la moneda de vista.
+  const { formatear, referencia, base } = useMonedaVista();
+  const codigoComercial = referencia?.codigo ?? base.codigo;
   const router = useRouter();
   const [clientes, setClientes] = useState<ClienteB2B[]>([]);
   const [niveles, setNiveles] = useState<NivelPrecio[]>([]);
@@ -339,10 +344,10 @@ export default function RedClientesPage(): ReactElement {
                     <p className="text-[10px] text-slate-400 font-mono">{cliente.rif}</p>
                   </td>
                   <td className="p-4 text-slate-600">{cliente.nivel_precio_nombre || '—'}</td>
-                  <td className="p-4 font-semibold text-slate-700">${parseFloat(cliente.total_comprado_periodo).toFixed(2)}</td>
+                  <td className="p-4 font-semibold text-slate-700">{formatear(cliente.total_comprado_periodo, codigoComercial)}</td>
                   <td className="p-4 text-xs text-slate-500">
                     {parseFloat(cliente.limite_credito) > 0
-                      ? `$${parseFloat(cliente.credito_usado).toFixed(2)} / $${parseFloat(cliente.limite_credito).toFixed(2)}`
+                      ? `${formatear(cliente.credito_usado, codigoComercial)} / ${formatear(cliente.limite_credito, codigoComercial)}`
                       : 'Sin línea'}
                   </td>
                   <td className="p-4 text-center">

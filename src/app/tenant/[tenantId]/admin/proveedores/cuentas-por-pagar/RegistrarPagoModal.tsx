@@ -6,6 +6,7 @@ import { AppModal, ActionButton } from '@/components/ui';
 import { registrarPagoProveedor } from '@/services/proveedoresService';
 import { useNotify } from '@/hooks/useNotify';
 import type { CuentaPorPagar, MetodoPago } from '@/types/api';
+import { useMonedaVista } from '@/context/MonedaVistaContext';
 
 interface RegistrarPagoModalProps {
   cuenta: CuentaPorPagar;
@@ -15,6 +16,8 @@ interface RegistrarPagoModalProps {
 }
 
 export default function RegistrarPagoModal({ cuenta, metodosPago, onClose, onSaved }: RegistrarPagoModalProps): ReactElement {
+  // El pago se registra en la moneda base (las cuentas por pagar no guardan otra).
+  const { base } = useMonedaVista();
   const notify = useNotify();
   const saldo = parseFloat(cuenta.saldo_pendiente);
   const [monto, setMonto] = useState(cuenta.saldo_pendiente);
@@ -29,7 +32,7 @@ export default function RegistrarPagoModal({ cuenta, metodosPago, onClose, onSav
       return;
     }
     if (montoNum > saldo + 0.01) {
-      notify.error(`El pago no puede superar el saldo pendiente ($${saldo.toFixed(2)}).`);
+      notify.error(`El pago no puede superar el saldo pendiente (${base.simbolo} ${saldo.toFixed(2)}).`);
       return;
     }
     setGuardando(true);
@@ -66,7 +69,7 @@ export default function RegistrarPagoModal({ cuenta, metodosPago, onClose, onSav
         <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-sm">
           <p className="font-bold text-slate-800">{cuenta.proveedor_nombre}</p>
           <p className="text-xs text-slate-500">{cuenta.numero_documento || 'Sin número de documento'}</p>
-          <p className="text-xs text-slate-500 mt-1">Saldo pendiente: <span className="font-bold text-slate-700">${saldo.toFixed(2)}</span></p>
+          <p className="text-xs text-slate-500 mt-1">Saldo pendiente: <span className="font-bold text-slate-700">{base.simbolo} {saldo.toFixed(2)}</span></p>
         </div>
         <div>
           <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Monto a pagar</label>

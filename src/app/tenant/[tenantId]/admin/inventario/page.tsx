@@ -9,7 +9,7 @@ import {
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { getApiErrorMessages, getNombreById } from '@/utils/helpers';
-import { roundMoney } from '@/utils/taxCalculator';
+import { useMonedaVista } from '@/context/MonedaVistaContext';
 import { DataTable, PageHeader, StatCard, Card, Stagger, StaggerItem, TableSkeleton, ConfirmDialog } from '@/components/ui';
 import ProductModal from '../inventario/components/ProductModal';
 import type { PresentacionForm } from '../inventario/components/PresentacionesFields';
@@ -24,6 +24,10 @@ import { getDepartamentos } from '@/services/rrhhService';
 
 export default function InventarioPage({ params }: { params: Promise<{ tenantId: string }> }): ReactElement {
   use(params);
+  // Cada producto guarda su precio/costo en SU moneda (`Producto.moneda`,
+  // vacío = base): se convierte a la moneda de vista elegida en la barra
+  // superior, en vez de pegarle un "$" fijo a cualquier número.
+  const { convertir, formatear, formatearEnVista } = useMonedaVista();
 
   // Arranca en `true` (no `false`): el `useEffect` que carga los datos
   // corre después del primer render, así que si esto arrancaba en `false`
@@ -119,6 +123,10 @@ export default function InventarioPage({ params }: { params: Promise<{ tenantId:
   // general propio; cada pantalla puede tener su propio "general" pero
   // ambas respetan el umbral específico del producto cuando existe).
   const UMBRAL_BAJO_STOCK_GENERAL = 5;
+  const codigoMoneda = useCallback(
+    (monedaId: number | null | undefined): string | null => monedas.find((m) => m.id === monedaId)?.codigo ?? null,
+    [monedas],
+  );
   const stats = useMemo(() => {
     const total = productos.length;
     const bajoStock = productos.filter(p => {
@@ -133,13 +141,14 @@ export default function InventarioPage({ params }: { params: Promise<{ tenantId:
     // `apps.reportes.core.dashboard_service.obtener_metricas_dashboard`.
     // Un producto 'variable' no tiene costo/cantidad propios: viven en cada variante.
     const valor = productos.reduce((acc, p) => {
+      const codigo = codigoMoneda(p.moneda);
       if (p.tipo === 'variable') {
-        return acc + p.variantes.reduce((accV, v) => accV + (parseFloat(v.costo_promedio || '0') * (v.cantidad || 0)), 0);
+        return acc + p.variantes.reduce((accV, v) => accV + convertir(parseFloat(v.costo_promedio || '0') * (v.cantidad || 0), codigo), 0);
       }
-      return acc + (parseFloat(p.costo_promedio || '0') * (p.cantidad || 0));
+      return acc + convertir(parseFloat(p.costo_promedio || '0') * (p.cantidad || 0), codigo);
     }, 0);
     return { total, bajoStock, agotados, valor };
-  }, [productos]);
+  }, [productos, convertir, codigoMoneda]);
 
   const faltantes = useMemo(() => [
     !almacenes.length && { etiqueta: 'un almacén', href: '/admin/inventario/almacenes' },
@@ -389,9 +398,9 @@ export default function InventarioPage({ params }: { params: Promise<{ tenantId:
       accessorKey: 'precio',
       header: () => <div className="text-right">Precio</div>,
       cell: ({ row }) => (
-        <div className="text-right font-black text-slate-900">${parseFloat(row.original.precio || '0').toFixed(2)}</div>
+        <div className="text-right font-black text-slate-900">{formatear(row.original.precio, codigoMoneda(row.original.moneda))}</div>
       ),
-      sortingFn: (a, b) => parseFloat(a.original.precio || '0') - parseFloat(b.original.precio || '0'),
+      sortingFn: (a, b) => convertir(a.original.precio, codigoMoneda(a.original.moneda)) - convertir(b.original.precio, codigoMoneda(b.original.moneda)),
     },
     {
       accessorKey: 'cantidad',
@@ -446,7 +455,7 @@ export default function InventarioPage({ params }: { params: Promise<{ tenantId:
         </div>
       ),
     },
-  ], [categorias]);
+  ], [categorias, formatear, convertir, codigoMoneda]);
 
   // useMemo: tarjetas de estadísticas.
   // Mientras carga se muestra "…" en vez de 0: un "0 productos" momentáneo
@@ -457,9 +466,9 @@ export default function InventarioPage({ params }: { params: Promise<{ tenantId:
       { label: 'Total Productos', value: valor(String(stats.total)), icon: <Boxes size={20} />, color: 'bg-primary-600' },
       { label: 'Bajo Stock', value: valor(String(stats.bajoStock)), icon: <AlertTriangle size={20} />, color: 'bg-orange-500' },
       { label: 'Agotados', value: valor(String(stats.agotados)), icon: <XCircle size={20} />, color: 'bg-red-500' },
-      { label: 'Valor Inventario (costo)', value: valor(`$${roundMoney(stats.valor)}`), icon: <DollarSign size={20} />, color: 'bg-green-600' },
+      { label: 'Valor Inventario (costo)', value: valor(formatearEnVista(stats.valor)), icon: <DollarSign size={20} />, color: 'bg-green-600' },
     ];
-  }, [stats, cargando]);
+  }, [stats, cargando, formatearEnVista]);
 
   return (
     <div className="space-y-6 animate-fade-in">

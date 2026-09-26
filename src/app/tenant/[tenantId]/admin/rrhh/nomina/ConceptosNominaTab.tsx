@@ -9,6 +9,7 @@ import {
   getConceptosNomina, crearConceptoNomina, actualizarConceptoNomina, eliminarConceptoNomina,
 } from '@/services/rrhhService';
 import type { ConceptoNomina, TipoConceptoNomina, ModoConceptoNomina } from '@/types/api';
+import { useMonedaVista } from '@/context/MonedaVistaContext';
 
 function NuevoConceptoModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }): ReactElement {
   const [nombre, setNombre] = useState('');
@@ -86,6 +87,7 @@ function NuevoConceptoModal({ onClose, onCreated }: { onClose: () => void; onCre
 }
 
 export default function ConceptosNominaTab(): ReactElement {
+  const { formatearEnBase } = useMonedaVista();
   const [conceptos, setConceptos] = useState<ConceptoNomina[]>([]);
   const [cargando, setCargando] = useState(true);
   const [modalAbierto, setModalAbierto] = useState(false);
@@ -169,7 +171,7 @@ export default function ConceptosNominaTab(): ReactElement {
                     <Badge tone={c.tipo === 'bono' ? 'green' : 'red'}>{c.tipo === 'bono' ? 'Bono' : 'Deducción'}</Badge>
                   </td>
                   <td className="p-3 text-right font-mono text-slate-600">
-                    {c.modo === 'porcentaje' ? `${parseFloat(c.valor)}%` : `$${parseFloat(c.valor).toFixed(2)}`}
+                    {c.modo === 'porcentaje' ? `${parseFloat(c.valor)}%` : formatearEnBase(c.valor)}
                   </td>
                   <td className="p-3 text-center">
                     <button disabled={procesando === c.id} onClick={() => alternarActivo(c)} title={c.activo ? 'Desactivar' : 'Activar'} className="text-slate-400 hover:text-primary-600 disabled:opacity-40">

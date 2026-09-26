@@ -9,8 +9,10 @@ import {
 } from '@/services/contabilidadService';
 import { useNotify } from '@/hooks/useNotify';
 import EmpresaSelector from '../components/EmpresaSelector';
+import { useMonedaVista } from '@/context/MonedaVistaContext';
 
 export default function ConciliacionBancariaPage(): ReactElement {
+  const { formatearEnBase } = useMonedaVista();
   const notify = useNotify();
   const [empresaId, setEmpresaId] = useState<number | null>(null);
   const [cuentas, setCuentas] = useState<CuentaContable[]>([]);
@@ -102,11 +104,11 @@ export default function ConciliacionBancariaPage(): ReactElement {
         ) : (
           <Card padding="none" className="overflow-hidden">
             <div className="px-5 py-3 border-b bg-slate-50 grid grid-cols-3 gap-4 text-sm">
-              <div><span className="text-slate-400 text-xs font-bold uppercase block">Saldo según libros</span><span className="font-black text-slate-900">${parseFloat(datos.saldo_libros).toFixed(2)}</span></div>
-              <div><span className="text-slate-400 text-xs font-bold uppercase block">Saldo conciliado</span><span className="font-black text-slate-900">${parseFloat(datos.saldo_conciliado).toFixed(2)}</span></div>
+              <div><span className="text-slate-400 text-xs font-bold uppercase block">Saldo según libros</span><span className="font-black text-slate-900">{formatearEnBase(parseFloat(datos.saldo_libros))}</span></div>
+              <div><span className="text-slate-400 text-xs font-bold uppercase block">Saldo conciliado</span><span className="font-black text-slate-900">{formatearEnBase(parseFloat(datos.saldo_conciliado))}</span></div>
               <div>
                 <span className="text-slate-400 text-xs font-bold uppercase block">Diferencia (pendiente)</span>
-                <span className={`font-black ${Math.abs(parseFloat(datos.diferencia)) < 0.01 ? 'text-emerald-600' : 'text-amber-600'}`}>${parseFloat(datos.diferencia).toFixed(2)}</span>
+                <span className={`font-black ${Math.abs(parseFloat(datos.diferencia)) < 0.01 ? 'text-emerald-600' : 'text-amber-600'}`}>{formatearEnBase(parseFloat(datos.diferencia))}</span>
               </div>
             </div>
             <table className="w-full text-left text-sm">

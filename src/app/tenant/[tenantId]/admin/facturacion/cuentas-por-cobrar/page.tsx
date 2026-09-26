@@ -10,6 +10,7 @@ import { useTenant } from '@/hooks/useTenant';
 import { construirLinkWhatsapp } from '@/utils/whatsapp';
 import RegistrarCobroModal from './RegistrarCobroModal';
 import type { FilaReporteCuentasPorCobrar, FilaFacturaAging } from '@/types/api';
+import { useMonedaVista } from '@/context/MonedaVistaContext';
 
 const BUCKETS: { key: keyof Pick<FilaReporteCuentasPorCobrar, '0_30' | '31_60' | '61_90' | 'mas_90'>; etiqueta: string; clase: string }[] = [
   { key: '0_30', etiqueta: '0-30 días', clase: 'text-slate-700' },
@@ -19,6 +20,7 @@ const BUCKETS: { key: keyof Pick<FilaReporteCuentasPorCobrar, '0_30' | '31_60' |
 ];
 
 export default function CuentasPorCobrarPage(): ReactElement {
+  const { formatear } = useMonedaVista();
   const { tenant } = useTenant();
   const [filas, setFilas] = useState<FilaReporteCuentasPorCobrar[]>([]);
   const [cargando, setCargando] = useState(true);
@@ -81,11 +83,11 @@ export default function CuentasPorCobrarPage(): ReactElement {
 
       {!cargando && filas.length > 0 && (
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-          <StatCard label="Total por cobrar" value={`$${totales.total.toFixed(2)}`} />
-          <StatCard label="0-30 días" value={`$${totales['0_30'].toFixed(2)}`} />
-          <StatCard label="31-60 días" value={`$${totales['31_60'].toFixed(2)}`} />
-          <StatCard label="61-90 días" value={`$${totales['61_90'].toFixed(2)}`} />
-          <StatCard label="+90 días" value={`$${totales.mas_90.toFixed(2)}`} />
+          <StatCard label="Total por cobrar" value={formatear(totales.total)} />
+          <StatCard label="0-30 días" value={formatear(totales['0_30'])} />
+          <StatCard label="31-60 días" value={formatear(totales['31_60'])} />
+          <StatCard label="61-90 días" value={formatear(totales['61_90'])} />
+          <StatCard label="+90 días" value={formatear(totales.mas_90)} />
         </div>
       )}
 
@@ -112,7 +114,7 @@ export default function CuentasPorCobrarPage(): ReactElement {
                 const linkWhatsapp = f.cliente_telefono
                   ? construirLinkWhatsapp(
                       f.cliente_telefono,
-                      `Hola ${f.cliente_nombre}, te recordamos que tienes un saldo pendiente de $${parseFloat(f.total).toFixed(2)} con nosotros. Cualquier duda, contáctanos para coordinar el pago. ¡Gracias!`,
+                      `Hola ${f.cliente_nombre}, te recordamos que tienes un saldo pendiente de ${formatear(parseFloat(f.total))} con nosotros. Cualquier duda, contáctanos para coordinar el pago. ¡Gracias!`,
                       tenant?.pais_codigo,
                     )
                   : null;
@@ -128,10 +130,10 @@ export default function CuentasPorCobrarPage(): ReactElement {
                     <td className="p-4 font-bold text-slate-800">{f.cliente_nombre}</td>
                     {BUCKETS.map((b) => (
                       <td key={b.key} className={`p-4 text-right font-mono ${b.clase}`}>
-                        {parseFloat(f[b.key]) > 0 ? `$${parseFloat(f[b.key]).toFixed(2)}` : <span className="text-slate-300">—</span>}
+                        {parseFloat(f[b.key]) > 0 ? formatear(parseFloat(f[b.key])) : <span className="text-slate-300">—</span>}
                       </td>
                     ))}
-                    <td className="p-4 text-right font-black text-primary-700 font-mono">${parseFloat(f.total).toFixed(2)}</td>
+                    <td className="p-4 text-right font-black text-primary-700 font-mono">{formatear(parseFloat(f.total))}</td>
                     <td className="p-4 text-center">
                       {linkWhatsapp ? (
                         <a
@@ -168,8 +170,8 @@ export default function CuentasPorCobrarPage(): ReactElement {
                               <tr key={fac.id}>
                                 <td className="px-8 py-2 font-mono font-bold text-slate-700">{fac.correlativo || `#${fac.id}`}</td>
                                 <td className="px-4 py-2 text-slate-500">{new Date(fac.fecha_operacion).toLocaleDateString('es-VE', { timeZone: 'UTC' })}</td>
-                                <td className="px-4 py-2 text-right font-mono text-slate-500">${parseFloat(fac.total_base).toFixed(2)}</td>
-                                <td className="px-4 py-2 text-right font-mono font-bold text-slate-700">${parseFloat(fac.saldo_pendiente_base).toFixed(2)}</td>
+                                <td className="px-4 py-2 text-right font-mono text-slate-500">{formatear(parseFloat(fac.total_base))}</td>
+                                <td className="px-4 py-2 text-right font-mono font-bold text-slate-700">{formatear(parseFloat(fac.saldo_pendiente_base))}</td>
                                 <td className="px-4 py-2 text-right text-slate-400">{fac.dias}</td>
                                 <td className="px-4 py-2 text-right">
                                   <button

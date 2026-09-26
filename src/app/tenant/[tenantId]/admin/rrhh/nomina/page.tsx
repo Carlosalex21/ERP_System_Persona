@@ -10,8 +10,10 @@ import { getPeriodosNomina, pagarPeriodoNomina, verReciboNominaPdf } from '@/ser
 import type { PeriodoNomina } from '@/types/api';
 import GenerarNominaModal from './GenerarNominaModal';
 import ConceptosNominaTab from './ConceptosNominaTab';
+import { useMonedaVista } from '@/context/MonedaVistaContext';
 
 function PeriodosNominaTab(): ReactElement {
+  const { formatear } = useMonedaVista();
   const [periodos, setPeriodos] = useState<PeriodoNomina[]>([]);
   const [cargando, setCargando] = useState(true);
   const [modalAbierto, setModalAbierto] = useState(false);
@@ -101,7 +103,7 @@ function PeriodosNominaTab(): ReactElement {
                       {new Date(p.fecha_desde).toLocaleDateString('es-VE', { timeZone: 'UTC' })} — {new Date(p.fecha_hasta).toLocaleDateString('es-VE', { timeZone: 'UTC' })}
                     </td>
                     <td className="p-4 text-center font-mono text-slate-600">{p.empleados.length}</td>
-                    <td className="p-4 text-right font-black text-primary-700 font-mono">${parseFloat(p.total_nomina).toFixed(2)}</td>
+                    <td className="p-4 text-right font-black text-primary-700 font-mono">{formatear(parseFloat(p.total_nomina))}</td>
                     <td className="p-4 text-center">
                       <Badge tone={p.estado === 'pagada' ? 'green' : 'slate'}>{p.estado === 'pagada' ? 'Pagada' : 'Borrador'}</Badge>
                     </td>
@@ -140,20 +142,20 @@ function PeriodosNominaTab(): ReactElement {
                                   {e.usuario_nombre}
                                   {e.numero_empleado && <span className="text-slate-400 font-normal"> ({e.numero_empleado})</span>}
                                 </td>
-                                <td className="px-4 py-2 text-right font-mono text-slate-500">${parseFloat(e.sueldo_base).toFixed(2)}</td>
+                                <td className="px-4 py-2 text-right font-mono text-slate-500">{formatear(parseFloat(e.sueldo_base))}</td>
                                 <td className="px-4 py-2 text-right font-mono text-red-500">
-                                  {parseFloat(e.deduccion_ausencias) > 0 ? `-$${parseFloat(e.deduccion_ausencias).toFixed(2)} (${e.dias_ausencia}d)` : '—'}
+                                  {parseFloat(e.deduccion_ausencias) > 0 ? `-${formatear(parseFloat(e.deduccion_ausencias))} (${e.dias_ausencia}d)` : '—'}
                                 </td>
                                 <td className="px-4 py-2 text-right font-mono text-emerald-600">
-                                  {parseFloat(e.pago_horas_extra) > 0 ? `+$${parseFloat(e.pago_horas_extra).toFixed(2)} (${parseFloat(e.horas_extra)}h)` : '—'}
+                                  {parseFloat(e.pago_horas_extra) > 0 ? `+${formatear(parseFloat(e.pago_horas_extra))} (${parseFloat(e.horas_extra)}h)` : '—'}
                                 </td>
                                 <td className="px-4 py-2 text-right font-mono text-emerald-600">
-                                  {parseFloat(e.bonificaciones) > 0 ? `+$${parseFloat(e.bonificaciones).toFixed(2)}` : '—'}
+                                  {parseFloat(e.bonificaciones) > 0 ? `+${formatear(parseFloat(e.bonificaciones))}` : '—'}
                                 </td>
                                 <td className="px-4 py-2 text-right font-mono text-red-500">
-                                  {parseFloat(e.otras_deducciones) > 0 ? `-$${parseFloat(e.otras_deducciones).toFixed(2)}` : '—'}
+                                  {parseFloat(e.otras_deducciones) > 0 ? `-${formatear(parseFloat(e.otras_deducciones))}` : '—'}
                                 </td>
-                                <td className="px-4 py-2 text-right font-mono font-bold text-slate-800">${parseFloat(e.total_pagar).toFixed(2)}</td>
+                                <td className="px-4 py-2 text-right font-mono font-bold text-slate-800">{formatear(parseFloat(e.total_pagar))}</td>
                                 <td className="px-4 py-2 text-center">
                                   <button
                                     onClick={(ev) => { ev.stopPropagation(); imprimirRecibo(e.id); }}

@@ -9,6 +9,7 @@ import { getReporteCuentasPorPagar, getCuentasPorPagar } from '@/services/provee
 import { getMetodosDePago } from '@/services/facturacionService';
 import type { FilaReporteCuentasPorPagar, CuentaPorPagar, MetodoPago } from '@/types/api';
 import RegistrarPagoModal from './RegistrarPagoModal';
+import { useMonedaVista } from '@/context/MonedaVistaContext';
 
 const BUCKETS: { key: keyof Pick<FilaReporteCuentasPorPagar, '0_30' | '31_60' | '61_90' | 'mas_90'>; etiqueta: string; clase: string }[] = [
   { key: '0_30', etiqueta: '0-30 días', clase: 'text-slate-700' },
@@ -18,6 +19,7 @@ const BUCKETS: { key: keyof Pick<FilaReporteCuentasPorPagar, '0_30' | '31_60' | 
 ];
 
 export default function CuentasPorPagarPage(): ReactElement {
+  const { formatear } = useMonedaVista();
   const [filas, setFilas] = useState<FilaReporteCuentasPorPagar[]>([]);
   const [cuentasPendientes, setCuentasPendientes] = useState<CuentaPorPagar[]>([]);
   const [metodosPago, setMetodosPago] = useState<MetodoPago[]>([]);
@@ -87,11 +89,11 @@ export default function CuentasPorPagarPage(): ReactElement {
 
       {!cargando && filas.length > 0 && (
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-          <StatCard label="Total por pagar" value={`$${totales.total.toFixed(2)}`} color="bg-orange-600" />
-          <StatCard label="0-30 días" value={`$${totales['0_30'].toFixed(2)}`} color="bg-orange-600" />
-          <StatCard label="31-60 días" value={`$${totales['31_60'].toFixed(2)}`} color="bg-orange-600" />
-          <StatCard label="61-90 días" value={`$${totales['61_90'].toFixed(2)}`} color="bg-orange-600" />
-          <StatCard label="+90 días" value={`$${totales.mas_90.toFixed(2)}`} color="bg-red-600" />
+          <StatCard label="Total por pagar" value={formatear(totales.total)} color="bg-orange-600" />
+          <StatCard label="0-30 días" value={formatear(totales['0_30'])} color="bg-orange-600" />
+          <StatCard label="31-60 días" value={formatear(totales['31_60'])} color="bg-orange-600" />
+          <StatCard label="61-90 días" value={formatear(totales['61_90'])} color="bg-orange-600" />
+          <StatCard label="+90 días" value={formatear(totales.mas_90)} color="bg-red-600" />
         </div>
       )}
 
@@ -125,10 +127,10 @@ export default function CuentasPorPagarPage(): ReactElement {
                     <td className="p-4 font-bold text-slate-800">{f.proveedor_nombre}</td>
                     {BUCKETS.map((b) => (
                       <td key={b.key} className={`p-4 text-right font-mono ${b.clase}`}>
-                        {parseFloat(f[b.key]) > 0 ? `$${parseFloat(f[b.key]).toFixed(2)}` : <span className="text-slate-300">—</span>}
+                        {parseFloat(f[b.key]) > 0 ? formatear(parseFloat(f[b.key])) : <span className="text-slate-300">—</span>}
                       </td>
                     ))}
-                    <td className="p-4 text-right font-black text-orange-700 font-mono">${parseFloat(f.total).toFixed(2)}</td>
+                    <td className="p-4 text-right font-black text-orange-700 font-mono">{formatear(parseFloat(f.total))}</td>
                   </tr>
                   {expandido === f.proveedor_id && (
                     <tr key={`${f.proveedor_id}-detalle`}>
@@ -151,8 +153,8 @@ export default function CuentasPorPagarPage(): ReactElement {
                                 <td className="px-8 py-2 font-mono font-bold text-slate-700">{c.numero_documento || 's/n'}</td>
                                 <td className="px-4 py-2 text-slate-500">{new Date(c.fecha_emision).toLocaleDateString('es-VE', { timeZone: 'UTC' })}</td>
                                 <td className="px-4 py-2 text-slate-500">{c.fecha_vencimiento ? new Date(c.fecha_vencimiento).toLocaleDateString('es-VE', { timeZone: 'UTC' }) : '—'}</td>
-                                <td className="px-4 py-2 text-right font-mono text-slate-500">${parseFloat(c.monto).toFixed(2)}</td>
-                                <td className="px-4 py-2 text-right font-mono font-bold text-slate-700">${parseFloat(c.saldo_pendiente).toFixed(2)}</td>
+                                <td className="px-4 py-2 text-right font-mono text-slate-500">{formatear(parseFloat(c.monto))}</td>
+                                <td className="px-4 py-2 text-right font-mono font-bold text-slate-700">{formatear(parseFloat(c.saldo_pendiente))}</td>
                                 <td className="px-4 py-2 text-right text-slate-400">{c.dias}</td>
                                 <td className="px-4 py-2 text-right">
                                   <button

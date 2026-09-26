@@ -52,6 +52,12 @@ interface MonedaVistaContextType {
   /** Formatea un monto que YA está en la moneda de vista (ej. lo devolvió un reporte con `?moneda=`). */
   formatearEnVista: (monto: number | string | null | undefined) => string;
   /**
+   * Formatea SIN convertir, con el símbolo de la moneda base -- para libros
+   * contables y fiscales, que legalmente se llevan en moneda base y no
+   * deben re-expresarse a la tasa de hoy.
+   */
+  formatearEnBase: (monto: number | string | null | undefined) => string;
+  /**
    * Monto de un documento (factura/nota) con moneda propia: usa su `total`
    * si ya está en la moneda de vista, su `total_base` si la vista es la
    * base, y en otro caso convierte `total_base` a la tasa vigente.
@@ -153,7 +159,7 @@ export function MonedaVistaProvider({ children }: { children: ReactNode }) {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     });
-    const conSimbolo = (n: number): string => `${moneda.simbolo} ${fmt.format(n)}`;
+    const conSimbolo = (n: number, simbolo: string = moneda.simbolo): string => `${simbolo} ${fmt.format(n)}`;
 
     const convertir = (monto: number | string | null | undefined, codigoOrigen?: string | null): number => {
       const n = aNumero(monto);
@@ -174,6 +180,7 @@ export function MonedaVistaProvider({ children }: { children: ReactNode }) {
       convertir,
       formatear: (monto, codigoOrigen) => conSimbolo(convertir(monto, codigoOrigen)),
       formatearEnVista: (monto) => conSimbolo(aNumero(monto)),
+      formatearEnBase: (monto) => conSimbolo(aNumero(monto), base.simbolo),
       formatearDocumento: (total, totalBase, codigoDocumento) => {
         if (codigoDocumento && codigoDocumento === moneda.codigo) return conSimbolo(aNumero(total));
         if (totalBase !== null && totalBase !== undefined && totalBase !== '') {

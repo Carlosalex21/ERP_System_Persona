@@ -9,6 +9,7 @@ import { PageHeader, Card } from '@/components/ui';
 import { getCotizaciones, cambiarEstadoCotizacion, convertirCotizacion, type Cotizacion, type EstadoCotizacion } from '@/services/crmService';
 import { toastApiError } from '@/utils/errors';
 import NuevaCotizacionModal from './NuevaCotizacionModal';
+import { useMonedaVista } from '@/context/MonedaVistaContext';
 
 const ESTADO_ESTILO: Record<EstadoCotizacion, string> = {
   borrador: 'bg-slate-100 text-slate-600',
@@ -29,6 +30,7 @@ const ESTADO_LABEL: Record<EstadoCotizacion, string> = {
 };
 
 export default function CotizacionesPage(): ReactElement {
+  const { formatear } = useMonedaVista();
   const [cotizaciones, setCotizaciones] = useState<Cotizacion[]>([]);
   const [cargando, setCargando] = useState(true);
   const [modalNueva, setModalNueva] = useState(false);
@@ -108,7 +110,7 @@ export default function CotizacionesPage(): ReactElement {
                     <td className="p-3 text-center">
                       <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${ESTADO_ESTILO[cot.estado]}`}>{ESTADO_LABEL[cot.estado]}</span>
                     </td>
-                    <td className="p-3 text-right font-mono font-bold text-slate-700">${parseFloat(cot.total).toFixed(2)}</td>
+                    <td className="p-3 text-right font-mono font-bold text-slate-700">{formatear(cot.total, cot.moneda_codigo)}</td>
                     <td className="p-3 text-slate-400">{cot.fecha_vencimiento ? new Date(cot.fecha_vencimiento).toLocaleDateString('es-VE', { timeZone: 'UTC' }) : '—'}</td>
                     <td className="p-3">
                       <div className="flex items-center justify-end gap-1.5">

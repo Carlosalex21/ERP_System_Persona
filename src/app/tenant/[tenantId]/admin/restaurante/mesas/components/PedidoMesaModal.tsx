@@ -25,6 +25,7 @@ import { usePinAutorizacion } from '@/hooks/usePinAutorizacion';
 import PinAutorizacionModal from '@/components/PinAutorizacionModal';
 import type { Producto, MetodoPago, Moneda, Cliente } from '@/types/api';
 import ClientModal from '../../../pos/components/ClientModal';
+import { useMonedaVista } from '@/context/MonedaVistaContext';
 
 interface PedidoMesaModalProps {
   pedidoId: number;
@@ -235,6 +236,8 @@ export default function PedidoMesaModal({ pedidoId, onClose, onPedidoCerrado }: 
   const subdominio = getTenantSubdomain();
   const urlCuenta = pedido && subdominio ? tenantUrl(subdominio, `/cuenta/${pedido.token_publico}`) : '';
   const referenciaTotal = pedido ? referenciaEnMonedaBase(parseFloat(pedido.total), tasas) : null;
+  // Precios del menú en la moneda de referencia; se muestran en la moneda de vista.
+  const { formatear, referencia } = useMonedaVista();
   const monedaSeleccionada = monedas.find((m) => m.id === monedaId);
   const simboloMonedaCobro = monedaSeleccionada?.simbolo || monedaSeleccionada?.codigo || '$';
   // Los precios se guardan en la moneda de referencia (no-base, ej. USD) --
@@ -392,7 +395,7 @@ export default function PedidoMesaModal({ pedidoId, onClose, onPedidoCerrado }: 
                 <div key={item.id} className="flex items-center justify-between gap-2 bg-slate-50 rounded-lg px-3 py-2">
                   <div className="min-w-0">
                     <p className="text-sm font-bold text-slate-800 truncate">{item.cantidad}x {item.producto_nombre}</p>
-                    <p className="text-xs text-slate-400">${parseFloat(item.subtotal).toFixed(2)}</p>
+                    <p className="text-xs text-slate-400">{formatear(item.subtotal, referencia?.codigo)}</p>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
                     <button
@@ -426,7 +429,7 @@ export default function PedidoMesaModal({ pedidoId, onClose, onPedidoCerrado }: 
             <div className="mt-3 pt-3 border-t flex justify-between items-center">
               <span className="text-sm font-bold text-slate-500">Total</span>
               <div className="text-right">
-                <span className="text-lg font-black text-slate-900">${parseFloat(pedido.total).toFixed(2)}</span>
+                <span className="text-lg font-black text-slate-900">{formatear(pedido.total, referencia?.codigo)}</span>
                 {referenciaTotal && <p className="text-[11px] font-semibold text-slate-400">≈ {referenciaTotal}</p>}
               </div>
             </div>
