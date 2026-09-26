@@ -13,7 +13,7 @@ import {
   type TotalCajaPorMoneda,
 } from '@/services/reportesService';
 import { getApiErrorMessages, parseDecimal } from '@/utils/helpers';
-import { getMonedas } from '@/services/configuracionService';
+import { useMonedaVista } from '@/context/MonedaVistaContext';
 import { DataTable, PageHeader, Card, TableSkeleton, ExportButton } from '@/components/ui';
 import AnaliticaTab from './AnaliticaTab';
 
@@ -48,12 +48,15 @@ function ReporteVentasTab(): ReactElement {
   const [fechaFin, setFechaFin] = useState(hoyISO());
   const [ventas, setVentas] = useState<VentaReporte[]>([]);
   const [cargando, setCargando] = useState(true);
-  // Símbolo de la moneda BASE del tenant -- el reporte de ventas es un
-  // documento fiscal (como el Libro), así que siempre se totaliza y
-  // muestra en esa moneda, nunca mezclando con la moneda propia de cada
-  // factura (ver `total_base`, ya convertido con la tasa congelada de cada
-  // factura).
-  const [simboloBase, setSimboloBase] = useState('');
+  // Nunca se suma `total` crudo (mezclaría Bs. con $): en la moneda base se
+  // usa `total_base` y en la de referencia `total_referencia`, ambos con la
+  // tasa congelada del día de cada factura (los calcula el backend).
+  const { moneda, base, convertir, formatearEnVista } = useMonedaVista();
+  const montoEnVista = useCallback((v: VentaReporte): number => {
+    if (moneda.esBase) return parseDecimal(v.total_base);
+    if (v.total_referencia !== null && v.total_referencia !== undefined) return parseDecimal(v.total_referencia);
+    return convertir(v.total_base, base.codigo);
+  }, [moneda.esBase, convertir, base.codigo]);
 
   const cargar = useCallback(async () => {
     setCargando(true);
@@ -74,12 +77,6 @@ function ReporteVentasTab(): ReactElement {
 
   useEffect(() => {
     cargar();
-    getMonedas()
-      .then((monedas) => {
-        const base = monedas.find((m) => m.es_predeterminada) ?? monedas[0];
-        setSimboloBase(base?.simbolo || base?.codigo || '');
-      })
-      .catch(() => setSimboloBase(''));
     // Solo al montar: las fechas se aplican al presionar "Consultar".
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -117,23 +114,21 @@ function ReporteVentasTab(): ReactElement {
       sortingFn: (a, b) => parseDecimal(a.original.total_base) - parseDecimal(b.original.total_base),
       cell: ({ row }) => (
         <div className="text-right">
-          <div className="font-black text-primary-700 font-mono">
-            {simboloBase} {parseDecimal(row.original.total_base).toFixed(2)}
-          </div>
-          {row.original.moneda_codigo && row.original.moneda_codigo !== simboloBase && (
+          <div className="font-black text-primary-700 font-mono">{formatearEnVista(montoEnVista(row.original))}</div>
+          {row.original.moneda_codigo && row.original.moneda_codigo !== moneda.codigo && (
             <div className="text-[10px] text-slate-400 font-mono">
-              orig: {row.original.moneda_codigo} {parseDecimal(row.original.total).toFixed(2)}
+              cobrada en {row.original.moneda_codigo} {parseDecimal(row.original.total).toFixed(2)}
             </div>
           )}
         </div>
       ),
     },
-  ], [simboloBase]);
+  ], [formatearEnVista, montoEnVista, moneda.codigo]);
 
   // Siempre se suma `total_base` (moneda local), nunca `total` crudo -- una
   // factura en USD y otra en Bs no se pueden sumar como si fueran la misma
   // unidad.
-  const totalVentas = useMemo(() => ventas.reduce((acc, v) => acc + parseDecimal(v.total_base), 0), [ventas]);
+  const totalVentas = useMemo(() => ventas.reduce((acc, v) => acc + montoEnVista(v), 0), [ventas, montoEnVista]);
 
   return (
     <div className="space-y-6">
@@ -181,7 +176,7 @@ function ReporteVentasTab(): ReactElement {
                 { label: 'N° Factura', value: 'correlativo' },
                 { label: 'Cliente', value: (v) => v.cliente_nombre || '' },
                 { label: 'Estado', value: 'estado' },
-                { label: `Total (${simboloBase})`, value: (v) => parseDecimal(v.total_base).toFixed(2) },
+                { label: `Total (${moneda.codigo})`, value: (v) => montoEnVista(v).toFixed(2) },
               ]}
             />
           </div>
@@ -195,7 +190,7 @@ function ReporteVentasTab(): ReactElement {
           {ventas.length > 0 && (
             <div className="flex items-center justify-between p-4 border-b border-slate-100 bg-slate-50">
               <span className="text-xs font-bold uppercase text-slate-400">{ventas.length} facturas</span>
-              <span className="font-black text-primary-700 font-mono">Total: {simboloBase} {totalVentas.toFixed(2)}</span>
+              <span className="font-black text-primary-700 font-mono">Total: {formatearEnVista(totalVentas)}</span>
             </div>
           )}
           <DataTable

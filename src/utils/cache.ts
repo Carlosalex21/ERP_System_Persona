@@ -72,7 +72,13 @@ export function invalidateCache(prefix: string): void {
       }
     }
   }
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent<string>(EVENTO_CACHE_INVALIDADA, { detail: prefix }));
+  }
 }
+
+/** Se emite tras cada `invalidateCache` (detail = prefijo) -- para que un contexto global recargue lo suyo. */
+export const EVENTO_CACHE_INVALIDADA = 'erp:cache-invalidada';
 
 /**
  * Limpia toda la caché. Útil al cerrar sesión o cambiar de tenant.

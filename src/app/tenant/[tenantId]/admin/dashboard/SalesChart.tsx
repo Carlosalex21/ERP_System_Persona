@@ -8,10 +8,9 @@
 import type { ReactElement } from 'react';
 import { motion } from 'framer-motion';
 import { Card, CardHeader } from '@/components/ui';
-import { roundMoney } from '@/utils/taxCalculator';
 import type { VentasChartPoint } from './types';
 
-export default function SalesChart({ data }: { data: VentasChartPoint[] }): ReactElement {
+export default function SalesChart({ data, formatear }: { data: VentasChartPoint[]; formatear: (monto: number) => string }): ReactElement {
   const sinDatos = data.length === 0 || data.every((d) => d.valor === 0);
   const maxValor = Math.max(...data.map((d) => d.valor), 1);
 
@@ -35,21 +34,26 @@ export default function SalesChart({ data }: { data: VentasChartPoint[] }): Reac
         // del cuadro. `overflow-x-auto` es el respaldo para cuando ni
         // truncando cabe todo en pantallas angostas.
         <div className="overflow-x-auto mt-4">
-          <div className="flex items-end justify-between gap-1.5 h-40 min-w-max px-0.5">
+          <div className="flex items-stretch justify-between gap-1.5 h-48 min-w-max px-0.5 pt-5">
             {data.map((punto, idx) => {
               const altura = Math.max((punto.valor / maxValor) * 100, 4);
               return (
-                <div key={idx} className="w-9 shrink-0 flex flex-col items-center gap-1 group">
-                  <span className="text-[9px] font-bold text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                    ${roundMoney(punto.valor)}
-                  </span>
-                  <motion.div
-                    initial={{ height: 0 }}
-                    animate={{ height: `${altura}%` }}
-                    transition={{ duration: 0.6, delay: idx * 0.04, ease: [0.22, 1, 0.36, 1] }}
-                    className="w-full max-w-[24px] rounded-t-lg bg-gradient-to-t from-primary-600 to-primary-400 group-hover:from-primary-700 group-hover:to-primary-500 group-hover:scale-y-105 origin-bottom transition-[background,transform]"
-                    title={`${punto.label}: $${roundMoney(punto.valor)}`}
-                  />
+                <div key={idx} className="w-9 h-full shrink-0 flex flex-col items-center gap-1 group">
+                  {/* El % de altura de la barra necesita un contenedor con
+                      altura definida: antes la columna medía "auto" y todas
+                      las barras quedaban en 0px (gráfico vacío). */}
+                  <div className="relative flex-1 w-full flex items-end justify-center">
+                    <span className="absolute -top-1 left-1/2 -translate-x-1/2 -translate-y-full text-[9px] font-bold text-slate-600 bg-white/90 rounded px-1 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
+                      {formatear(punto.valor)}
+                    </span>
+                    <motion.div
+                      initial={{ height: 0 }}
+                      animate={{ height: `${altura}%` }}
+                      transition={{ duration: 0.6, delay: idx * 0.02, ease: [0.22, 1, 0.36, 1] }}
+                      className="w-full max-w-[24px] rounded-t-lg bg-gradient-to-t from-primary-600 to-primary-400 group-hover:from-primary-700 group-hover:to-primary-500 origin-bottom transition-colors"
+                      title={`${punto.label}: ${formatear(punto.valor)}`}
+                    />
+                  </div>
                   <span className="text-[9px] font-semibold text-slate-500 whitespace-nowrap">{punto.label}</span>
                 </div>
               );

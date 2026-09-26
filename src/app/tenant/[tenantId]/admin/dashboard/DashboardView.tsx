@@ -11,8 +11,7 @@
  */
 "use client";
 
-import { useState, useEffect, useMemo, useCallback, type ReactElement } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, useMemo, useCallback, useRef, type ReactElement } from 'react';
 import { motion } from 'framer-motion';
 import {
   TrendingUp,
@@ -29,12 +28,11 @@ import {
 } from 'lucide-react';
 
 import { getDashboardReportes, type DashboardReporte } from '@/services/reportesService';
-import { useNotify } from '@/hooks/useNotify';
 import { toastApiError } from '@/utils/errors';
 import { roundMoney } from '@/utils/taxCalculator';
 import { StatCard, AnimatedNumber, Stagger, StaggerItem } from '@/components/ui';
 import { useTenant } from '@/hooks/useTenant';
-import { getPaisInfo } from '@/utils/paises';
+import { useMonedaVista } from '@/context/MonedaVistaContext';
 import { TIPOS_CON_INVENTARIO } from '@/utils/modulosPanel';
 
 import SalesChart from './SalesChart';
@@ -60,10 +58,11 @@ interface MetricCardData {
 }
 
 export default function DashboardView({ tenantId }: DashboardViewProps): ReactElement {
-  const router = useRouter();
-  const notify = useNotify();
+  void tenantId;
   const { tenant } = useTenant();
-  const pais = getPaisInfo(tenant?.pais_codigo);
+  // Los montos llegan del backend YA en la moneda de vista (`?moneda=`),
+  // convertidos con la tasa del día de cada factura -- aquí solo se formatean.
+  const { paramMoneda, moneda, listo: monedaLista, formatearEnVista } = useMonedaVista();
 
   const [cargando, setCargando] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -99,7 +98,7 @@ export default function DashboardView({ tenantId }: DashboardViewProps): ReactEl
       // eso multiplicaba las peticiones y agotaba el rate limit del backend.
       let reporte: DashboardReporte | null = null;
       try {
-        reporte = await getDashboardReportes();
+        reporte = await getDashboardReportes(paramMoneda);
       } catch {
         reporte = null; // degrada a métricas vacías si el endpoint no responde
       }
@@ -177,15 +176,17 @@ export default function DashboardView({ tenantId }: DashboardViewProps): ReactEl
       setCargando(false);
       setRefreshing(false);
     }
-  }, [router, tenantId, notify]);
+  }, [paramMoneda]);
 
+  // Carga inicial (cuando ya se sabe en qué moneda mostrar) y recarga
+  // silenciosa -- sin volver al esqueleto -- al cambiar la moneda de vista.
+  const monedaCargada = useRef<string | null>(null);
   useEffect(() => {
-    cargarMetricas();
-    // Escuchamos solo el montaje. Evitamos volver a disparar el fetch cuando
-    // cambian referencias de `cargarMetricas` (router/notify/tenantId), lo que
-    // generaba múltiples peticiones en paralelo y agotaba el rate limit.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (!monedaLista || monedaCargada.current === paramMoneda) return;
+    const esCambio = monedaCargada.current !== null;
+    monedaCargada.current = paramMoneda;
+    cargarMetricas(esCambio);
+  }, [monedaLista, paramMoneda, cargarMetricas]);
 
   // useMemo: arreglo de tarjetas de métricas (se recalcula solo al cambiar valores)
   const metricCards = useMemo<MetricCardData[]>(
@@ -194,7 +195,7 @@ export default function DashboardView({ tenantId }: DashboardViewProps): ReactEl
         id: 'ventas',
         icon: <DollarSign size={22} />,
         label: 'Ventas del Mes',
-        value: <AnimatedNumber value={ventasMes} prefix="$" decimals={2} />,
+        value: <AnimatedNumber value={ventasMes} prefix={`${moneda.simbolo} `} decimals={2} thousands />,
         note: 'Total facturado en el período actual.',
         // Antes esto era un "+12%" fijo que no salía de ningún cálculo real.
         // Ahora es la variación real vs. el período anterior de igual
@@ -238,7 +239,7 @@ export default function DashboardView({ tenantId }: DashboardViewProps): ReactEl
               id: 'inventario',
               icon: <TrendingUp size={22} />,
               label: 'Valor del Inventario',
-              value: <AnimatedNumber value={valorInventario} prefix="$" decimals={2} />,
+              value: <AnimatedNumber value={valorInventario} prefix={`${moneda.simbolo} `} decimals={2} thousands />,
               note: 'Costo total de tu stock actual.',
               color: 'bg-green-600',
             },
@@ -247,7 +248,7 @@ export default function DashboardView({ tenantId }: DashboardViewProps): ReactEl
               icon: <AlertTriangle size={22} />,
               label: 'Bajo Stock',
               value: <AnimatedNumber value={bajoStock} />,
-              note: 'Productos con 5 unidades o menos.',
+              note: 'Productos por debajo de su stock mínimo.',
               color: 'bg-orange-500',
             },
           ]
@@ -280,7 +281,7 @@ export default function DashboardView({ tenantId }: DashboardViewProps): ReactEl
           ]
         : []),
     ],
-    [ventasMes, facturasMes, totalClientes, catalogoProductos, valorInventario, bajoStock, variacionVentasPct, tieneInventario, metricasContabilidad],
+    [ventasMes, facturasMes, totalClientes, catalogoProductos, valorInventario, bajoStock, variacionVentasPct, tieneInventario, metricasContabilidad, moneda.simbolo],
   );
 
   return (
@@ -295,7 +296,7 @@ export default function DashboardView({ tenantId }: DashboardViewProps): ReactEl
             </h1>
             <div className="flex items-center gap-3 mt-1.5 flex-wrap">
               <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-slate-200 bg-white/10 px-2.5 py-1 rounded-full">
-                {pais.nombre} · {pais.moneda}
+                Montos en {moneda.codigo}
               </span>
               <p className="text-xs text-slate-400">
                 {ultimaActualizacion
@@ -333,8 +334,8 @@ export default function DashboardView({ tenantId }: DashboardViewProps): ReactEl
           {tieneInventario ? (
             <>
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <SalesChart data={chartData} />
-                <TopProductsPanel productos={topProductos} />
+                <SalesChart data={chartData} formatear={formatearEnVista} />
+                <TopProductsPanel productos={topProductos} formatear={formatearEnVista} />
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -343,7 +344,7 @@ export default function DashboardView({ tenantId }: DashboardViewProps): ReactEl
               </div>
             </>
           ) : (
-            <SalesChart data={chartData} />
+            <SalesChart data={chartData} formatear={formatearEnVista} />
           )}
         </>
       )}

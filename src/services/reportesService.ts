@@ -9,7 +9,19 @@ import { apiPrivada } from '@/services/api';
  * `[key: string]: unknown` y el consumidor adivinaba nombres de campo que
  * nunca coincidían con los reales, dejando el dashboard siempre en 0.
  */
+/** Moneda en la que el backend expresó los montos de un reporte (ver `apps.reportes.core.moneda_reporte`). */
+export interface MonedaDeReporte {
+  codigo: string;
+  simbolo: string;
+  es_base: boolean;
+  tasa_vigente: string;
+}
+
+/** `?moneda=` de los reportes: la base del tenant o la de referencia (USD). */
+export type MonedaParam = 'base' | 'referencia';
+
 export interface DashboardReporte {
+  moneda: MonedaDeReporte;
   userInfo: { nombre: string };
   resumen: {
     total_vendido: string | number;
@@ -58,8 +70,8 @@ export interface DashboardReporte {
  * Obtiene los datos agregados para el dashboard principal del tenant.
  * @returns {Promise<DashboardReporte>} Una promesa que se resuelve con los datos del dashboard.
  */
-export const getDashboardReportes = async (): Promise<DashboardReporte> => {
-  const response = await apiPrivada.get<DashboardReporte>('/reportes/dashboard/');
+export const getDashboardReportes = async (moneda: MonedaParam = 'base'): Promise<DashboardReporte> => {
+  const response = await apiPrivada.get<DashboardReporte>('/reportes/dashboard/', { params: { moneda } });
   return response.data;
 };
 
@@ -73,6 +85,8 @@ export interface VentaReporte {
   moneda_codigo: string | null;
   /** El mismo monto ya convertido a la moneda base del tenant, con la tasa congelada en la factura -- el que se debe sumar/reportar como cifra fiscal. */
   total_base: string;
+  /** El total en la moneda de referencia (USD) con la tasa del día de la factura; null si no hay moneda de referencia. */
+  total_referencia?: string | null;
   estado: string;
 }
 
@@ -196,6 +210,7 @@ export interface VentaPorDiaSemana {
 }
 
 export interface AnaliticaReporte {
+  moneda: MonedaDeReporte;
   tendencia_mensual: MesTendencia[];
   comparativa_mensual: ComparativaMensual;
   /** `null` cuando hay menos de 3 meses cerrados con historial -- no hay base para proyectar. */
@@ -205,7 +220,7 @@ export interface AnaliticaReporte {
 }
 
 /** @param meses Cuántos meses hacia atrás incluir en la tendencia (3-24, default 12). */
-export const getAnalitica = async (meses = 12): Promise<AnaliticaReporte> => {
-  const response = await apiPrivada.get<AnaliticaReporte>('/reportes/analitica/', { params: { meses } });
+export const getAnalitica = async (meses = 12, moneda: MonedaParam = 'base'): Promise<AnaliticaReporte> => {
+  const response = await apiPrivada.get<AnaliticaReporte>('/reportes/analitica/', { params: { meses, moneda } });
   return response.data;
 };

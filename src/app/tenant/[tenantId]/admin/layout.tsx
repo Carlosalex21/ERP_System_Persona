@@ -8,6 +8,8 @@ import { pushDisponible, tieneNotificacionesActivas, activarNotificacionesPush }
 import InstallPwaButton from '@/components/pwa/InstallPwaButton';
 import Sidebar, { EVENTO_ABRIR_GRUPO_SIDEBAR } from '@/components/Sidebar';
 import { SessionProvider, useSession } from '@/context/SessionContext';
+import { MonedaVistaProvider, useMonedaVista } from '@/context/MonedaVistaContext';
+import SelectorMonedaVista from '@/components/SelectorMonedaVista';
 import { usePedidosPendientesDetalle } from '@/hooks/usePedidosPendientes';
 import { useAlertas } from '@/hooks/useAlertas';
 import type { AlertaItem, TipoAlerta } from '@/services/reportesService';
@@ -70,6 +72,7 @@ function PlanBadge({ tenant }: { tenant: ReturnType<typeof useSession>['tenant']
  */
 function NotificacionesBell(): ReactElement {
   const { count, pedidos, cargando } = usePedidosPendientesDetalle(5);
+  const { formatearDocumento } = useMonedaVista();
   const [abierto, setAbierto] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -123,7 +126,7 @@ function NotificacionesBell(): ReactElement {
                     <p className="text-sm font-bold text-slate-800 truncate">{pedido.nombre_cliente_pendiente || 'Cliente'}</p>
                     <p className="text-[11px] text-slate-400">{pedido.correlativo || `#${pedido.id}`}</p>
                   </div>
-                  <span className="text-xs font-black text-primary-700 shrink-0">${parseFloat(pedido.total).toFixed(2)}</span>
+                  <span className="text-xs font-black text-primary-700 shrink-0">{formatearDocumento(pedido.total, pedido.total_base, pedido.moneda_codigo)}</span>
                 </Link>
               ))
             )}
@@ -307,10 +310,11 @@ function AdminTopbar({ onOpenMenu }: { onOpenMenu: () => void }): ReactElement {
         <div className="flex items-center gap-3 shrink-0">
           <PlanBadge tenant={tenant} />
           {tenant && (
-            <span className="hidden sm:inline-flex items-center gap-1.5 bg-primary-50 text-primary-700 border border-primary-100 text-xs font-bold px-3 py-1.5 rounded-full">
-              <Globe2 size={13} /> {pais.nombre} · {pais.moneda}
+            <span className="hidden lg:inline-flex items-center gap-1.5 text-slate-500 text-xs font-bold" title={`País: ${pais.nombre}`}>
+              <Globe2 size={13} /> {pais.nombre}
             </span>
           )}
+          {tenant && <SelectorMonedaVista />}
           <InstallPwaButton />
           <AlertasBell />
           <NotificacionesBell />
@@ -464,11 +468,13 @@ export default function AdminLayout({ params, children }: AdminLayoutProps): Rea
 
   return (
     <SessionProvider>
-      <AdminShell menuMovilAbierto={menuMovilAbierto} setMenuMovilAbierto={setMenuMovilAbierto} ejecutarLogout={ejecutarLogout}>
-        {children}
-      </AdminShell>
-      <OnboardingTour />
-      <CommandPalette />
+      <MonedaVistaProvider>
+        <AdminShell menuMovilAbierto={menuMovilAbierto} setMenuMovilAbierto={setMenuMovilAbierto} ejecutarLogout={ejecutarLogout}>
+          {children}
+        </AdminShell>
+        <OnboardingTour />
+        <CommandPalette />
+      </MonedaVistaProvider>
     </SessionProvider>
   );
 }
