@@ -2,11 +2,10 @@
 
 import { useEffect, useState, use, type ReactElement } from 'react';
 import { AlertTriangle, ArrowRight, LogOut, Loader2 } from 'lucide-react';
-import Cookies from 'js-cookie';
-import { getSharedCookieDomain } from '@/utils/cookieDomain';
 import { apiPrivada } from '@/services/api';
 import { mainUrl } from '@/utils/tenantUrl';
 import type { TenantProfile } from '@/context/SessionContext';
+import { cerrarSesion as cerrarSesionGlobal } from '@/utils/authSession';
 
 /**
  * Pantalla a la que `apiPrivada` redirige cuando el backend responde 402
@@ -28,9 +27,7 @@ export default function SuscripcionVencidaPage({ params }: { params: Promise<{ t
   }, []);
 
   const cerrarSesion = (): void => {
-    const domain = getSharedCookieDomain();
-    Cookies.remove('access_token', { domain });
-    Cookies.remove('refresh_token', { domain });
+    cerrarSesionGlobal();
     window.location.href = 'login';
   };
 

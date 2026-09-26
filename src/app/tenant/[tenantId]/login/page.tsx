@@ -2,11 +2,10 @@
 
 import { useState, use } from 'react';
 import { useRouter } from 'next/navigation';
-import Cookies from 'js-cookie';
 import { Lock, User, ArrowRight, Loader2, Store } from 'lucide-react';
 import { apiPublica } from '@/services/api';
 import { getB2BPerfil } from '@/services/b2bPortalService';
-import { getSharedCookieDomain, cookieSecureFlag } from '@/utils/cookieDomain';
+import { borrarTokens, guardarSesion } from '@/utils/authSession';
 
 export default function TenantLogin({ params }: { params: Promise<{ tenantId: string }> }) {
   const { tenantId } = use(params);
@@ -23,11 +22,8 @@ export default function TenantLogin({ params }: { params: Promise<{ tenantId: st
     setCargando(true);
 
     try {
-      const domain = getSharedCookieDomain();
-
       // 1. Limpiamos cualquier sesión anterior antes de pedir una nueva.
-      Cookies.remove('access_token', { domain });
-      Cookies.remove('refresh_token', { domain });
+      borrarTokens();
 
       const res = await apiPublica.post('/auth/token/', {
         username: usuario,
@@ -36,12 +32,8 @@ export default function TenantLogin({ params }: { params: Promise<{ tenantId: st
 
       const { access, refresh } = res.data;
 
-      // 2. Guardamos la cookie en el dominio compartido (`.localhost` en dev,
-      // `.erpsystem.com` en producción) -- así viaja también al dominio raíz,
-      // necesario para flujos como "Prueba gratis: Nd" -> `/pago` que viven
-      // fuera del subdominio del tenant.
-      Cookies.set('access_token', access, { expires: 1, domain, secure: cookieSecureFlag(), sameSite: 'Lax' });
-      Cookies.set('refresh_token', refresh, { expires: 7, domain, secure: cookieSecureFlag(), sameSite: 'Lax' });
+      // 2. Guardamos la sesión (dominio compartido en producción -- ver `utils/cookieDomain`).
+      guardarSesion(access, refresh);
 
       // 4. Este mismo login lo usan tanto el personal del tenant como sus
       // clientes B2B autenticados -- se distingue por si existe un perfil

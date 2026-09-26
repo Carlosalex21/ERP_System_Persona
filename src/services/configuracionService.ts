@@ -3,8 +3,7 @@
  * (IVA, Monedas, Tasas de Cambio, Estrategia Fiscal).
  * Las lecturas usan caché en memoria (TTL) para evitar refetch en cada navegación.
  */
-import Cookies from 'js-cookie';
-import { apiPrivada, refreshAccessToken } from '@/services/api';
+import { apiPrivada, enviarMultipart } from '@/services/api';
 import {
   Iva,
   IvaRequest,
@@ -22,18 +21,6 @@ import {
 } from '@/types/api';
 import { cachedGet, invalidateCache } from '@/utils/cache';
 import { conRespaldoOffline } from '@/utils/offlineCache';
-
-/** Resuelve la baseURL igual que el interceptor de `apiPrivada` (multi-tenant por subdominio). */
-function resolveApiBaseUrl(): string {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-  if (typeof window === 'undefined') return `${apiUrl}/api/v1`;
-  if (process.env.NEXT_PUBLIC_API_SAME_ORIGIN === 'true') return '/api/v1';
-  const tenant = window.location.hostname.split('.')[0];
-  if (tenant && tenant !== 'www' && tenant !== 'localhost') {
-    return `http://${tenant}.localhost:8000/api/v1`;
-  }
-  return `${apiUrl}/api/v1`;
-}
 
 /**
  * Obtiene la lista completa de configuraciones de IVA.
@@ -259,29 +246,7 @@ export const updateConfiguracionEmpresa = async (
     }
   });
 
-  const url = `${resolveApiBaseUrl()}/configuracion/empresa/`;
-  const post = (token: string | undefined) =>
-    fetch(url, {
-      method: 'PATCH',
-      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-      body: formData,
-    });
-
-  let res = await post(Cookies.get('access_token'));
-  if (res.status === 401) {
-    const refreshed = await refreshAccessToken();
-    if (refreshed.ok) {
-      res = await post(refreshed.access);
-    }
-  }
-
-  const envelope = await res.json();
-  if (!res.ok) {
-    const error = new Error('Error al actualizar la empresa') as Error & { response?: unknown };
-    error.response = { status: res.status, data: envelope };
-    throw error;
-  }
-  return envelope.data as ConfiguracionEmpresa;
+  return enviarMultipart<ConfiguracionEmpresa>('PATCH', '/configuracion/empresa/', formData, 'Error al actualizar la empresa');
 };
 
 /**

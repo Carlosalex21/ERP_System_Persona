@@ -3,8 +3,7 @@
  * Las lecturas usan caché en memoria (TTL) para evitar refetch en cada navegación;
  * las mutaciones invalidan la caché para forzar datos frescos.
  */
-import Cookies from 'js-cookie';
-import { apiPrivada, refreshAccessToken } from '@/services/api';
+import { apiPrivada, enviarMultipart } from '@/services/api';
 import {
   Producto, ProductoRequest, Almacen, Categoria, CategoriaRequest, Variacionproducto, AlmacenRequest, VariacionproductoRequest,
   AjusteInventario, AjusteInventarioRequest, AjusteInventarioEditRequest, PresentacionProducto, PresentacionProductoRequest, ProductoBulkUploadResult,
@@ -12,18 +11,6 @@ import {
 } from '@/types/api';
 import { cachedGet, invalidateCache } from '@/utils/cache';
 import { conRespaldoOffline } from '@/utils/offlineCache';
-
-/** Resuelve la baseURL igual que el interceptor de `apiPrivada` (multi-tenant por subdominio). */
-function resolveApiBaseUrl(): string {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-  if (typeof window === 'undefined') return `${apiUrl}/api/v1`;
-  if (process.env.NEXT_PUBLIC_API_SAME_ORIGIN === 'true') return '/api/v1';
-  const tenant = window.location.hostname.split('.')[0];
-  if (tenant && tenant !== 'www' && tenant !== 'localhost') {
-    return `http://${tenant}.localhost:8000/api/v1`;
-  }
-  return `${apiUrl}/api/v1`;
-}
 
 /**
  * Obtiene la lista completa de productos del tenant.
@@ -63,42 +50,10 @@ function buildFormData(data: Record<string, unknown>): FormData {
  */
 export const createProducto = async (data: ProductoRequest): Promise<Producto> => {
   const formData = buildFormData(data as unknown as Record<string, unknown>);
-  // `apiPrivada` (axios) fija `Content-Type: application/json` por defecto
-  // en la instancia. Con un `FormData` eso debería limpiarse solo, pero en
-  // la práctica -- con este adaptador/versión de axios -- el resultado real
-  // era un `Content-Type` sin el `boundary` real o un body vacío (Django
-  // recibía "imagen dañada" o "no era un archivo" sin importar la imagen).
-  // `fetch` nativo sí arma el `Content-Type` con boundary correctamente al
-  // pasarle un `FormData`, así que se usa aquí puntualmente para el único
-  // endpoint que sube archivos.
-  const url = `${resolveApiBaseUrl()}/inventario/productos/`;
-  const post = (token: string | undefined) =>
-    fetch(url, {
-      method: 'POST',
-      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-      body: formData,
-    });
-
-  let res = await post(Cookies.get('access_token'));
-  // El access token vive 15 min; un formulario largo (con imagen) puede
-  // superarlo. `apiPrivada` refresca sola vía interceptor, pero este envío
-  // usa `fetch` nativo (ver nota abajo) y queda fuera de ese interceptor,
-  // así que replicamos un único reintento con refresh aquí.
-  if (res.status === 401) {
-    const refreshed = await refreshAccessToken();
-    if (refreshed.ok) {
-      res = await post(refreshed.access);
-    }
-  }
-
-  const envelope = await res.json();
-  if (!res.ok) {
-    const error = new Error('Error al crear el producto') as Error & { response?: unknown };
-    error.response = { status: res.status, data: envelope };
-    throw error;
-  }
+  // Multipart vía `fetch` nativo (ver `enviarMultipart` en services/api.ts).
+  const producto = await enviarMultipart<Producto>('POST', '/inventario/productos/', formData, 'Error al crear el producto');
   invalidateCache('inventario:productos');
-  return envelope.data as Producto;
+  return producto;
 };
 
 /**
@@ -111,30 +66,9 @@ export const createProducto = async (data: ProductoRequest): Promise<Producto> =
  */
 export const updateProducto = async (id: number, data: Partial<ProductoRequest>): Promise<Producto> => {
   const formData = buildFormData(data as unknown as Record<string, unknown>);
-  const url = `${resolveApiBaseUrl()}/inventario/productos/${id}/`;
-  const patch = (token: string | undefined) =>
-    fetch(url, {
-      method: 'PATCH',
-      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-      body: formData,
-    });
-
-  let res = await patch(Cookies.get('access_token'));
-  if (res.status === 401) {
-    const refreshed = await refreshAccessToken();
-    if (refreshed.ok) {
-      res = await patch(refreshed.access);
-    }
-  }
-
-  const envelope = await res.json();
-  if (!res.ok) {
-    const error = new Error('Error al actualizar el producto') as Error & { response?: unknown };
-    error.response = { status: res.status, data: envelope };
-    throw error;
-  }
+  const producto = await enviarMultipart<Producto>('PATCH', `/inventario/productos/${id}/`, formData, 'Error al actualizar el producto');
   invalidateCache('inventario:productos');
-  return envelope.data as Producto;
+  return producto;
 };
 
 /**

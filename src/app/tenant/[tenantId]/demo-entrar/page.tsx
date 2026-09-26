@@ -1,9 +1,8 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import Cookies from 'js-cookie';
 import { Loader2 } from 'lucide-react';
-import { getSharedCookieDomain, cookieSecureFlag } from '@/utils/cookieDomain';
+import { guardarSesion } from '@/utils/authSession';
 
 /**
  * Punto de entrada del botón "Probar demo en vivo" de la landing.
@@ -29,9 +28,7 @@ export default function DemoEntrar() {
       return;
     }
 
-    const domain = getSharedCookieDomain();
-    Cookies.set('access_token', access, { expires: 1, domain, secure: cookieSecureFlag(), sameSite: 'Lax' });
-    Cookies.set('refresh_token', refresh, { expires: 7, domain, secure: cookieSecureFlag(), sameSite: 'Lax' });
+    guardarSesion(access, refresh);
 
     // Limpia el fragmento antes de navegar para que no quede en el historial.
     window.location.replace('/admin');

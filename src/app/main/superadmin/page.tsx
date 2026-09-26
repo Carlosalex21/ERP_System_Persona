@@ -2,14 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import Cookies from 'js-cookie';
 import toast from 'react-hot-toast';
 import {
   ShieldAlert, CreditCard, Users, Database, LogOut, Activity, Plus, Edit2, Trash2, Search, Loader2, Server, X, Check,
   Wallet, Smartphone, CheckCircle2, XCircle, Clock, Lock, User as UserIcon, Sliders, Eye, EyeOff,
 } from 'lucide-react';
 import { apiPrivada, apiPublica } from '@/services/api';
-import { getSharedCookieDomain, cookieSecureFlag } from '@/utils/cookieDomain';
 import { getApiErrorMessages } from '@/utils/helpers';
 import { ConfirmDialog } from '@/components/ui';
 import {
@@ -18,6 +16,7 @@ import {
   getPlatformSettings, updatePlatformSettings,
 } from '@/services/platformBillingService';
 import { SubscriptionPayment, PlatformPaymentConfig, PlatformSettings } from '@/types/api';
+import { borrarTokens, cerrarSesion as cerrarSesionGlobal, getAccessToken, guardarSesion } from '@/utils/authSession';
 
 /**
  * Este panel NUNCA se enlaza desde el sitio público (ver `main/login`, que
@@ -73,7 +72,7 @@ export default function SuperAdminPanel() {
   });
 
   useEffect(() => {
-    const token = Cookies.get('access_token');
+    const token = getAccessToken();
     if (!token) {
       setEstadoAuth('no_autenticado');
       return;
@@ -81,9 +80,7 @@ export default function SuperAdminPanel() {
     apiPrivada.get('/auth/me/')
       .then(() => setEstadoAuth('autorizado'))
       .catch(() => {
-        const domain = getSharedCookieDomain();
-        Cookies.remove('access_token', { domain });
-        Cookies.remove('refresh_token', { domain });
+        borrarTokens();
         setEstadoAuth('no_autenticado');
       });
   }, []);
@@ -94,17 +91,13 @@ export default function SuperAdminPanel() {
     setVerificandoLogin(true);
     try {
       const res = await apiPublica.post('/auth/token/', { username: usuarioLogin, password: passwordLogin });
-      const domain = getSharedCookieDomain();
-      Cookies.set('access_token', res.data.access, { expires: 1, domain, secure: cookieSecureFlag(), sameSite: 'Lax' });
-      Cookies.set('refresh_token', res.data.refresh, { expires: 7, domain, secure: cookieSecureFlag(), sameSite: 'Lax' });
+      guardarSesion(res.data.access, res.data.refresh);
       // Verificación real contra el backend: `/auth/me/` exige IsAdminUser,
       // así que si esta llamada falla, la cuenta existe pero NO es staff.
       await apiPrivada.get('/auth/me/');
       setEstadoAuth('autorizado');
     } catch (error: any) {
-      const domain = getSharedCookieDomain();
-      Cookies.remove('access_token', { domain });
-      Cookies.remove('refresh_token', { domain });
+      borrarTokens();
       if (error?.response?.status === 401) {
         setErrorLogin('Usuario o contraseña incorrectos.');
       } else if (error?.response?.status === 403) {
@@ -275,9 +268,7 @@ export default function SuperAdminPanel() {
   };
 
   const cerrarSesion = () => {
-    const domain = getSharedCookieDomain();
-    Cookies.remove('access_token', { domain });
-    Cookies.remove('refresh_token', { domain });
+    cerrarSesionGlobal();
     setEstadoAuth('no_autenticado');
   };
 

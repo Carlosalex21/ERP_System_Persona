@@ -5,11 +5,8 @@ import axios, {
   AxiosResponse,
   InternalAxiosRequestConfig,
 } from 'axios';
-import Cookies from 'js-cookie';
-
 import type { ApiEnvelope, ApiError } from '@/types/api';
-import { getSharedCookieDomain, cookieSecureFlag } from '@/utils/cookieDomain';
-import { limpiarCacheReferencia } from '@/utils/offlineDb';
+import { cerrarSesion, getAccessToken, getRefreshToken, guardarSesion } from '@/utils/authSession';
 
 // Definimos la URL base del backend en Django
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -86,7 +83,7 @@ function resolveBaseURL(): string {
 // ---------------------------------------------------------------------------
 apiPrivada.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
-    const token = Cookies.get('access_token');
+    const token = getAccessToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -146,14 +143,23 @@ apiPrivada.interceptors.response.use(normalizeResponse, normalizeError);
 apiPublica.interceptors.response.use(normalizeResponse, normalizeError);
 
 // ---------------------------------------------------------------------------
-// Refresco de sesión: si el access token expira, se intenta renovar con el
-// refresh token y se reintenta la petición original (una sola vez).
+// Refresco de sesión: si el access token expira, se renueva con el refresh
+// token y se reintenta la petición original (una sola vez).
+//
+// El backend ROTA el refresh token en cada uso (ROTATE_REFRESH_TOKENS +
+// BLACKLIST_AFTER_ROTATION): si dos refrescos salen con el mismo token, el
+// segundo recibe 401 "blacklisted". Antes eso pasaba en cuanto la misma
+// cuenta estaba abierta en varias pestañas/ventanas (cada una refrescaba
+// por su lado) o cuando un servicio con `fetch` nativo llamaba a su propio
+// refresh en paralelo con el interceptor -- la pestaña perdedora borraba las
+// cookies (compartidas por todas) y la sesión quedaba "pegada" hasta cerrar
+// sesión a mano. Ahora hay UN solo refresco en vuelo por pestaña (promesa
+// compartida) y UNO por navegador (Web Locks); quien espera el lock y
+// encuentra que otra pestaña ya rotó el token simplemente usa el nuevo.
 // ---------------------------------------------------------------------------
-let isRefreshing = false;
-let pendingRequests: Array<(token: string | null) => void> = [];
 
 /** Resultado del refresco: ok => pudimos renovar; hard => token inválido definitivo. */
-type RefreshResult =
+export type RefreshResult =
   | { ok: true; access: string; refresh?: string }
   | { ok: false; hard: boolean };
 
@@ -161,82 +167,89 @@ type RefreshResult =
 const MAX_REFRESH_RETRIES = 2;
 /** Retardo base (ms) entre reintentos; crece linealmente. */
 const REFRESH_RETRY_DELAY_MS = 400;
+const REFRESH_LOCK_NAME = 'erp-token-refresh';
 
 /** Pequeña espera no bloqueante para el backoff de reintentos. */
 function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-/**
- * Renueva el par de tokens. Soporta ROTATE_REFRESH_TOKENS=True: si el backend
- * devuelve un nuevo `refresh_token`, se guarda silenciosamente en las cookies.
- *
- * - Errores 401/403 del refresh => token inválido definitivo (`hard: true`).
- * - Errores transitorios (red, 5xx) => se reintenta con backoff. Si persisten,
- *   se devuelve `hard: false` para NO desloguear a un cajero en plena venta.
- */
-export async function refreshAccessToken(): Promise<RefreshResult> {
-  const refreshToken = Cookies.get('refresh_token');
-  if (!refreshToken) {
-    return { ok: false, hard: true };
+/** Ejecuta `fn` en exclusión mutua con las demás pestañas del mismo origen (si el navegador lo soporta). */
+async function conBloqueoEntrePestanas<T>(fn: () => Promise<T>): Promise<T> {
+  if (typeof navigator !== 'undefined' && navigator.locks?.request) {
+    return navigator.locks.request(REFRESH_LOCK_NAME, fn) as Promise<T>;
   }
+  return fn();
+}
 
+/** Llamada real al endpoint de refresh, con reintentos ante fallos transitorios. */
+async function pedirNuevoPar(refreshToken: string): Promise<RefreshResult> {
   for (let attempt = 0; attempt <= MAX_REFRESH_RETRIES; attempt++) {
     try {
-      // El interceptor de respuesta ya desenvuelve la envoltura {data, meta, errors},
-      // por lo que response.data es directamente { access, refresh? }.
-      // IMPORTANTE: la instancia apiPublica ya resuelve su baseURL a
-      // `${API_URL}/api/v1` (o `http://<tenant>.localhost:8000/api/v1`), por lo
-      // que aquí SOLO ponemos la ruta relativa. Poner '/api/v1/auth/token/refresh/'
-      // duplicaba el prefijo y devolvía 404 (api/v1/api/v1/...).
+      // `apiPublica` ya resuelve la baseURL a `.../api/v1`: aquí va solo la
+      // ruta relativa (poner el prefijo duplicado daba 404).
       const response = await apiPublica.post<{ access?: string; refresh?: string }>(
         '/auth/token/refresh/',
         { refresh: refreshToken },
       );
-      const data = response.data;
-      const access = data.access ?? null;
-      const refresh = data.refresh ?? null;
-
-      if (access) {
-        const domain = getSharedCookieDomain();
-        Cookies.set('access_token', access, { expires: 1, secure: cookieSecureFlag(), sameSite: 'Lax', domain });
-        // El backend rota el refresh token (ROTATE_REFRESH_TOKENS=True); lo guardamos si viene.
-        if (refresh) {
-          Cookies.set('refresh_token', refresh, { expires: 7, secure: cookieSecureFlag(), sameSite: 'Lax', domain });
-        }
-        return { ok: true, access, refresh: refresh ?? undefined };
-      }
-
-      // Respuesta sin access: el token es inválido.
-      return { ok: false, hard: true };
+      const { access, refresh } = response.data;
+      if (!access) return { ok: false, hard: true };
+      guardarSesion(access, refresh);
+      return { ok: true, access, refresh: refresh ?? undefined };
     } catch (error) {
       const status = (error as AxiosError).response?.status;
-
       // 401/403 del refresh => el refresh token ya no es válido (fallo duro).
       if (status === 401 || status === 403) {
         return { ok: false, hard: true };
       }
-
-      // Fallo transitorio: reintentamos con backoff lineal.
       if (attempt < MAX_REFRESH_RETRIES) {
         await sleep(REFRESH_RETRY_DELAY_MS * (attempt + 1));
-        continue;
       }
     }
   }
-
-  // Fallo transitorio persistente => NO es un problema de autenticación.
+  // Fallo transitorio persistente (red, 5xx) => NO es un problema de
+  // autenticación: no se desloguea a un cajero en plena venta.
   return { ok: false, hard: false };
+}
+
+let refreshEnCurso: Promise<RefreshResult> | null = null;
+
+/**
+ * Renueva el par de tokens. Seguro de llamar desde cualquier parte y en
+ * paralelo: todas las llamadas simultáneas comparten el mismo refresco.
+ */
+export function refreshAccessToken(): Promise<RefreshResult> {
+  if (refreshEnCurso) return refreshEnCurso;
+
+  const refreshAlPedir = getRefreshToken();
+  refreshEnCurso = conBloqueoEntrePestanas(async (): Promise<RefreshResult> => {
+    const refreshActual = getRefreshToken();
+    const accessActual = getAccessToken();
+    if (!refreshActual) return { ok: false, hard: true };
+    // Mientras esperábamos el lock, otra pestaña ya rotó el par: basta
+    // con usar el que dejó en las cookies (compartidas).
+    if (refreshActual !== refreshAlPedir && accessActual) {
+      return { ok: true, access: accessActual, refresh: refreshActual };
+    }
+    return pedirNuevoPar(refreshActual);
+  }).finally(() => {
+    refreshEnCurso = null;
+  });
+  return refreshEnCurso;
+}
+
+/** Sesión muerta de verdad: limpia todo y manda al login del subdominio actual. */
+function expulsarAlLogin(): void {
+  cerrarSesion();
+  if (typeof window !== 'undefined' && !window.location.pathname.endsWith('/login')) {
+    window.location.href = `${window.location.origin}/login`;
+  }
 }
 
 apiPrivada.interceptors.response.use(
   (response: AxiosResponse) => response,
   async (error: AxiosError) => {
-
-    const originalConfig = error.config as InternalAxiosRequestConfig & {
-      _retry?: boolean;
-      _tenantBaseURL?: string;
-    };
+    const originalConfig = error.config as (InternalAxiosRequestConfig & { _retry?: boolean }) | undefined;
 
     // La suscripción del tenant venció (ver `SubscriptionGateMiddleware` en
     // el backend, que bloquea con 402 antes de llegar a cualquier vista) --
@@ -252,56 +265,81 @@ apiPrivada.interceptors.response.use(
     }
 
     if (
-      error.response?.status === 401 &&
-      originalConfig &&
-      !originalConfig._retry &&
-      !originalConfig.url?.includes('/auth/token/')
+      error.response?.status !== 401 ||
+      !originalConfig ||
+      originalConfig._retry ||
+      originalConfig.url?.includes('/auth/token/')
     ) {
-      if (isRefreshing) {
-        return new Promise((resolve, reject) => {
-          pendingRequests.push((token) => {
-            if (token) {
-              originalConfig.headers.Authorization = `Bearer ${token}`;
-              resolve(apiPrivada(originalConfig));
-            } else {
-              reject(error);
-            }
-          });
-        });
-      }
-
-      originalConfig._retry = true;
-      isRefreshing = true;
-
-      const refreshResult = await refreshAccessToken();
-
-      isRefreshing = false;
-      pendingRequests.forEach((callback) => callback(refreshResult.ok ? refreshResult.access : null));
-      pendingRequests = [];
-
-      if (refreshResult.ok) {
-        originalConfig.headers.Authorization = `Bearer ${refreshResult.access}`;
-        return apiPrivada(originalConfig);
-      }
-
-      // Solo deslogueamos ante un fallo DURO de autenticación. Un 401 transitorio
-      // (red caída, 5xx al renovar) NO debe expulsar al cajero en plena venta.
-      if (refreshResult.hard) {
-        const domain = getSharedCookieDomain();
-        Cookies.remove('access_token', { domain });
-        Cookies.remove('refresh_token', { domain });
-        limpiarCacheReferencia();
-        if (typeof window !== 'undefined') {
-          // Redirige al login del subdominio actual (tenant) para no perder el
-          // contexto multi-tenant. window.location.origin ya incluye el subdominio.
-          window.location.href = `${window.location.origin}/login`;
-        }
-      }
+      return Promise.reject(error);
     }
 
+    originalConfig._retry = true;
+
+    // Otra pestaña (o un refresco anterior de esta) ya dejó un access nuevo
+    // en las cookies: reintentamos con él sin gastar otro refresh.
+    const enviado = String(originalConfig.headers.Authorization ?? '').replace(/^Bearer /, '');
+    const vigente = getAccessToken();
+    if (vigente && vigente !== enviado) {
+      originalConfig.headers.Authorization = `Bearer ${vigente}`;
+      return apiPrivada(originalConfig);
+    }
+
+    const refreshResult = await refreshAccessToken();
+    if (refreshResult.ok) {
+      originalConfig.headers.Authorization = `Bearer ${refreshResult.access}`;
+      return apiPrivada(originalConfig);
+    }
+
+    // Solo deslogueamos ante un fallo DURO de autenticación.
+    if (refreshResult.hard) {
+      expulsarAlLogin();
+    }
     return Promise.reject(error);
   },
 );
+
+/**
+ * Envía un `FormData` (subida de archivos) al API privado con `fetch` nativo.
+ *
+ * axios, con el `Content-Type: application/json` fijo de la instancia, no
+ * armaba bien el `boundary` del multipart (el backend recibía "imagen
+ * dañada"); `fetch` sí. Como queda fuera de los interceptores de axios,
+ * aquí se replica lo mismo: token actual, un reintento tras refrescar
+ * (usando el MISMO refresco compartido) y la envoltura `{data, errors}`.
+ */
+export async function enviarMultipart<T>(
+  method: 'POST' | 'PATCH' | 'PUT',
+  path: string,
+  formData: FormData,
+  mensajeError = 'No se pudo guardar la información.',
+): Promise<T> {
+  const url = `${resolveBaseURL()}${path}`;
+  const enviar = (token: string | undefined) =>
+    fetch(url, {
+      method,
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      body: formData,
+    });
+
+  let res = await enviar(getAccessToken());
+  if (res.status === 401) {
+    const refreshed = await refreshAccessToken();
+    if (refreshed.ok) {
+      res = await enviar(refreshed.access);
+    } else if (refreshed.hard) {
+      expulsarAlLogin();
+    }
+  }
+
+  const envelope = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const error = new Error(mensajeError) as Error & { response?: unknown; apiErrors?: ApiError[] };
+    error.response = { status: res.status, data: envelope };
+    if (Array.isArray(envelope?.errors)) error.apiErrors = envelope.errors;
+    throw error;
+  }
+  return (isEnvelope(envelope) ? envelope.data : envelope) as T;
+}
 
 /** Utilidad para consumir la envoltura estándar en peticiones manuales. */
 export async function apiRequest<T = unknown>(

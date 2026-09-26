@@ -2,8 +2,6 @@
 
 import { useState, useEffect, use, useMemo, useCallback, type ReactElement } from 'react';
 import { useRouter } from 'next/navigation';
-import Cookies from 'js-cookie';
-import { getSharedCookieDomain } from '@/utils/cookieDomain';
 import type { ColumnDef } from '@tanstack/react-table';
 import {
   Package, AlertTriangle, Plus, Trash2, Pencil, Search, Boxes, DollarSign, XCircle,
@@ -87,13 +85,11 @@ export default function InventarioPage({ params }: { params: Promise<{ tenantId:
     const fallos = [resProd, resAlm, resIva, resCat, resMon, resDep].filter(r => r.status === 'rejected');
     if (fallos.length > 0) {
       console.error("Error cargando inventario:", fallos.map(f => (f as PromiseRejectedResult).reason));
-      const error401 = fallos.find(f => (f as PromiseRejectedResult).reason?.response?.status === 401);
-      if (error401) {
-        const domain = getSharedCookieDomain();
-        Cookies.remove('access_token', { domain });
-        Cookies.remove('refresh_token', { domain });
-        router.push(`/${tenantId}/login`);
-      } else {
+      // Un 401 real ya lo resuelve el interceptor de `apiPrivada` (refresca
+      // o manda al login); borrar cookies aquí expulsaba también a las
+      // demás pestañas ante un 401 que el refresh sí habría arreglado.
+      const soloAuth = fallos.every(f => (f as PromiseRejectedResult).reason?.response?.status === 401);
+      if (!soloAuth) {
         toast.error('Algunos datos no se pudieron cargar. Intenta actualizar la página.');
       }
     }

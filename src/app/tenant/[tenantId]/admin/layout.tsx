@@ -3,7 +3,6 @@
 import { useState, useRef, useEffect, use, type ReactElement } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import Cookies from 'js-cookie';
 import { Menu, Bell, BellRing, Globe2, Sparkles, AlertTriangle, ShoppingBag, ArrowRight, Lock, TriangleAlert, PackageX, Landmark, Truck, FlaskConical, PhoneCall, LifeBuoy, Search, ShieldCheck } from 'lucide-react';
 import { pushDisponible, tieneNotificacionesActivas, activarNotificacionesPush } from '@/utils/pushNotifications';
 import InstallPwaButton from '@/components/pwa/InstallPwaButton';
@@ -16,8 +15,7 @@ import { getPaisInfo } from '@/utils/paises';
 import OnboardingTour from '@/components/tour/OnboardingTour';
 import CommandPalette from '@/components/CommandPalette';
 import toast from 'react-hot-toast';
-import { getSharedCookieDomain } from '@/utils/cookieDomain';
-import { limpiarCacheReferencia } from '@/utils/offlineDb';
+import { cerrarSesion, onLogoutEnOtraPestana } from '@/utils/authSession';
 import { moduloDeRuta, primerModuloVisible } from '@/utils/modulosPanel';
 
 interface AdminLayoutProps {
@@ -335,10 +333,7 @@ function SesionNoDisponible(): ReactElement {
   const router = useRouter();
 
   useEffect(() => {
-    const domain = getSharedCookieDomain();
-    Cookies.remove('access_token', { domain });
-    Cookies.remove('refresh_token', { domain });
-    limpiarCacheReferencia();
+    cerrarSesion();
     const timeout = setTimeout(() => router.push('/login'), 2500);
     return () => clearTimeout(timeout);
   }, [router]);
@@ -447,16 +442,15 @@ export default function AdminLayout({ params, children }: AdminLayoutProps): Rea
   const [menuMovilAbierto, setMenuMovilAbierto] = useState(false);
 
   const ejecutarLogout = (): void => {
-    const domain = getSharedCookieDomain();
-    Cookies.remove('access_token', { domain });
-    Cookies.remove('refresh_token', { domain });
-    // El POS es un terminal normalmente COMPARTIDO entre cajeros por turno
-    // -- sin esto, el nombre/precio/dirección de cada cliente quedaba en
-    // IndexedDB sin límite de tiempo, legible por el siguiente que use el
-    // mismo navegador (ver el comentario largo en `limpiarCacheReferencia`).
-    limpiarCacheReferencia();
+    // También limpia la caché offline (el POS suele ser un equipo
+    // compartido) y avisa a las demás pestañas abiertas.
+    cerrarSesion();
     router.push('/login');
   };
+
+  // Cerrar sesión en una pestaña cierra todas: sin esto, las otras seguían
+  // mostrando el panel y fallando cada petición hasta recargar a mano.
+  useEffect(() => onLogoutEnOtraPestana(() => router.replace('/login')), [router]);
 
   return (
     <SessionProvider>

@@ -13,9 +13,7 @@
 
 import { useState, useEffect, useMemo, useCallback, type ReactElement } from 'react';
 import { useRouter } from 'next/navigation';
-import Cookies from 'js-cookie';
 import { motion } from 'framer-motion';
-import { getSharedCookieDomain } from '@/utils/cookieDomain';
 import {
   TrendingUp,
   ReceiptText,
@@ -171,12 +169,8 @@ export default function DashboardView({ tenantId }: DashboardViewProps): ReactEl
       setUltimaActualizacion(new Date());
     } catch (error) {
       console.error('Error cargando dashboard:', error);
-      if ((error as { response?: { status?: number } }).response?.status === 401) {
-        const domain = getSharedCookieDomain();
-        Cookies.remove('access_token', { domain });
-        Cookies.remove('refresh_token', { domain });
-        router.push(`/${tenantId}/login`);
-      } else {
+      // El 401 lo resuelve el interceptor de `apiPrivada` (refresh o login).
+      if ((error as { response?: { status?: number } }).response?.status !== 401) {
         toastApiError(error, 'No se pudieron cargar los datos del dashboard.');
       }
     } finally {

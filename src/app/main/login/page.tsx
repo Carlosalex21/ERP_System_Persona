@@ -2,14 +2,13 @@
 
 import { useState, Suspense, useEffect } from 'react';
 import { Mail, Lock, User, Building, Eye, EyeOff, ArrowRight, CheckCircle2, Loader2, UserPlus, Check, X, Globe, Store, ExternalLink, ArrowLeft, Sparkles, UtensilsCrossed, FlaskConical, Wrench, Calculator } from 'lucide-react';
-import Cookies from 'js-cookie';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { apiPublica } from '@/services/api';
 import { getPlanesPublicos, getMiCliente } from '@/services/platformBillingService';
-import { getSharedCookieDomain, cookieSecureFlag } from '@/utils/cookieDomain';
 import { tenantUrl } from '@/utils/tenantUrl';
 import Reveal from '@/components/marketing/Reveal';
 import FloatingChip from '@/components/marketing/FloatingChip';
+import { guardarSesion } from '@/utils/authSession';
 
 type View = 'select_type' | 'register' | 'owner_login';
 type BusinessType = 'retail' | 'b2b' | 'restaurante' | 'farmacia' | 'servicios' | 'contador';
@@ -207,9 +206,7 @@ function AuthContent() {
   // panel de la plataforma, no el suyo!).
   const procesarLoginDueno = async () => {
     const res = await apiPublica.post('/auth/token/', { username: usuarioLogin, password });
-    const domain = getSharedCookieDomain();
-    Cookies.set('access_token', res.data.access, { expires: 1, domain, secure: cookieSecureFlag(), sameSite: 'Lax' });
-    Cookies.set('refresh_token', res.data.refresh, { expires: 7, domain, secure: cookieSecureFlag(), sameSite: 'Lax' });
+    guardarSesion(res.data.access, res.data.refresh);
 
     try {
       const cliente = await getMiCliente();
@@ -279,9 +276,7 @@ function AuthContent() {
       // sesión autenticada del dueño del tenant para saber a quién cobrarle.
       try {
         const tokenRes = await apiPublica.post('/auth/token/', { username: usernameRegistro, password });
-        const domain = getSharedCookieDomain();
-        Cookies.set('access_token', tokenRes.data.access, { expires: 1, domain, secure: cookieSecureFlag(), sameSite: 'Lax' });
-        Cookies.set('refresh_token', tokenRes.data.refresh, { expires: 7, domain, secure: cookieSecureFlag(), sameSite: 'Lax' });
+        guardarSesion(tokenRes.data.access, tokenRes.data.refresh);
       } catch (loginError) {
         console.error('No se pudo iniciar sesión automáticamente tras el registro:', loginError);
       }
