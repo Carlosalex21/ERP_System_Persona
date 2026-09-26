@@ -71,7 +71,7 @@ function PlanBadge({ tenant }: { tenant: ReturnType<typeof useSession>['tenant']
  * últimos pedidos pendientes directamente.
  */
 function NotificacionesBell(): ReactElement {
-  const { count, pedidos, cargando } = usePedidosPendientesDetalle(5);
+  const { count, pedidos, cargando } = usePedidosPendientesDetalle();
   const { formatearDocumento } = useMonedaVista();
   const [abierto, setAbierto] = useState(false);
   const ref = useRef<HTMLDivElement>(null);

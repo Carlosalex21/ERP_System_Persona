@@ -1,57 +1,37 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from 'react';
 import toast from 'react-hot-toast';
-import { getAlertas, type AlertaItem } from '@/services/reportesService';
+import { getAlertas, type AlertasReporte } from '@/services/reportesService';
+import { crearRecursoEnVivo, useRecursoEnVivo } from '@/utils/recursoEnVivo';
 
 const POLL_MS = 20000;
 
 /**
  * Centro de Alertas: cuentas por cobrar/pagar vencidas o por vencer, y
- * productos con bajo stock -- mismo patrón que `usePedidosPendientesDetalle`
- * (poll cada 20s, toast cuando aparece una alerta urgente nueva mientras el
- * admin está en el panel).
+ * productos con bajo stock. Compartido por la campana y la página de
+ * alertas (antes cada una consultaba por su lado y el aviso de "alerta
+ * urgente" salía repetido).
  */
-export function useAlertas() {
-  const [alertas, setAlertas] = useState<AlertaItem[]>([]);
-  const [total, setTotal] = useState(0);
-  const [urgentes, setUrgentes] = useState(0);
-  const [cargando, setCargando] = useState(true);
-  const previousUrgentes = useRef<number | null>(null);
-
-  const cargar = useCallback(async () => {
-    try {
-      const data = await getAlertas();
-      if (previousUrgentes.current !== null && data.urgentes > previousUrgentes.current) {
-        const diferencia = data.urgentes - previousUrgentes.current;
-        toast.error(
-          diferencia === 1 ? '¡Nueva alerta urgente!' : `¡${diferencia} alertas urgentes nuevas!`,
-          { icon: '⚠️' },
-        );
-      }
-      previousUrgentes.current = data.urgentes;
-      setAlertas(data.alertas);
-      setTotal(data.total);
-      setUrgentes(data.urgentes);
-    } catch {
-      // Silencioso: un fallo de red no debe interrumpir el panel.
-    } finally {
-      setCargando(false);
+const alertas = crearRecursoEnVivo<AlertasReporte>(getAlertas, {
+  intervaloMs: POLL_MS,
+  alCambiar: (nuevo, anterior) => {
+    if (anterior && nuevo.urgentes > anterior.urgentes) {
+      const diferencia = nuevo.urgentes - anterior.urgentes;
+      toast.error(
+        diferencia === 1 ? '¡Nueva alerta urgente!' : `¡${diferencia} alertas urgentes nuevas!`,
+        { icon: '⚠️', id: 'alerta-urgente' },
+      );
     }
-  }, []);
+  },
+});
 
-  useEffect(() => {
-    let cancelado = false;
-    const poll = async () => {
-      if (!cancelado) await cargar();
-    };
-    poll();
-    const interval = setInterval(poll, POLL_MS);
-    return () => {
-      cancelado = true;
-      clearInterval(interval);
-    };
-  }, [cargar]);
-
-  return { alertas, total, urgentes, cargando, recargar: cargar };
+export function useAlertas() {
+  const { data, cargando } = useRecursoEnVivo(alertas);
+  return {
+    alertas: data?.alertas ?? [],
+    total: data?.total ?? 0,
+    urgentes: data?.urgentes ?? 0,
+    cargando,
+    recargar: alertas.recargar,
+  };
 }

@@ -6,6 +6,8 @@ const nextConfig: NextConfig = {
   // la imagen Docker de producción tendría que copiar `node_modules`
   // completo (cientos de MB de paquetes que solo hacen falta en build time).
   output: 'standalone',
+  // No anunciar "X-Powered-By: Next.js" (información gratis para un atacante).
+  poweredByHeader: false,
 
   // El backend ya manda `X-Frame-Options: DENY` para la API/admin de
   // Django (ver `settings.py`), pero eso no cubre las páginas de ESTE
@@ -27,6 +29,11 @@ const nextConfig: NextConfig = {
         headers: [
           { key: 'X-Frame-Options', value: 'DENY' },
           { key: 'Content-Security-Policy', value: "frame-ancestors 'none'" },
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          // No filtrar rutas internas del panel (ids, tokens de enlaces
+          // públicos) a sitios externos a los que se navegue desde aquí.
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+          { key: 'Permissions-Policy', value: 'camera=(self), microphone=(), geolocation=(), payment=(self)' },
         ],
       },
       {

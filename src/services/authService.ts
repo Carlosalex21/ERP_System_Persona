@@ -3,6 +3,7 @@
  */
 import axios from 'axios';
 import { apiPublica, apiPrivada } from './api';
+import { guardarSesion } from '@/utils/authSession';
 
 interface ActivationResponse {
   message: string;
@@ -84,11 +85,16 @@ export const confirmarResetPassword = async (uid: string, token: string, newPass
  * cuando el usuario la olvidó). Exige la contraseña actual.
  */
 export const cambiarMiPassword = async (passwordActual: string, passwordNueva: string): Promise<{ message: string }> => {
-  const response = await apiPrivada.post<{ message: string }>('/auth/me/cambiar-password/', {
+  const response = await apiPrivada.post<{ message: string; access?: string; refresh?: string }>('/auth/me/cambiar-password/', {
     password_actual: passwordActual,
     password_nueva: passwordNueva,
   });
-  return response.data;
+  // El backend cierra TODAS las sesiones del usuario (incluida esta) y
+  // devuelve un par nuevo para seguir trabajando sin volver a iniciar sesión.
+  if (response.data.access) {
+    guardarSesion(response.data.access, response.data.refresh);
+  }
+  return { message: response.data.message };
 };
 
 /** Historial de inicios de sesión del tenant (solo admin) -- últimos 200 intentos, éxito y fallo. */
