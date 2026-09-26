@@ -28,6 +28,8 @@ export interface TourStep {
   emoji?: string;
   /** Lado preferido para la tarjeta respecto al elemento señalado. */
   placement?: 'top' | 'bottom' | 'left' | 'right';
+  /** Se ejecuta al entrar al paso, antes de medir `target` (ej. expandir la sección del menú que lo contiene). */
+  onBeforeShow?: () => void;
 }
 
 interface GuidedTourProps {
@@ -90,10 +92,11 @@ export default function GuidedTour({ steps, run, onFinish, onSkip }: GuidedTourP
 
   useEffect(() => {
     if (!run) return undefined;
+    step?.onBeforeShow?.();
     recomputar();
     // El elemento señalado puede tardar un instante en montarse/animarse
-    // (ej. justo después de un cambio de página) -- se reintenta una vez.
-    const retry = window.setTimeout(recomputar, 250);
+    // (ej. una sección del menú expandiéndose) -- se reintenta tras la animación.
+    const retry = window.setTimeout(recomputar, 320);
     window.addEventListener('resize', recomputar);
     window.addEventListener('scroll', recomputar, true);
     return () => {
@@ -101,7 +104,7 @@ export default function GuidedTour({ steps, run, onFinish, onSkip }: GuidedTourP
       window.removeEventListener('resize', recomputar);
       window.removeEventListener('scroll', recomputar, true);
     };
-  }, [run, recomputar]);
+  }, [run, recomputar, step]);
 
   const esUltimo = stepIndex === steps.length - 1;
   const siguiente = useCallback((): void => {

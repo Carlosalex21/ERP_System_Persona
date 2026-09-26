@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { Menu, Bell, BellRing, Globe2, Sparkles, AlertTriangle, ShoppingBag, ArrowRight, Lock, TriangleAlert, PackageX, Landmark, Truck, FlaskConical, PhoneCall, LifeBuoy, Search, ShieldCheck } from 'lucide-react';
 import { pushDisponible, tieneNotificacionesActivas, activarNotificacionesPush } from '@/utils/pushNotifications';
 import InstallPwaButton from '@/components/pwa/InstallPwaButton';
-import Sidebar from '@/components/Sidebar';
+import Sidebar, { EVENTO_ABRIR_GRUPO_SIDEBAR } from '@/components/Sidebar';
 import { SessionProvider, useSession } from '@/context/SessionContext';
 import { usePedidosPendientesDetalle } from '@/hooks/usePedidosPendientes';
 import { useAlertas } from '@/hooks/useAlertas';
@@ -451,6 +451,16 @@ export default function AdminLayout({ params, children }: AdminLayoutProps): Rea
   // Cerrar sesión en una pestaña cierra todas: sin esto, las otras seguían
   // mostrando el panel y fallando cada petición hasta recargar a mano.
   useEffect(() => onLogoutEnOtraPestana(() => router.replace('/login')), [router]);
+
+  // En móvil el menú vive fuera de pantalla: si el tour (u otro componente)
+  // pide revelar una sección, hay que abrir el menú para que se vea.
+  useEffect(() => {
+    const abrirEnMovil = (): void => {
+      if (window.matchMedia('(max-width: 767px)').matches) setMenuMovilAbierto(true);
+    };
+    window.addEventListener(EVENTO_ABRIR_GRUPO_SIDEBAR, abrirEnMovil);
+    return () => window.removeEventListener(EVENTO_ABRIR_GRUPO_SIDEBAR, abrirEnMovil);
+  }, []);
 
   return (
     <SessionProvider>
