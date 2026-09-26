@@ -6,6 +6,7 @@ import {
   UserManaged, UserManagedRequest, Rol, Sucursal, SucursalRequest, Departamento, DepartamentoRequest,
   PeriodoNomina, GenerarPeriodoNominaRequest, ConceptoNomina, ConceptoNominaRequest,
   NominaEmpleado, AgregarConceptoManualRequest,
+  ConfiguracionRRHH, ConfiguracionRRHHRequest, VacacionesResumen, RegistrarVacacionRequest, Liquidacion,
 } from '@/types/api';
 
 /**
@@ -147,6 +148,41 @@ export const quitarConceptoNominaEmpleado = async (
   nominaEmpleadoId: number, conceptoAplicadoId: number,
 ): Promise<NominaEmpleado> => {
   const response = await apiPrivada.delete<NominaEmpleado>(`/rrhh/nomina-empleados/${nominaEmpleadoId}/conceptos/${conceptoAplicadoId}/`);
+  return response.data;
+};
+
+// --- Vacaciones y liquidación ---
+
+export const getConfiguracionRRHH = async (): Promise<ConfiguracionRRHH> => {
+  const response = await apiPrivada.get<ConfiguracionRRHH>('/rrhh/configuracion-rrhh/');
+  return response.data;
+};
+
+export const updateConfiguracionRRHH = async (data: ConfiguracionRRHHRequest): Promise<ConfiguracionRRHH> => {
+  const response = await apiPrivada.put<ConfiguracionRRHH>('/rrhh/configuracion-rrhh/', data);
+  return response.data;
+};
+
+/** Días de vacaciones acumulados/tomados/disponibles de un empleado (por `usuario_id`, ver `UserManaged.usuario_id`) y su historial. */
+export const getVacacionesEmpleado = async (usuarioId: number): Promise<VacacionesResumen> => {
+  const response = await apiPrivada.get<VacacionesResumen>(`/rrhh/vacaciones/${usuarioId}/`);
+  return response.data;
+};
+
+export const registrarVacacionTomada = async (
+  usuarioId: number, data: RegistrarVacacionRequest,
+): Promise<VacacionesResumen> => {
+  const response = await apiPrivada.post<VacacionesResumen>(`/rrhh/vacaciones/${usuarioId}/`, data);
+  return response.data;
+};
+
+export const eliminarVacacionTomada = async (vacacionId: number): Promise<void> => {
+  await apiPrivada.delete(`/rrhh/vacaciones-tomadas/${vacacionId}/`);
+};
+
+/** Calculadora de referencia de liquidación (vacaciones pendientes + prestaciones acumuladas) -- no paga ni registra nada. */
+export const calcularLiquidacion = async (usuarioId: number, fechaEgreso: string): Promise<Liquidacion> => {
+  const response = await apiPrivada.get<Liquidacion>(`/rrhh/liquidacion/${usuarioId}/`, { params: { fecha_egreso: fechaEgreso } });
   return response.data;
 };
 

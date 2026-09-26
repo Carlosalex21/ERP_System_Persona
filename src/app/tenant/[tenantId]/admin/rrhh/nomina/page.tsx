@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, type ReactElement } from 'react';
-import { Plus, Wallet, ChevronDown, ChevronRight, CheckCircle2, Loader2, Printer, Settings2, ListChecks, CircleDollarSign, X } from 'lucide-react';
+import { Plus, Wallet, ChevronDown, ChevronRight, CheckCircle2, Loader2, Printer, Settings2, ListChecks, CircleDollarSign, X, CalendarDays } from 'lucide-react';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 
@@ -11,6 +11,7 @@ import type { PeriodoNomina, NominaEmpleado } from '@/types/api';
 import GenerarNominaModal from './GenerarNominaModal';
 import ConceptosNominaTab from './ConceptosNominaTab';
 import AgregarConceptoManualModal from './AgregarConceptoManualModal';
+import VacacionesTab from './VacacionesTab';
 import { useMonedaVista } from '@/context/MonedaVistaContext';
 
 function PeriodosNominaTab(): ReactElement {
@@ -257,7 +258,7 @@ function PeriodosNominaTab(): ReactElement {
 }
 
 export default function NominaPage(): ReactElement {
-  const [tab, setTab] = useState<'periodos' | 'conceptos'>('periodos');
+  const [tab, setTab] = useState<'periodos' | 'conceptos' | 'vacaciones'>('periodos');
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -284,9 +285,17 @@ export default function NominaPage(): ReactElement {
         >
           <Settings2 size={16} /> Bonos y Deducciones
         </button>
+        <button
+          onClick={() => setTab('vacaciones')}
+          className={`px-4 py-2.5 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${
+            tab === 'vacaciones' ? 'border-primary-600 text-primary-700' : 'border-transparent text-slate-400 hover:text-slate-600'
+          }`}
+        >
+          <CalendarDays size={16} /> Vacaciones y Liquidación
+        </button>
       </div>
 
-      {tab === 'periodos' ? <PeriodosNominaTab /> : <ConceptosNominaTab />}
+      {tab === 'periodos' ? <PeriodosNominaTab /> : tab === 'conceptos' ? <ConceptosNominaTab /> : <VacacionesTab />}
     </div>
   );
 }

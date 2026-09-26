@@ -316,6 +316,8 @@ export type PatchedDepartamentoRequest = Partial<DepartamentoRequest>;
 
 export interface UserManaged {
   id: number;
+  /** Pk del `User` de Django -- distinto de `id` (pk de `UserMetadata`). Úsalo para nómina/vacaciones/liquidación. */
+  usuario_id: number;
   email: string;
   first_name: string;
   last_name: string;
@@ -324,6 +326,7 @@ export interface UserManaged {
   sucursal: number | null;
   departamento: number | null;
   sueldo_base: string | null;
+  fecha_contratacion: string | null;
 }
 
 export interface UserManagedRequest {
@@ -334,6 +337,7 @@ export interface UserManagedRequest {
   rol: number | null;
   sucursal: number | null;
   departamento?: number | null;
+  fecha_contratacion?: string | null;
   sueldo_base?: string | number | null;
   password?: string;
 }
@@ -426,6 +430,50 @@ export interface PeriodoNomina {
 export interface GenerarPeriodoNominaRequest {
   fecha_desde: string;
   fecha_hasta: string;
+}
+
+export interface ConfiguracionRRHH {
+  id: number;
+  dias_vacaciones_por_anio: number;
+  dias_prestaciones_por_anio: number;
+  dias_periodo_sueldo_base: number;
+}
+
+export type ConfiguracionRRHHRequest = Omit<ConfiguracionRRHH, 'id'>;
+
+export interface VacacionTomada {
+  id: number;
+  usuario: number;
+  fecha_inicio: string;
+  fecha_fin: string;
+  dias: number;
+  observaciones: string;
+  registrado_por_username: string | null;
+  fecha_registro: string;
+}
+
+export interface RegistrarVacacionRequest {
+  fecha_inicio: string;
+  fecha_fin: string;
+  observaciones?: string;
+}
+
+export interface VacacionesResumen {
+  antiguedad_anios: string;
+  dias_acumulados: number;
+  dias_tomados: number;
+  dias_disponibles: number;
+  tomadas: VacacionTomada[];
+}
+
+export interface Liquidacion {
+  antiguedad_anios: string;
+  sueldo_diario: string;
+  dias_vacaciones_pendientes: number;
+  monto_vacaciones_pendientes: string;
+  dias_prestaciones_acumulados: number;
+  monto_prestaciones: string;
+  total_liquidacion: string;
 }
 
 export interface Iva {

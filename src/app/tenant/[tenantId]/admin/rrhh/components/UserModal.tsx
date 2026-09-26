@@ -30,6 +30,7 @@ export default function UserModal({ isOpen, onClose, onSave, roles, sucursales, 
     sucursal: usuario.sucursal ?? undefined,
     departamento: usuario.departamento ?? undefined,
     sueldo_base: usuario.sueldo_base ?? '',
+    fecha_contratacion: usuario.fecha_contratacion ?? '',
     is_active: usuario.is_active,
   } : {
     first_name: '',
@@ -40,6 +41,7 @@ export default function UserModal({ isOpen, onClose, onSave, roles, sucursales, 
     sucursal: undefined,
     departamento: undefined,
     sueldo_base: '',
+    fecha_contratacion: '',
     is_active: true,
   });
 
@@ -87,6 +89,7 @@ export default function UserModal({ isOpen, onClose, onSave, roles, sucursales, 
           sucursal: formData.sucursal ? Number(formData.sucursal) : null,
           departamento: formData.departamento ? Number(formData.departamento) : null,
           sueldo_base: formData.sueldo_base ? String(formData.sueldo_base) : null,
+          fecha_contratacion: formData.fecha_contratacion || null,
           is_active: formData.is_active || false,
         };
         if (formData.password && formData.password.trim() !== '') {
@@ -103,6 +106,7 @@ export default function UserModal({ isOpen, onClose, onSave, roles, sucursales, 
           sucursal: formData.sucursal ? Number(formData.sucursal) : null,
           departamento: formData.departamento ? Number(formData.departamento) : null,
           sueldo_base: formData.sueldo_base ? String(formData.sueldo_base) : null,
+          fecha_contratacion: formData.fecha_contratacion || null,
           is_active: formData.is_active || false,
         };
         await createManagedUser(payload);
@@ -192,15 +196,26 @@ export default function UserModal({ isOpen, onClose, onSave, roles, sucursales, 
               </select>
             </div>
           </div>
-          <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Sueldo Base (opcional)</label>
-            <input
-              type="number" min={0} step="0.01" name="sueldo_base"
-              value={formData.sueldo_base ?? ''} onChange={handleChange}
-              placeholder="Déjalo vacío si no participa en nómina"
-              className="w-full px-3 py-2 border rounded-lg text-sm"
-            />
-            <p className="text-[11px] text-slate-400 mt-1">Monto a pagar por período de nómina (el rango de fechas lo eliges al generarla en RRHH → Nómina).</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Sueldo Base (opcional)</label>
+              <input
+                type="number" min={0} step="0.01" name="sueldo_base"
+                value={formData.sueldo_base ?? ''} onChange={handleChange}
+                placeholder="Déjalo vacío si no participa en nómina"
+                className="w-full px-3 py-2 border rounded-lg text-sm"
+              />
+              <p className="text-[11px] text-slate-400 mt-1">Monto por período de nómina (el rango de fechas lo eliges al generarla).</p>
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Fecha de Contratación</label>
+              <input
+                type="date" name="fecha_contratacion"
+                value={formData.fecha_contratacion ?? ''} onChange={handleChange}
+                className="w-full px-3 py-2 border rounded-lg text-sm"
+              />
+              <p className="text-[11px] text-slate-400 mt-1">Base para calcular antigüedad, vacaciones y liquidación.</p>
+            </div>
           </div>
           <div className="flex items-center gap-3 pt-2">
             <input type="checkbox" name="is_active" checked={formData.is_active} onChange={handleChange} className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
