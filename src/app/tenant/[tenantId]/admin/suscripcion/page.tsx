@@ -31,32 +31,7 @@ import {
 } from '@/services/platformBillingService';
 import { Plan, PlatformPaymentInfo, MetodoPagoSuscripcion, PeriodoSuscripcion, PeriodoSuscripcionInfo } from '@/types/api';
 import { PageHeader, Card, Stagger, StaggerItem } from '@/components/ui';
-
-/** Beneficios adicionales (marketing) por plan, más allá de los límites numéricos que ya vienen del backend. */
-const BENEFICIOS_EXTRA: Record<string, string[]> = {
-  emprendedor: [
-    'Subdominio personalizado',
-    'Catálogo web público optimizado para móviles',
-    'Pedidos ilimitados enviados por WhatsApp',
-    'Facturación no fiscal / control de órdenes',
-  ],
-  pro: [
-    'Todo lo incluido en el Plan Emprendedor',
-    'Productos y categorías ilimitadas',
-    'Módulo multialmacén y control de stocks críticos',
-    'Reportes y analíticas avanzadas',
-    'Soporte prioritario por WhatsApp y correo',
-  ],
-};
-
-function beneficiosDePlan(plan: Plan): string[] {
-  const base: string[] = [];
-  base.push(plan.limite_productos ? `Hasta ${plan.limite_productos} productos` : 'Productos ilimitados');
-  base.push(`Hasta ${plan.limite_usuarios} usuario${plan.limite_usuarios === 1 ? '' : 's'}`);
-  base.push(`Hasta ${plan.limite_sucursales} sucursal${plan.limite_sucursales === 1 ? '' : 'es'}`);
-  const extra = plan.slug ? BENEFICIOS_EXTRA[plan.slug] : undefined;
-  return extra ? [...extra, ...base] : base;
-}
+import { beneficiosDePlan } from '@/utils/planes';
 
 function parseFechaISO(fechaStr: string): Date {
   const [y, m, d] = fechaStr.split('-').map(Number);
@@ -353,7 +328,7 @@ function SuscripcionAdminContent(): ReactElement {
                 </span>
               )}
               <ul className="mt-4 space-y-2">
-                {beneficiosDePlan(p).map((b) => (
+                {beneficiosDePlan(p, tenant?.tipo_negocio).map((b) => (
                   <li key={b} className="flex items-start gap-2 text-xs text-slate-600">
                     <Check className="text-primary-600 shrink-0 mt-0.5" size={13} />
                     <span>{b}</span>

@@ -1108,6 +1108,8 @@ export interface Plan {
   activo: boolean;
   /** Tipos de negocio a los que aplica (ver TipoNegocio en utils/modulosPanel). Vacío = aplica a todos. */
   tipos_negocio: string[];
+  /** Módulos que incluye (códigos de `utils/modulosPanel`). Vacío = todos. */
+  modulos: string[];
 }
 
 /** Versión resumida de `Plan` embebida en la suscripción del cliente (sin `descripcion`/`activo`). */

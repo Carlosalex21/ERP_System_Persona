@@ -10,6 +10,7 @@ import {
 import { apiPrivada, apiPublica } from '@/services/api';
 import { getApiErrorMessages } from '@/utils/helpers';
 import { ConfirmDialog } from '@/components/ui';
+import SelectorModulosPlan from '@/components/planes/SelectorModulosPlan';
 import {
   getSubscriptionPayments, confirmarPagoSuscripcion, rechazarPagoSuscripcion,
   getPlatformPaymentConfig, updatePlatformPaymentConfig,
@@ -59,6 +60,7 @@ export default function SuperAdminPanel() {
     nombre: string; slug: string; descripcion: string; precio: string;
     limite_usuarios: number; limite_sucursales: number; limite_productos: number | null; activo: boolean;
     tipos_negocio: string[];
+    modulos: string[];
   }>({
     nombre: '',
     slug: '',
@@ -69,6 +71,7 @@ export default function SuperAdminPanel() {
     limite_productos: null,
     activo: true,
     tipos_negocio: [],
+    modulos: [],
   });
 
   useEffect(() => {
@@ -243,6 +246,7 @@ export default function SuperAdminPanel() {
       limite_productos: plan.limite_productos ?? null,
       activo: plan.activo,
       tipos_negocio: plan.tipos_negocio || [],
+      modulos: plan.modulos || [],
     });
     setModalPlanAbierto(true);
   };
@@ -451,7 +455,7 @@ export default function SuperAdminPanel() {
             <div className="flex justify-between items-center">
               <h1 className="text-3xl font-black text-slate-900 tracking-tight">Planes de Suscripción</h1>
               <button 
-                onClick={() => { setEditandoPlanId(null); setFormPlan({ nombre: '', slug: '', descripcion: '', precio: '', limite_usuarios: 100, limite_sucursales: 10, limite_productos: null, activo: true, tipos_negocio: [] }); setModalPlanAbierto(true); }}
+                onClick={() => { setEditandoPlanId(null); setFormPlan({ nombre: '', slug: '', descripcion: '', precio: '', limite_usuarios: 100, limite_sucursales: 10, limite_productos: null, activo: true, tipos_negocio: [], modulos: [] }); setModalPlanAbierto(true); }}
                 className="bg-accent-500 text-white px-5 py-2.5 rounded-xl font-bold hover:bg-accent-600 flex items-center gap-2 shadow-lg"
               >
                 <Plus size={18} /> Nuevo Plan
@@ -660,7 +664,7 @@ export default function SuperAdminPanel() {
       {/* ================= MODAL DE PLANES (CREAR / EDITAR) ================= */}
       {modalPlanAbierto && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden animate-scale-in">
+          <div className="bg-white w-full max-w-2xl max-h-[92vh] overflow-y-auto rounded-3xl shadow-2xl animate-scale-in">
             <div className="bg-slate-900 p-6 text-white flex justify-between items-center">
               <h3 className="font-bold text-lg">{editandoPlanId ? 'Editar Plan Existente' : 'Configurar Nuevo Plan'}</h3>
               <button onClick={() => setModalPlanAbierto(false)} className="p-2 hover:bg-slate-800 rounded-full"><X size={20}/></button>
@@ -744,6 +748,14 @@ export default function SuperAdminPanel() {
                     })}
                   </div>
                   <p className="text-[11px] text-slate-400 mt-1">Ninguno marcado = el plan aplica a todos los tipos de negocio.</p>
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Módulos incluidos</label>
+                  <SelectorModulosPlan
+                    value={formPlan.modulos}
+                    onChange={(modulos) => setFormPlan({ ...formPlan, modulos })}
+                    tiposNegocio={formPlan.tipos_negocio}
+                  />
                 </div>
               </div>
 

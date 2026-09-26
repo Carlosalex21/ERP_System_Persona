@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Search, CornerDownLeft, X } from 'lucide-react';
 import { useTenant } from '@/hooks/useTenant';
 import { useUsuarioActual } from '@/hooks/useUsuarioActual';
-import { MODULOS_PANEL } from '@/utils/modulosPanel';
+import { gruposVisibles } from '@/utils/modulosPanel';
 
 /**
  * Paleta de comandos (Ctrl+K / Cmd+K) -- busca por nombre entre TODOS los
@@ -59,14 +59,13 @@ export default function CommandPalette(): ReactElement | null {
     }
   }, [abierto]);
 
-  const modulosVisibles = useMemo(() => {
-    const modulosOcultos = new Set(usuario?.modulos_ocultos ?? []);
-    return MODULOS_PANEL.filter((m) => {
-      if (m.tiposNegocio && tenant?.tipo_negocio && !m.tiposNegocio.includes(tenant.tipo_negocio)) return false;
-      if (modulosOcultos.has(m.codigo)) return false;
-      return true;
-    });
-  }, [tenant?.tipo_negocio, usuario]);
+  // Mismo criterio que el menú lateral (tipo de negocio, plan, rol).
+  const modulosPlan = tenant?.subscription_status?.modulos_plan;
+  const modulosVisibles = useMemo(
+    () => gruposVisibles(tenant?.tipo_negocio, new Set(usuario?.modulos_ocultos ?? []), usuario?.rol_codigo === 'admin', modulosPlan)
+      .flatMap((g) => g.modulos),
+    [tenant?.tipo_negocio, usuario, modulosPlan],
+  );
 
   const resultados = useMemo(() => {
     const q = query.trim().toLowerCase();

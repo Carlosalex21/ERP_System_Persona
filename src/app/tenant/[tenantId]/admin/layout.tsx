@@ -18,7 +18,7 @@ import OnboardingTour from '@/components/tour/OnboardingTour';
 import CommandPalette from '@/components/CommandPalette';
 import toast from 'react-hot-toast';
 import { cerrarSesion, onLogoutEnOtraPestana } from '@/utils/authSession';
-import { moduloDeRuta, primerModuloVisible } from '@/utils/modulosPanel';
+import { incluidoEnPlan, moduloDeRuta, primerModuloVisible } from '@/utils/modulosPanel';
 
 interface AdminLayoutProps {
   params: Promise<{ tenantId: string }>;
@@ -393,6 +393,31 @@ function AccesoRestringido({ destino }: { destino: string | null }): ReactElemen
   );
 }
 
+/** Pantalla para un módulo que el plan contratado no incluye (ver `Plan.modulos`). */
+function ModuloFueraDelPlan({ etiqueta, esAdmin }: { etiqueta: string; esAdmin: boolean }): ReactElement {
+  return (
+    <div className="h-full flex items-center justify-center py-16">
+      <div className="text-center max-w-sm">
+        <Sparkles className="mx-auto text-accent-500 mb-3" size={36} />
+        <h2 className="font-bold text-slate-800 text-lg">{etiqueta} no está en tu plan</h2>
+        <p className="text-sm text-slate-500 mt-1">
+          {esAdmin
+            ? 'Este módulo está disponible en planes superiores. Mejora tu plan para activarlo al instante.'
+            : 'Este módulo no está incluido en el plan de tu empresa. Pídele al administrador que lo active.'}
+        </p>
+        {esAdmin && (
+          <Link
+            href="/admin/suscripcion"
+            className="inline-block mt-4 px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-bold hover:bg-primary-700 transition-colors"
+          >
+            Ver planes
+          </Link>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function AdminShell({
   menuMovilAbierto, setMenuMovilAbierto, ejecutarLogout, children,
 }: {
@@ -412,12 +437,17 @@ function AdminShell({
   // `modulos_ocultos` -- no tendría sentido que un rol pudiera ocultarse
   // (o dejar de ocultarse) esa misma pantalla a sí mismo.
   const esPantallaPermisos = pathname?.startsWith('/admin/configuracion/permisos');
-  const moduloActual = usuario ? moduloDeRuta(pathname ?? '') : null;
-  const bloqueadoPorRol = Boolean(moduloActual && usuario!.modulos_ocultos.includes(moduloActual.codigo));
+  const modulosPlan = tenant?.subscription_status?.modulos_plan;
+  const moduloActual = moduloDeRuta(pathname ?? '');
+  const bloqueadoPorRol = Boolean(usuario && moduloActual && usuario.modulos_ocultos.includes(moduloActual.codigo));
   const bloqueadoPorAdmin = Boolean(esPantallaPermisos && usuario && usuario.rol_codigo !== 'admin');
+  // Módulo que el plan no incluye (entrando por URL directa o un enlace
+  // viejo): se explica y se invita a mejorar el plan en vez de mostrar una
+  // pantalla rota por los 403 del backend.
+  const fueraDelPlan = Boolean(tenant && moduloActual && !incluidoEnPlan(moduloActual, modulosPlan));
   const restringido = bloqueadoPorRol || bloqueadoPorAdmin;
   const destinoAlternativo = usuario
-    ? primerModuloVisible(usuario.modulos_ocultos, tenant?.tipo_negocio)?.path ?? null
+    ? primerModuloVisible(usuario.modulos_ocultos, tenant?.tipo_negocio, modulosPlan)?.path ?? null
     : null;
 
   return (
@@ -431,7 +461,13 @@ function AdminShell({
       <div className="flex-1 flex flex-col min-w-0 min-h-0">
         <AdminTopbar onOpenMenu={() => setMenuMovilAbierto(true)} />
         <main className="p-4 sm:p-8 flex-grow overflow-y-auto relative min-h-0">
-          {restringido ? <AccesoRestringido destino={destinoAlternativo} /> : children}
+          {fueraDelPlan && moduloActual ? (
+            <ModuloFueraDelPlan etiqueta={moduloActual.etiqueta} esAdmin={usuario?.rol_codigo === 'admin'} />
+          ) : restringido ? (
+            <AccesoRestringido destino={destinoAlternativo} />
+          ) : (
+            children
+          )}
         </main>
       </div>
     </div>

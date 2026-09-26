@@ -18,6 +18,8 @@ export interface TenantSubscriptionStatus {
   is_active: boolean;
   dias_restantes: number | null;
   es_prueba: boolean;
+  /** Módulos que incluye el plan contratado (`Plan.modulos`); `null` = todos. */
+  modulos_plan: string[] | null;
 }
 
 export interface TenantProfile {

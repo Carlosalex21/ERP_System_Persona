@@ -168,7 +168,7 @@ export default function OnboardingTour() {
     // Solo módulos que este tenant/rol realmente ve en el menú: un paso
     // hacia un ítem inexistente dejaba la tarjeta flotando sin señalar nada.
     const visibles = new Set(
-      gruposVisibles(tipo, new Set(usuario?.modulos_ocultos ?? []), usuario?.rol_codigo === 'admin')
+      gruposVisibles(tipo, new Set(usuario?.modulos_ocultos ?? []), usuario?.rol_codigo === 'admin', tenant?.subscription_status?.modulos_plan)
         .flatMap((g) => g.modulos.map((m) => m.codigo)),
     );
 
@@ -193,7 +193,7 @@ export default function OnboardingTour() {
       ...intermedios,
       { id: 'final', title: '¡Listo para empezar!', emoji: '🚀', description: guion.cierre },
     ];
-  }, [tenant?.tipo_negocio, tenant?.nombre_empresa, usuario]);
+  }, [tenant?.tipo_negocio, tenant?.nombre_empresa, tenant?.subscription_status?.modulos_plan, usuario]);
 
   const completar = useCallback(() => {
     setDescartadoLocalmente(true);

@@ -3,7 +3,7 @@
 import { memo, useCallback, useEffect, useMemo, useState, type ReactElement } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronDown, ExternalLink, Globe2, Loader2, LogOut, X } from "lucide-react";
+import { ChevronDown, ExternalLink, Globe2, Loader2, LogOut, Sparkles, X } from "lucide-react";
 
 import CambiarPasswordModal from "@/components/CambiarPasswordModal";
 import { useTenant } from "@/hooks/useTenant";
@@ -11,7 +11,7 @@ import { useUsuarioActual } from "@/hooks/useUsuarioActual";
 import { usePedidosPendientes } from "@/hooks/usePedidosPendientes";
 import { getPaisInfo } from "@/utils/paises";
 import { tenantUrl } from "@/utils/tenantUrl";
-import { gruposVisibles, moduloDeRuta, type GrupoModulosPanel, type ModuloPanel } from "@/utils/modulosPanel";
+import { gruposVisibles, moduloDeRuta, modulosFueraDelPlan, type GrupoModulosPanel, type ModuloPanel } from "@/utils/modulosPanel";
 
 /** Evento global para abrir un grupo del menú desde fuera (tour guiado, buscador). */
 export const EVENTO_ABRIR_GRUPO_SIDEBAR = "erp:sidebar-abrir-grupo";
@@ -135,6 +135,7 @@ export default function Sidebar({ menuMovilAbierto, setMenuMovilAbierto, ejecuta
   const usuario = useUsuarioActual();
   const pathname = usePathname() ?? "";
   const pedidosPendientes = usePedidosPendientes();
+  const modulosPlan = tenant?.subscription_status?.modulos_plan;
   const pais = getPaisInfo(tenant?.pais_codigo);
   // Un contador no tiene catálogo/tienda pública que mostrar.
   const tiendaPublicaUrl = tenant?.schema_name && tenant.tipo_negocio !== "contador" ? tenantUrl(tenant.schema_name) : undefined;
@@ -142,9 +143,12 @@ export default function Sidebar({ menuMovilAbierto, setMenuMovilAbierto, ejecuta
   // Fail-open a propósito: esto es solo el menú, el backend sigue exigiendo
   // el permiso real en cada endpoint.
   const grupos = useMemo(
-    () => gruposVisibles(tenant?.tipo_negocio, new Set(usuario?.modulos_ocultos ?? []), usuario?.rol_codigo === "admin"),
-    [tenant?.tipo_negocio, usuario],
+    () => gruposVisibles(tenant?.tipo_negocio, new Set(usuario?.modulos_ocultos ?? []), usuario?.rol_codigo === "admin", modulosPlan),
+    [tenant?.tipo_negocio, usuario, modulosPlan],
   );
+  // Lo que el negocio podría usar pero su plan no incluye: se invita al
+  // admin a mejorar el plan en vez de esconderlo sin explicación.
+  const fueraDelPlan = useMemo(() => modulosFueraDelPlan(tenant?.tipo_negocio, modulosPlan), [tenant?.tipo_negocio, modulosPlan]);
   const codigoActivo = moduloDeRuta(pathname)?.codigo ?? null;
   const grupoActivo = grupos.find((g) => g.modulos.some((m) => m.codigo === codigoActivo))?.id ?? null;
 
@@ -258,6 +262,16 @@ export default function Sidebar({ menuMovilAbierto, setMenuMovilAbierto, ejecuta
                     onNavigate={cerrarMenu}
                   />
                 ),
+              )}
+              {usuario?.rol_codigo === "admin" && fueraDelPlan.length > 0 && (
+                <Link
+                  href="/admin/suscripcion"
+                  onClick={cerrarMenu}
+                  className="mt-3 flex items-center gap-2 px-3 py-2.5 rounded-xl border border-dashed border-white/10 text-xs font-bold text-slate-400 hover:text-white hover:border-primary-400 transition-colors"
+                >
+                  <Sparkles size={14} className="text-accent-400 shrink-0" />
+                  {fueraDelPlan.length} módulo{fueraDelPlan.length === 1 ? "" : "s"} más en planes superiores
+                </Link>
               )}
             </nav>
           )}

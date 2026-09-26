@@ -7,6 +7,7 @@ import { useSearchParams } from 'next/navigation';
 import { getPlanesPublicos } from '@/services/platformBillingService';
 import { Plan } from '@/types/api';
 import Reveal from '@/components/marketing/Reveal';
+import { resumenModulosPlan } from '@/utils/planes';
 
 /** Descuento anual mostrado en la UI (no hay un precio anual real en el backend todavía). */
 const DESCUENTO_ANUAL = 0.2;
@@ -125,7 +126,10 @@ function PlanesContent(): ReactElement {
               const destacado = plan.id === idPlanDestacado;
               const precioMensual = parseFloat(plan.precio);
               const precioAnual = Math.round(precioMensual * (1 - DESCUENTO_ANUAL));
-              const caracteristicas = plan.descripcion.split('\n').map((l) => l.trim()).filter(Boolean);
+              const caracteristicas = [
+                ...plan.descripcion.split('\n').map((l) => l.trim()).filter(Boolean),
+                ...resumenModulosPlan(plan, tipoNegocio),
+              ];
 
               return (
                 <Reveal key={plan.id} from={i % 2 === 0 ? 'left' : 'right'} delay={i * 0.1}>

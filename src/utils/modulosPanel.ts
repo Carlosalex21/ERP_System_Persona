@@ -34,6 +34,12 @@ export interface ModuloPanel {
   tiposNegocio?: TipoNegocio[];
   /** Solo visible para el rol administrador (independiente de `modulos_ocultos`). */
   soloAdmin?: boolean;
+  /**
+   * Incluido en TODOS los planes (sin él el sistema no se puede operar). El
+   * resto se vende por plan: `Plan.modulos` en el backend, que debe listar
+   * los mismos códigos (ver `apps/tenants/modulos.py`).
+   */
+  basico?: boolean;
 }
 
 export interface GrupoModulosPanel {
@@ -60,8 +66,8 @@ export const GRUPOS_MODULOS_PANEL: GrupoModulosPanel[] = [
     icono: LayoutDashboard,
     fijo: true,
     modulos: [
-      { codigo: 'dashboard', etiqueta: 'Dashboard', path: '/admin', icono: LayoutDashboard },
-      { codigo: 'alertas', etiqueta: 'Centro de Alertas', path: '/admin/alertas', icono: TriangleAlert },
+      { codigo: 'dashboard', etiqueta: 'Dashboard', path: '/admin', icono: LayoutDashboard, basico: true },
+      { codigo: 'alertas', etiqueta: 'Centro de Alertas', path: '/admin/alertas', icono: TriangleAlert, basico: true },
       { codigo: 'reportes', etiqueta: 'Reportes y Analítica', path: '/admin/reportes', icono: BarChart3 },
     ],
   },
@@ -171,21 +177,21 @@ export const GRUPOS_MODULOS_PANEL: GrupoModulosPanel[] = [
     etiqueta: 'Configuración',
     icono: Settings,
     modulos: [
-      { codigo: 'datos_empresa', etiqueta: 'Datos de la Empresa', path: '/admin/configuracion/empresa', icono: Building2 },
-      { codigo: 'suscripcion', etiqueta: 'Mi Suscripción', path: '/admin/suscripcion', icono: Sparkles },
-      { codigo: 'monedas', etiqueta: 'Monedas', path: '/admin/configuracion/monedas', icono: Coins },
-      { codigo: 'tasas_cambio', etiqueta: 'Tasas de Cambio', path: '/admin/configuracion/tasas-cambio', icono: Repeat },
-      { codigo: 'impuestos', etiqueta: 'Impuestos', path: '/admin/configuracion/iva', icono: ReceiptText },
-      { codigo: 'metodos_pago', etiqueta: 'Métodos de Pago', path: '/admin/configuracion/metodos-pago', icono: Wallet },
-      { codigo: 'bancos', etiqueta: 'Bancos', path: '/admin/configuracion/bancos', icono: Landmark },
+      { codigo: 'datos_empresa', etiqueta: 'Datos de la Empresa', path: '/admin/configuracion/empresa', icono: Building2, basico: true },
+      { codigo: 'suscripcion', etiqueta: 'Mi Suscripción', path: '/admin/suscripcion', icono: Sparkles, basico: true },
+      { codigo: 'monedas', etiqueta: 'Monedas', path: '/admin/configuracion/monedas', icono: Coins, basico: true },
+      { codigo: 'tasas_cambio', etiqueta: 'Tasas de Cambio', path: '/admin/configuracion/tasas-cambio', icono: Repeat, basico: true },
+      { codigo: 'impuestos', etiqueta: 'Impuestos', path: '/admin/configuracion/iva', icono: ReceiptText, basico: true },
+      { codigo: 'metodos_pago', etiqueta: 'Métodos de Pago', path: '/admin/configuracion/metodos-pago', icono: Wallet, basico: true },
+      { codigo: 'bancos', etiqueta: 'Bancos', path: '/admin/configuracion/bancos', icono: Landmark, basico: true },
       { codigo: 'pagos_online', etiqueta: 'Pagos en Línea', path: '/admin/configuracion/pagos-online', icono: Smartphone, tiposNegocio: TIPOS_CON_INVENTARIO },
-      { codigo: 'fiscal', etiqueta: 'País y Fiscalidad', path: '/admin/configuracion/fiscal', icono: Globe2 },
-      { codigo: 'correlativo', etiqueta: 'Numeración de Facturas', path: '/admin/configuracion/correlativo', icono: Hash },
+      { codigo: 'fiscal', etiqueta: 'País y Fiscalidad', path: '/admin/configuracion/fiscal', icono: Globe2, basico: true },
+      { codigo: 'correlativo', etiqueta: 'Numeración de Facturas', path: '/admin/configuracion/correlativo', icono: Hash, basico: true },
       { codigo: 'importar_clientes', etiqueta: 'Importar Clientes', path: '/admin/clientes/importar', icono: UserPlus, tiposNegocio: ['retail', 'restaurante', 'farmacia', 'servicios', 'contador'] },
       { codigo: 'importar_clientes_b2b', etiqueta: 'Importar Clientes', path: '/admin/clientes/b2b/importar', icono: UserPlus, tiposNegocio: ['b2b'] },
       { codigo: 'auditoria', etiqueta: 'Auditoría', path: '/admin/auditoria', icono: ShieldCheck },
-      { codigo: 'referidos', etiqueta: 'Programa de Referidos', path: '/admin/referidos', icono: Gift },
-      { codigo: 'permisos_rol', etiqueta: 'Permisos por Rol', path: '/admin/configuracion/permisos', icono: SlidersHorizontal, soloAdmin: true },
+      { codigo: 'referidos', etiqueta: 'Programa de Referidos', path: '/admin/referidos', icono: Gift, basico: true },
+      { codigo: 'permisos_rol', etiqueta: 'Permisos por Rol', path: '/admin/configuracion/permisos', icono: SlidersHorizontal, soloAdmin: true, basico: true },
     ],
   },
 ];
@@ -205,6 +211,22 @@ function aplicaAlTipo(modulo: ModuloPanel, tipoNegocio?: TipoNegocio): boolean {
   return !modulo.tiposNegocio || (!!tipoNegocio && modulo.tiposNegocio.includes(tipoNegocio));
 }
 
+/** `modulosPlan` = módulos que incluye el plan contratado; `null`/`undefined` = todos. */
+export function incluidoEnPlan(modulo: ModuloPanel, modulosPlan: readonly string[] | null | undefined): boolean {
+  return Boolean(modulo.basico) || !modulosPlan || modulosPlan.includes(modulo.codigo);
+}
+
+/** Grupos con solo los módulos que se venden por plan (para el editor de planes del superadmin). */
+export const GRUPOS_MODULOS_VENDIBLES: GrupoModulosPanel[] = GRUPOS_MODULOS_PANEL
+  .map((g) => ({ ...g, modulos: g.modulos.filter((m) => !m.basico) }))
+  .filter((g) => g.modulos.length > 0);
+
+/** Módulos aplicables a este tipo de negocio que su plan NO incluye (para invitar a mejorar el plan). */
+export function modulosFueraDelPlan(tipoNegocio: TipoNegocio | undefined, modulosPlan: readonly string[] | null | undefined): ModuloPanel[] {
+  if (!modulosPlan) return [];
+  return MODULOS_PANEL.filter((m) => aplicaAlTipo(m, tipoNegocio) && !m.soloAdmin && !incluidoEnPlan(m, modulosPlan));
+}
+
 /**
  * Grupos (ordenados) con solo los módulos que este tenant y este rol deben
  * ver -- la única función que decide qué aparece en el menú lateral.
@@ -213,6 +235,7 @@ export function gruposVisibles(
   tipoNegocio: TipoNegocio | undefined,
   modulosOcultos: ReadonlySet<string>,
   esAdmin: boolean,
+  modulosPlan?: readonly string[] | null,
 ): GrupoModulosPanel[] {
   const orden = (tipoNegocio && ORDEN_GRUPOS_POR_TIPO[tipoNegocio]) || [];
   const posicion = (id: string): number => {
@@ -223,7 +246,7 @@ export function gruposVisibles(
     .map((grupo) => ({
       ...grupo,
       modulos: grupo.modulos.filter(
-        (m) => aplicaAlTipo(m, tipoNegocio) && !modulosOcultos.has(m.codigo) && (!m.soloAdmin || esAdmin),
+        (m) => aplicaAlTipo(m, tipoNegocio) && incluidoEnPlan(m, modulosPlan) && !modulosOcultos.has(m.codigo) && (!m.soloAdmin || esAdmin),
       ),
     }))
     .filter((grupo) => grupo.modulos.length > 0)
@@ -257,10 +280,10 @@ export function moduloDeRuta(pathname: string): ModuloPanel | null {
 }
 
 /** Primer módulo no oculto para el rol actual -- a dónde mandar a alguien cuyo módulo actual (o el dashboard) está oculto. */
-export function primerModuloVisible(modulosOcultos: string[], tipoNegocio?: TipoNegocio): ModuloPanel | null {
+export function primerModuloVisible(modulosOcultos: string[], tipoNegocio?: TipoNegocio, modulosPlan?: readonly string[] | null): ModuloPanel | null {
   const ocultos = new Set(modulosOcultos);
   for (const modulo of MODULOS_PANEL) {
-    if (ocultos.has(modulo.codigo)) continue;
+    if (ocultos.has(modulo.codigo) || !incluidoEnPlan(modulo, modulosPlan)) continue;
     if (modulo.soloAdmin || !aplicaAlTipo(modulo, tipoNegocio)) continue;
     return modulo;
   }
