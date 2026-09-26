@@ -47,7 +47,7 @@ function ReporteVentasTab(): ReactElement {
   const [fechaInicio, setFechaInicio] = useState(haceUnMesISO());
   const [fechaFin, setFechaFin] = useState(hoyISO());
   const [ventas, setVentas] = useState<VentaReporte[]>([]);
-  const [cargando, setCargando] = useState(false);
+  const [cargando, setCargando] = useState(true);
   // Símbolo de la moneda BASE del tenant -- el reporte de ventas es un
   // documento fiscal (como el Libro), así que siempre se totaliza y
   // muestra en esa moneda, nunca mezclando con la moneda propia de cada
@@ -219,7 +219,7 @@ function CierreCajaTab(): ReactElement {
   const [fecha, setFecha] = useState(hoyISO());
   const [totalCaja, setTotalCaja] = useState<TotalCajaPorMoneda[]>([]);
   const [transacciones, setTransacciones] = useState<CierreCajaTransaccion[]>([]);
-  const [cargando, setCargando] = useState(false);
+  const [cargando, setCargando] = useState(true);
 
   const cargar = useCallback(async () => {
     setCargando(true);

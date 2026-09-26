@@ -15,7 +15,10 @@ export default function LibroMayorPage(): ReactElement {
   const [desde, setDesde] = useState('');
   const [hasta, setHasta] = useState('');
   const [datos, setDatos] = useState<LibroMayorResponse | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  // Hasta que `EmpresaSelector` resuelva la lista, no se sabe si hay empresa:
+  // antes se mostraba "Selecciona o crea una empresa" durante la carga.
+  const [empresaResuelta, setEmpresaResuelta] = useState(false);
   const [exportando, setExportando] = useState<'pdf' | 'excel' | null>(null);
 
   useEffect(() => {
@@ -60,7 +63,7 @@ export default function LibroMayorPage(): ReactElement {
         description="Movimientos de una cuenta específica, con saldo corriente."
         actions={
           <div className="flex items-center gap-2">
-            <EmpresaSelector empresaId={empresaId} onChange={(id) => setEmpresaId(id)} />
+            <EmpresaSelector empresaId={empresaId} onChange={(id) => setEmpresaId(id)} onResuelto={() => setEmpresaResuelta(true)} />
             {cuentaId && datos && datos.movimientos.length > 0 && (
               <>
                 <ActionButton variant="secondary" loading={exportando === 'pdf'} onClick={() => exportar('pdf')}><FileDown size={16} /> PDF</ActionButton>
@@ -71,7 +74,9 @@ export default function LibroMayorPage(): ReactElement {
         }
       />
 
-      {!empresaId ? (
+      {!empresaResuelta ? (
+        <TableSkeleton rows={6} />
+      ) : !empresaId ? (
         <Card><EmptyState icon={<FileBarChart size={28} />} title="Selecciona o crea una empresa" description="Necesitas una empresa contable para ver su libro mayor." /></Card>
       ) : (
         <Card>

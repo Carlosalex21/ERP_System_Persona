@@ -241,7 +241,11 @@ export default function TasasCambioPage(): ReactElement {
       {/* Panel de tasas actuales */}
       <Card>
         <CardHeader title={<span className="flex items-center gap-2"><Landmark size={18} /> Tasas Actuales por Moneda</span>} />
-        {entradasActuales.length === 0 ? (
+        {cargando ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" aria-hidden>
+            {Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-24 rounded-xl bg-slate-100 animate-pulse" />)}
+          </div>
+        ) : entradasActuales.length === 0 ? (
           <p className="text-sm text-slate-400">No hay tasas actuales registradas.</p>
         ) : (
           <Stagger className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

@@ -13,7 +13,10 @@ export default function BalanceComprobacionPage(): ReactElement {
   const [desde, setDesde] = useState('');
   const [hasta, setHasta] = useState('');
   const [filas, setFilas] = useState<FilaBalanceComprobacion[] | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  // Hasta que `EmpresaSelector` resuelva la lista, no se sabe si hay empresa:
+  // antes se mostraba "Selecciona o crea una empresa" durante la carga.
+  const [empresaResuelta, setEmpresaResuelta] = useState(false);
   const [exportando, setExportando] = useState<'pdf' | 'excel' | null>(null);
 
   const consultar = useCallback(async (): Promise<void> => {
@@ -55,7 +58,7 @@ export default function BalanceComprobacionPage(): ReactElement {
         description="Suma de débitos/créditos y saldo por cuenta -- confirma que la contabilidad sigue cuadrada."
         actions={
           <div className="flex items-center gap-2">
-            <EmpresaSelector empresaId={empresaId} onChange={(id) => setEmpresaId(id)} />
+            <EmpresaSelector empresaId={empresaId} onChange={(id) => setEmpresaId(id)} onResuelto={() => setEmpresaResuelta(true)} />
             {empresaId && filas && filas.length > 0 && (
               <>
                 <ActionButton variant="secondary" loading={exportando === 'pdf'} onClick={() => exportar('pdf')}><FileDown size={16} /> PDF</ActionButton>
@@ -66,7 +69,9 @@ export default function BalanceComprobacionPage(): ReactElement {
         }
       />
 
-      {!empresaId ? (
+      {!empresaResuelta ? (
+        <TableSkeleton rows={6} />
+      ) : !empresaId ? (
         <Card><EmptyState icon={<Scale size={28} />} title="Selecciona o crea una empresa" description="Necesitas una empresa contable para ver su balance." /></Card>
       ) : (
         <Card>

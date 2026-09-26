@@ -38,7 +38,10 @@ export default function EstadosFinancierosPage(): ReactElement {
   const [desde, setDesde] = useState('');
   const [hasta, setHasta] = useState('');
   const [datos, setDatos] = useState<EstadosFinancierosResponse | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  // Hasta que `EmpresaSelector` resuelva la lista, no se sabe si hay empresa:
+  // antes se mostraba "Selecciona o crea una empresa" durante la carga.
+  const [empresaResuelta, setEmpresaResuelta] = useState(false);
   const [exportando, setExportando] = useState<'pdf' | 'excel' | null>(null);
   const [modalCierreAbierto, setModalCierreAbierto] = useState(false);
 
@@ -77,7 +80,7 @@ export default function EstadosFinancierosPage(): ReactElement {
         description="Balance General y Estado de Resultados, derivados de los asientos contabilizados."
         actions={
           <div className="flex items-center gap-2">
-            <EmpresaSelector empresaId={empresaId} onChange={(id) => setEmpresaId(id)} />
+            <EmpresaSelector empresaId={empresaId} onChange={(id) => setEmpresaId(id)} onResuelto={() => setEmpresaResuelta(true)} />
             {empresaId && datos && (
               <>
                 <ActionButton variant="secondary" loading={exportando === 'pdf'} onClick={() => exportar('pdf')}><FileDown size={16} /> PDF</ActionButton>
@@ -89,7 +92,9 @@ export default function EstadosFinancierosPage(): ReactElement {
         }
       />
 
-      {!empresaId ? (
+      {!empresaResuelta ? (
+        <TableSkeleton rows={6} />
+      ) : !empresaId ? (
         <Card><EmptyState icon={<FileBarChart size={28} />} title="Selecciona o crea una empresa" description="Necesitas una empresa contable para ver sus estados financieros." /></Card>
       ) : (
         <Card>

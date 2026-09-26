@@ -8,6 +8,8 @@ import { getEmpresasContables, getMiEmpresaContable, type EmpresaContable } from
 interface EmpresaSelectorProps {
   empresaId: number | null;
   onChange: (empresaId: number | null, empresa: EmpresaContable | null) => void;
+  /** Se llama una vez resuelta la lista de empresas (haya o no alguna) -- para no mostrar "crea una empresa" mientras aún carga. */
+  onResuelto?: () => void;
 }
 
 /**
@@ -18,7 +20,7 @@ interface EmpresaSelectorProps {
  * propia, resuelta/auto-creada vía `getMiEmpresaContable` -- para esos no
  * tiene sentido mostrar un selector, solo el nombre de su empresa.
  */
-export default function EmpresaSelector({ empresaId, onChange }: EmpresaSelectorProps): ReactElement {
+export default function EmpresaSelector({ empresaId, onChange, onResuelto }: EmpresaSelectorProps): ReactElement {
   const { tenant } = useTenant();
   const esContador = tenant?.tipo_negocio === 'contador';
   const [empresas, setEmpresas] = useState<EmpresaContable[]>([]);
@@ -37,7 +39,10 @@ export default function EmpresaSelector({ empresaId, onChange }: EmpresaSelector
         }
       })
       .catch(() => setEmpresas([]))
-      .finally(() => setCargando(false));
+      .finally(() => {
+        setCargando(false);
+        onResuelto?.();
+      });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tenant, esContador]);
 

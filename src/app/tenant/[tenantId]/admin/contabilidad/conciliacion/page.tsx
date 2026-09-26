@@ -17,7 +17,10 @@ export default function ConciliacionBancariaPage(): ReactElement {
   const [cuentaId, setCuentaId] = useState<number | null>(null);
   const [hasta, setHasta] = useState('');
   const [datos, setDatos] = useState<ConciliacionBancariaResponse | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  // Hasta que `EmpresaSelector` resuelva la lista, no se sabe si hay empresa:
+  // antes se mostraba "Selecciona o crea una empresa" durante la carga.
+  const [empresaResuelta, setEmpresaResuelta] = useState(false);
   const [marcando, setMarcando] = useState<number | null>(null);
 
   useEffect(() => {
@@ -66,10 +69,12 @@ export default function ConciliacionBancariaPage(): ReactElement {
         icon={<Landmark size={20} />}
         title="Conciliación Bancaria"
         description="Cruza los movimientos de Caja/Bancos según libros contra el estado de cuenta real."
-        actions={<EmpresaSelector empresaId={empresaId} onChange={(id) => setEmpresaId(id)} />}
+        actions={<EmpresaSelector empresaId={empresaId} onChange={(id) => setEmpresaId(id)} onResuelto={() => setEmpresaResuelta(true)} />}
       />
 
-      {!empresaId ? (
+      {!empresaResuelta ? (
+        <TableSkeleton rows={6} />
+      ) : !empresaId ? (
         <Card><EmptyState icon={<Landmark size={28} />} title="Selecciona o crea una empresa" description="Necesitas una empresa contable para conciliar sus cuentas." /></Card>
       ) : (
         <Card>

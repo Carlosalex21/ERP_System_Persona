@@ -131,7 +131,9 @@ export default function CurrencySelector({
         <div className="flex items-center justify-between gap-1.5">
           <p className="text-[10px] font-bold text-slate-400 uppercase leading-none shrink-0">Tasa vigente</p>
           <p className="text-xs font-black text-primary-700 leading-tight truncate">
-            {tasaInfo?.es_base
+            {Object.keys(tasasActuales).length === 0
+              ? 'Cargando…'
+              : tasaInfo?.es_base
               ? `${selectedCurrencyCode} (Base)`
               : tasaInfo?.tasa
                 ? `1 ${selectedCurrencyCode} = ${parseDecimal(tasaInfo.tasa).toFixed(4)}`

@@ -16,6 +16,12 @@ interface CacheEntry<T> {
 }
 
 const store = new Map<string, CacheEntry<unknown>>();
+/**
+ * Peticiones en vuelo por clave: si dos componentes piden lo mismo a la vez
+ * (ej. el layout y la página montando juntos), comparten UNA sola petición
+ * en vez de duplicarla contra el backend.
+ */
+const enVuelo = new Map<string, Promise<unknown>>();
 
 /**
  * Devuelve un valor cacheado o ejecuta el fetcher y guarda el resultado.
@@ -35,9 +41,22 @@ export async function cachedGet<T>(
     return entry.data as T;
   }
 
-  const data = await fetcher();
-  store.set(key, { data, expiresAt: now + ttlMs });
-  return data;
+  const pendiente = enVuelo.get(key);
+  if (pendiente) return pendiente as Promise<T>;
+
+  const promesa = fetcher()
+    .then((data) => {
+      store.set(key, { data, expiresAt: Date.now() + ttlMs });
+      return data;
+    })
+    .finally(() => enVuelo.delete(key));
+  enVuelo.set(key, promesa);
+  return promesa;
+}
+
+/** Último valor cacheado (aunque haya expirado) -- para pintar algo al instante mientras se revalida. */
+export function peekCache<T>(key: string): T | undefined {
+  return store.get(key)?.data as T | undefined;
 }
 
 /**
@@ -46,9 +65,11 @@ export async function cachedGet<T>(
  * @param prefix - Prefijo o clave exacta a invalidar.
  */
 export function invalidateCache(prefix: string): void {
-  for (const key of Array.from(store.keys())) {
-    if (key === prefix || key.startsWith(`${prefix}:`)) {
-      store.delete(key);
+  for (const mapa of [store, enVuelo]) {
+    for (const key of Array.from(mapa.keys())) {
+      if (key === prefix || key.startsWith(`${prefix}:`)) {
+        mapa.delete(key);
+      }
     }
   }
 }
@@ -58,4 +79,5 @@ export function invalidateCache(prefix: string): void {
  */
 export function clearCache(): void {
   store.clear();
+  enVuelo.clear();
 }

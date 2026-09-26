@@ -21,7 +21,7 @@ export default function LibrosTable(): ReactElement {
   const [fechaDesde, setFechaDesde] = useState('');
   const [fechaLibroHasta, setFechaLibroHasta] = useState('');
   const [libros, setLibros] = useState<LibroCompraVenta[]>([]);
-  const [cargando, setCargando] = useState(false);
+  const [cargando, setCargando] = useState(true);
   /** El Libro siempre está en la moneda base del tenant (nunca mezcla monedas) -- ver `libros_service.py`. */
   const [monedaBaseCodigo, setMonedaBaseCodigo] = useState('');
 

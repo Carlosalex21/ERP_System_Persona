@@ -1,14 +1,13 @@
 "use client";
 
 import { useState, useEffect, use, useMemo, useCallback, type ReactElement } from 'react';
-import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import type { ColumnDef } from '@tanstack/react-table';
 import {
   Package, AlertTriangle, Plus, Trash2, Pencil, Search, Boxes, DollarSign, XCircle,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
-import { apiPrivada } from '@/services/api';
 import { getApiErrorMessages, getNombreById } from '@/utils/helpers';
 import { roundMoney } from '@/utils/taxCalculator';
 import { DataTable, PageHeader, StatCard, Card, Stagger, StaggerItem, TableSkeleton, ConfirmDialog } from '@/components/ui';
@@ -24,14 +23,17 @@ import { getMonedas } from '@/services/configuracionService';
 import { getDepartamentos } from '@/services/rrhhService';
 
 export default function InventarioPage({ params }: { params: Promise<{ tenantId: string }> }): ReactElement {
-  const { tenantId } = use(params);
-  const router = useRouter();
+  use(params);
 
   // Arranca en `true` (no `false`): el `useEffect` que carga los datos
   // corre después del primer render, así que si esto arrancaba en `false`
   // había un parpadeo de la tabla "vacía" (0 productos) antes de que el
   // efecto alcanzara a poner `cargando=true` y disparar el spinner.
   const [cargando, setCargando] = useState(true);
+  // Guardar/eliminar NO reutiliza `cargando`: antes cada guardado volvía a
+  // pintar la tabla entera como esqueleto (parpadeo) aunque los datos
+  // seguían ahí. Tras una mutación se refresca en segundo plano.
+  const [guardando, setGuardando] = useState(false);
   const [busqueda, setBusqueda] = useState('');
 
   const [productos, setProductos] = useState<Producto[]>([]);
@@ -62,7 +64,6 @@ export default function InventarioPage({ params }: { params: Promise<{ tenantId:
   });
 
   const cargarDatosMaestros = useCallback(async (): Promise<void> => {
-    setCargando(true);
     // Promise.allSettled en vez de Promise.all: si un solo endpoint falla
     // (ej. IVA 500), antes tumbaba TODO el batch y dejaba almacenes/productos
     // vacíos aunque sus propias peticiones sí hubieran funcionado.
@@ -95,7 +96,7 @@ export default function InventarioPage({ params }: { params: Promise<{ tenantId:
     }
 
     setCargando(false);
-  }, [router, tenantId]);
+  }, []);
 
   useEffect(() => {
     cargarDatosMaestros();
@@ -140,6 +141,12 @@ export default function InventarioPage({ params }: { params: Promise<{ tenantId:
     return { total, bajoStock, agotados, valor };
   }, [productos]);
 
+  const faltantes = useMemo(() => [
+    !almacenes.length && { etiqueta: 'un almacén', href: '/admin/inventario/almacenes' },
+    !ivas.length && { etiqueta: 'un impuesto (IVA)', href: '/admin/configuracion/iva' },
+    !categorias.length && { etiqueta: 'una categoría', href: '/admin/inventario/categorias' },
+  ].filter((f): f is { etiqueta: string; href: string } => Boolean(f)), [almacenes, ivas, categorias]);
+
   const cerrarModalProducto = (): void => {
     setModalProducto(false);
     setEditandoId(null);
@@ -156,9 +163,11 @@ export default function InventarioPage({ params }: { params: Promise<{ tenantId:
   };
 
   const abrirCreacion = (): void => {
+    const base = monedas.find(m => m.es_predeterminada) ?? monedas[0];
     setEditandoId(null);
     setEsServicio(false);
     setEsProductoConVariantes(false);
+    setFormProducto(prev => ({ ...prev, moneda: base ? String(base.id) : '' }));
     setModalProducto(true);
   };
 
@@ -202,7 +211,7 @@ export default function InventarioPage({ params }: { params: Promise<{ tenantId:
 
   const guardarProducto = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
-    setCargando(true);
+    setGuardando(true);
 
     const payload: ProductoRequest = {
       ...formProducto,
@@ -289,7 +298,7 @@ export default function InventarioPage({ params }: { params: Promise<{ tenantId:
       } else {
         toast.error("Error al guardar el producto. Revisa que todos los campos obligatorios estén llenos.");
       }
-    } finally { setCargando(false); }
+    } finally { setGuardando(false); }
   };
 
   const handleAñadirVariante = (): void => {
@@ -437,16 +446,20 @@ export default function InventarioPage({ params }: { params: Promise<{ tenantId:
         </div>
       ),
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   ], [categorias]);
 
   // useMemo: tarjetas de estadísticas.
-  const statCards = useMemo(() => [
-    { label: 'Total Productos', value: String(stats.total), icon: <Boxes size={20} />, color: 'bg-primary-600' },
-    { label: 'Bajo Stock', value: String(stats.bajoStock), icon: <AlertTriangle size={20} />, color: 'bg-orange-500' },
-    { label: 'Agotados', value: String(stats.agotados), icon: <XCircle size={20} />, color: 'bg-red-500' },
-    { label: 'Valor Inventario', value: `$${roundMoney(stats.valor)}`, icon: <DollarSign size={20} />, color: 'bg-green-600' },
-  ], [stats]);
+  // Mientras carga se muestra "…" en vez de 0: un "0 productos" momentáneo
+  // se leía como "perdí mi inventario".
+  const statCards = useMemo(() => {
+    const valor = (v: string): string => (cargando ? '…' : v);
+    return [
+      { label: 'Total Productos', value: valor(String(stats.total)), icon: <Boxes size={20} />, color: 'bg-primary-600' },
+      { label: 'Bajo Stock', value: valor(String(stats.bajoStock)), icon: <AlertTriangle size={20} />, color: 'bg-orange-500' },
+      { label: 'Agotados', value: valor(String(stats.agotados)), icon: <XCircle size={20} />, color: 'bg-red-500' },
+      { label: 'Valor Inventario (costo)', value: valor(`$${roundMoney(stats.valor)}`), icon: <DollarSign size={20} />, color: 'bg-green-600' },
+    ];
+  }, [stats, cargando]);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -454,16 +467,11 @@ export default function InventarioPage({ params }: { params: Promise<{ tenantId:
       <PageHeader
         icon={<Package size={20} />}
         title="Catálogo de Productos"
-        description="Gestiona tus productos conectados a la BD de Django."
+        description="Productos, precios y existencias de tu negocio."
         actions={
           <motion.button
             whileTap={{ scale: 0.96 }}
-            onClick={() => {
-              const base = monedas.find(m => m.es_predeterminada) ?? monedas[0];
-              setEditandoId(null);
-              setFormProducto(prev => ({ ...prev, moneda: base ? String(base.id) : '' }));
-              setModalProducto(true);
-            }}
+            onClick={abrirCreacion}
             className="bg-primary-600 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-primary-700 flex items-center justify-center gap-2 shadow-md"
           >
             <Plus size={18} /> Nuevo Producto
@@ -471,15 +479,21 @@ export default function InventarioPage({ params }: { params: Promise<{ tenantId:
         }
       />
 
-      {/* Aviso de configuración inicial */}
-      {(almacenes.length === 0 || ivas.length === 0 || categorias.length === 0) && (
+      {/* Aviso de configuración inicial -- solo con los datos ya cargados
+          (antes aparecía durante la carga porque las listas aún estaban vacías). */}
+      {!cargando && faltantes.length > 0 && (
         <div className="bg-orange-50 border border-orange-200 p-4 rounded-xl flex items-start gap-3">
           <AlertTriangle className="text-orange-500 shrink-0 mt-0.5" size={20} />
           <div>
             <h4 className="font-bold text-orange-800 text-sm">Falta configuración inicial</h4>
             <p className="text-xs text-orange-700 mt-1">
-              Antes de crear tu primer producto, debes ir a la pestaña <strong>"Ajustes de Tienda"</strong> y crear al menos:
-              {!almacenes.length && " un Almacén, "} {!ivas.length && " un Impuesto (IVA), "} {!categorias.length && " una Categoría."}
+              Antes de crear tu primer producto crea al menos:{' '}
+              {faltantes.map((f, i) => (
+                <span key={f.href}>
+                  <Link href={f.href} className="font-bold underline hover:text-orange-900">{f.etiqueta}</Link>
+                  {i < faltantes.length - 1 ? ', ' : '.'}
+                </span>
+              ))}
             </p>
           </div>
         </div>
@@ -549,7 +563,7 @@ export default function InventarioPage({ params }: { params: Promise<{ tenantId:
           monedas={monedas}
           departamentos={departamentos}
           guardarProducto={guardarProducto}
-          cargando={cargando}
+          cargando={guardando}
           setModalProducto={(abierto) => { if (!abierto) cerrarModalProducto(); }}
           editando={!!editandoId}
         />

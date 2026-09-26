@@ -29,7 +29,10 @@ export default function PlanDeCuentasPage(): ReactElement {
   const notify = useNotify();
   const [empresaId, setEmpresaId] = useState<number | null>(null);
   const [cuentas, setCuentas] = useState<CuentaContable[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  // Hasta que `EmpresaSelector` resuelva la lista, no se sabe si hay empresa:
+  // antes se mostraba "Selecciona o crea una empresa" durante la carga.
+  const [empresaResuelta, setEmpresaResuelta] = useState(false);
   const [modalAbierto, setModalAbierto] = useState(false);
   const [editando, setEditando] = useState<CuentaContable | null>(null);
   const [cuentaAEliminar, setCuentaAEliminar] = useState<CuentaContable | null>(null);
@@ -76,7 +79,7 @@ export default function PlanDeCuentasPage(): ReactElement {
         description="El plan de cuentas de la empresa seleccionada -- las cuentas de grupo organizan, solo las hoja reciben asientos."
         actions={
           <div className="flex items-center gap-3">
-            <EmpresaSelector empresaId={empresaId} onChange={(id) => setEmpresaId(id)} />
+            <EmpresaSelector empresaId={empresaId} onChange={(id) => setEmpresaId(id)} onResuelto={() => setEmpresaResuelta(true)} />
             {empresaId && (
               <ActionButton onClick={() => { setEditando(null); setModalAbierto(true); }}>
                 <Plus size={16} /> Nueva Cuenta
@@ -86,7 +89,9 @@ export default function PlanDeCuentasPage(): ReactElement {
         }
       />
 
-      {!empresaId ? (
+      {!empresaResuelta ? (
+        <TableSkeleton rows={6} />
+      ) : !empresaId ? (
         <Card>
           <EmptyState icon={<Calculator size={28} />} title="Selecciona o crea una empresa" description="Necesitas una empresa contable para ver su plan de cuentas." />
         </Card>

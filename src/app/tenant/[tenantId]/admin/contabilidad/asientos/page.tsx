@@ -126,7 +126,10 @@ export default function AsientosContablesPage(): ReactElement {
   const notify = useNotify();
   const [empresaId, setEmpresaId] = useState<number | null>(null);
   const [asientos, setAsientos] = useState<AsientoContable[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  // Hasta que `EmpresaSelector` resuelva la lista, no se sabe si hay empresa:
+  // antes se mostraba "Selecciona o crea una empresa" durante la carga.
+  const [empresaResuelta, setEmpresaResuelta] = useState(false);
   const [modalAbierto, setModalAbierto] = useState(false);
   const [asientoAAnular, setAsientoAAnular] = useState<AsientoContable | null>(null);
   const [anulando, setAnulando] = useState(false);
@@ -197,7 +200,7 @@ export default function AsientosContablesPage(): ReactElement {
         description="Partida doble -- cada asiento debe cuadrar (Debe = Haber) para poder contabilizarse."
         actions={
           <div className="flex items-center gap-3">
-            <EmpresaSelector empresaId={empresaId} onChange={(id) => setEmpresaId(id)} />
+            <EmpresaSelector empresaId={empresaId} onChange={(id) => setEmpresaId(id)} onResuelto={() => setEmpresaResuelta(true)} />
             {empresaId && (
               <ActionButton onClick={() => setModalAbierto(true)}>
                 <Plus size={16} /> Nuevo Asiento
@@ -207,7 +210,9 @@ export default function AsientosContablesPage(): ReactElement {
         }
       />
 
-      {!empresaId ? (
+      {!empresaResuelta ? (
+        <TableSkeleton rows={6} />
+      ) : !empresaId ? (
         <Card><EmptyState icon={<BookOpen size={28} />} title="Selecciona o crea una empresa" description="Necesitas una empresa contable para ver sus asientos." /></Card>
       ) : loading ? (
         <TableSkeleton rows={6} />
