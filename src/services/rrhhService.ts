@@ -5,6 +5,7 @@ import { apiPrivada } from '@/services/api';
 import {
   UserManaged, UserManagedRequest, Rol, Sucursal, SucursalRequest, Departamento, DepartamentoRequest,
   PeriodoNomina, GenerarPeriodoNominaRequest, ConceptoNomina, ConceptoNominaRequest,
+  NominaEmpleado, AgregarConceptoManualRequest,
 } from '@/types/api';
 
 /**
@@ -126,6 +127,26 @@ export const generarPeriodoNomina = async (data: GenerarPeriodoNominaRequest): P
 /** Marca el período como pagado y genera su asiento contable automático (Gasto de Sueldos / Caja). */
 export const pagarPeriodoNomina = async (periodoId: number): Promise<PeriodoNomina> => {
   const response = await apiPrivada.post<PeriodoNomina>(`/rrhh/nomina/${periodoId}/pagar/`);
+  return response.data;
+};
+
+/**
+ * Agrega un concepto puntual (ej. una comisión de ventas del mes, que varía
+ * por empleado) a una línea de nómina ya generada -- solo mientras el
+ * período siga en borrador. Devuelve la línea recalculada.
+ */
+export const agregarConceptoNominaEmpleado = async (
+  nominaEmpleadoId: number, data: AgregarConceptoManualRequest,
+): Promise<NominaEmpleado> => {
+  const response = await apiPrivada.post<NominaEmpleado>(`/rrhh/nomina-empleados/${nominaEmpleadoId}/conceptos/`, data);
+  return response.data;
+};
+
+/** Quita un concepto puntual agregado a mano (no uno recurrente -- ese se desactiva desde Bonos y Deducciones). */
+export const quitarConceptoNominaEmpleado = async (
+  nominaEmpleadoId: number, conceptoAplicadoId: number,
+): Promise<NominaEmpleado> => {
+  const response = await apiPrivada.delete<NominaEmpleado>(`/rrhh/nomina-empleados/${nominaEmpleadoId}/conceptos/${conceptoAplicadoId}/`);
   return response.data;
 };
 

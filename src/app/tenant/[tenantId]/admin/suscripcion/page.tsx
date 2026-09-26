@@ -27,9 +27,9 @@ import toast from 'react-hot-toast';
 import { useSession } from '@/context/SessionContext';
 import {
   getPlanesPublicos, getPlatformPaymentInfo, getPeriodosSuscripcion, crearPagoSuscripcionDesdeAdmin,
-  getTasaBcvPlataforma,
+  getTasaBcvPlataforma, cotizarPagoSuscripcion,
 } from '@/services/platformBillingService';
-import { Plan, PlatformPaymentInfo, MetodoPagoSuscripcion, PeriodoSuscripcion, PeriodoSuscripcionInfo } from '@/types/api';
+import { Plan, PlatformPaymentInfo, MetodoPagoSuscripcion, PeriodoSuscripcion, PeriodoSuscripcionInfo, CotizarSuscripcionResponse } from '@/types/api';
 import { PageHeader, Card, Stagger, StaggerItem } from '@/components/ui';
 import { beneficiosDePlan } from '@/utils/planes';
 
@@ -98,6 +98,7 @@ function SuscripcionAdminContent(): ReactElement {
   const [referencia, setReferencia] = useState('');
   const [enviando, setEnviando] = useState(false);
   const [pagoEnviado, setPagoEnviado] = useState(false);
+  const [cotizacion, setCotizacion] = useState<CotizarSuscripcionResponse | null>(null);
 
   const sub = tenant?.subscription_status;
 
@@ -146,10 +147,25 @@ function SuscripcionAdminContent(): ReactElement {
   const periodoInfo = periodos.find((p) => p.codigo === periodoSeleccionado);
   const plan = planes.find((p) => p.id === planSeleccionadoId) || null;
   const esRenovacion = !!sub?.plan_id && !!plan && sub.plan_id === plan.id;
-  const montoSeleccionado = plan ? calcularMontoPeriodo(parseFloat(plan.precio), periodoInfo) : 0;
+  const montoListaSeleccionado = plan ? calcularMontoPeriodo(parseFloat(plan.precio), periodoInfo) : 0;
+  // El monto real a cobrar viene del backend (`cotizarPagoSuscripcion`), que
+  // ya descuenta el crédito por el tiempo no consumido del plan actual en un
+  // upgrade a mitad de período -- mientras carga (o si falla), se muestra el
+  // precio de lista como mejor aproximación.
+  const montoSeleccionado = cotizacion ? parseFloat(cotizacion.monto) : montoListaSeleccionado;
+  const creditoAplicado = cotizacion ? parseFloat(cotizacion.credito) : 0;
   // Equivalente en Bs. a la tasa BCV del día -- Pago Móvil solo admite
   // bolívares y antes el tenant tenía que calcularlo por su cuenta.
   const montoBs = tasaBcv ? Math.round(montoSeleccionado * tasaBcv * 100) / 100 : null;
+
+  useEffect(() => {
+    if (!plan) { setCotizacion(null); return; }
+    let cancelado = false;
+    cotizarPagoSuscripcion(plan.id, periodoSeleccionado)
+      .then((c) => { if (!cancelado) setCotizacion(c); })
+      .catch(() => { if (!cancelado) setCotizacion(null); });
+    return () => { cancelado = true; };
+  }, [plan, periodoSeleccionado]);
 
   const diferenciaVsPlanActual = useMemo(() => {
     if (!plan || !sub?.plan_precio || esPrueba) return null;
@@ -362,6 +378,12 @@ function SuscripcionAdminContent(): ReactElement {
               <CalendarCheck2 size={14} className="text-primary-600 shrink-0" />
               Tu suscripción quedará activa hasta el <strong>{fechaVencimientoTexto}</strong>
               {esVenezuela && ' (una vez confirmemos tu pago)'}
+            </p>
+          )}
+          {creditoAplicado > 0 && (
+            <p className="text-xs text-green-700 bg-green-50 border border-green-100 rounded-lg px-3 py-2 flex items-center gap-1.5">
+              <TrendingDown size={14} className="text-green-600 shrink-0" />
+              Se te acreditaron <strong>${creditoAplicado.toFixed(2)}</strong> por el tiempo que aún no usaste de tu plan actual -- solo pagas la diferencia (precio de lista: ${montoListaSeleccionado.toFixed(2)}).
             </p>
           )}
 

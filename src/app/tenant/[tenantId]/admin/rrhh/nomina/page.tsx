@@ -1,15 +1,16 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, type ReactElement } from 'react';
-import { Plus, Wallet, ChevronDown, ChevronRight, CheckCircle2, Loader2, Printer, Settings2, ListChecks } from 'lucide-react';
+import { Plus, Wallet, ChevronDown, ChevronRight, CheckCircle2, Loader2, Printer, Settings2, ListChecks, CircleDollarSign, X } from 'lucide-react';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 
 import { PageHeader, Card, EmptyState, TableSkeleton, Badge, ActionButton } from '@/components/ui';
-import { getPeriodosNomina, pagarPeriodoNomina, verReciboNominaPdf } from '@/services/rrhhService';
-import type { PeriodoNomina } from '@/types/api';
+import { getPeriodosNomina, pagarPeriodoNomina, verReciboNominaPdf, quitarConceptoNominaEmpleado } from '@/services/rrhhService';
+import type { PeriodoNomina, NominaEmpleado } from '@/types/api';
 import GenerarNominaModal from './GenerarNominaModal';
 import ConceptosNominaTab from './ConceptosNominaTab';
+import AgregarConceptoManualModal from './AgregarConceptoManualModal';
 import { useMonedaVista } from '@/context/MonedaVistaContext';
 
 function PeriodosNominaTab(): ReactElement {
@@ -20,6 +21,31 @@ function PeriodosNominaTab(): ReactElement {
   const [expandido, setExpandido] = useState<number | null>(null);
   const [pagando, setPagando] = useState<number | null>(null);
   const [imprimiendo, setImprimiendo] = useState<number | null>(null);
+  const [conceptoModalPara, setConceptoModalPara] = useState<NominaEmpleado | null>(null);
+  const [quitandoConcepto, setQuitandoConcepto] = useState<number | null>(null);
+
+  // Reemplaza UNA línea de empleado ya actualizada (tras agregar/quitar un
+  // concepto manual) sin tener que recargar todo el período -- recalcula
+  // `total_nomina` en el cliente para que no quede desactualizado.
+  const actualizarEmpleadoEnEstado = useCallback((actualizado: NominaEmpleado): void => {
+    setPeriodos((prev) => prev.map((p) => {
+      if (!p.empleados.some((e) => e.id === actualizado.id)) return p;
+      const empleados = p.empleados.map((e) => (e.id === actualizado.id ? actualizado : e));
+      const total_nomina = String(empleados.reduce((acc, e) => acc + parseFloat(e.total_pagar), 0));
+      return { ...p, empleados, total_nomina };
+    }));
+  }, []);
+
+  const quitarConcepto = async (nominaEmpleadoId: number, conceptoId: number): Promise<void> => {
+    setQuitandoConcepto(conceptoId);
+    try {
+      actualizarEmpleadoEnEstado(await quitarConceptoNominaEmpleado(nominaEmpleadoId, conceptoId));
+    } catch {
+      toast.error('No se pudo quitar el concepto.');
+    } finally {
+      setQuitandoConcepto(null);
+    }
+  };
 
   const cargar = useCallback(async (): Promise<void> => {
     setCargando(true);
@@ -141,6 +167,41 @@ function PeriodosNominaTab(): ReactElement {
                                 <td className="px-8 py-2 font-bold text-slate-700">
                                   {e.usuario_nombre}
                                   {e.numero_empleado && <span className="text-slate-400 font-normal"> ({e.numero_empleado})</span>}
+                                  {(e.conceptos.length > 0 || p.estado === 'borrador') && (
+                                    <div className="flex flex-wrap gap-1 mt-1">
+                                      {e.conceptos.map((c) => (
+                                        <span
+                                          key={c.id}
+                                          className={`inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
+                                            c.tipo === 'bono' ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'
+                                          }`}
+                                        >
+                                          {c.nombre}: {c.tipo === 'bono' ? '+' : '-'}{formatear(parseFloat(c.monto))}
+                                          {c.concepto === null && p.estado === 'borrador' && (
+                                            <button
+                                              type="button"
+                                              onClick={(ev) => { ev.stopPropagation(); quitarConcepto(e.id, c.id); }}
+                                              disabled={quitandoConcepto === c.id}
+                                              title="Quitar este concepto"
+                                              className="hover:text-red-800 disabled:opacity-40"
+                                            >
+                                              <X size={10} />
+                                            </button>
+                                          )}
+                                        </span>
+                                      ))}
+                                      {p.estado === 'borrador' && (
+                                        <button
+                                          type="button"
+                                          onClick={(ev) => { ev.stopPropagation(); setConceptoModalPara(e); }}
+                                          title="Agregar concepto puntual (ej. una comisión)"
+                                          className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full border border-dashed border-primary-300 text-primary-600 hover:bg-primary-50"
+                                        >
+                                          <CircleDollarSign size={10} /> Concepto
+                                        </button>
+                                      )}
+                                    </div>
+                                  )}
                                 </td>
                                 <td className="px-4 py-2 text-right font-mono text-slate-500">{formatear(parseFloat(e.sueldo_base))}</td>
                                 <td className="px-4 py-2 text-right font-mono text-red-500">
@@ -182,6 +243,14 @@ function PeriodosNominaTab(): ReactElement {
 
       {modalAbierto && (
         <GenerarNominaModal onClose={() => setModalAbierto(false)} onSaved={() => { setModalAbierto(false); cargar(); }} />
+      )}
+
+      {conceptoModalPara && (
+        <AgregarConceptoManualModal
+          nominaEmpleado={conceptoModalPara}
+          onClose={() => setConceptoModalPara(null)}
+          onSaved={(actualizado) => { actualizarEmpleadoEnEstado(actualizado); setConceptoModalPara(null); }}
+        />
       )}
     </div>
   );

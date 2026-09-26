@@ -16,14 +16,14 @@ import {
   cancelarPedidoMesa,
   type PedidoMesa,
 } from '@/services/restaurantesService';
-import { getProductos } from '@/services/inventoryService';
+import { getProductos, getCategorias } from '@/services/inventoryService';
 import { getMetodosDePago } from '@/services/facturacionService';
 import { getClientes } from '@/services/clientesService';
 import { getTasasCambioActual, getMonedas, type TasaCambioActual } from '@/services/configuracionService';
 import { useLiveSocket } from '@/hooks/useLiveSocket';
 import { usePinAutorizacion } from '@/hooks/usePinAutorizacion';
 import PinAutorizacionModal from '@/components/PinAutorizacionModal';
-import type { Producto, MetodoPago, Moneda, Cliente } from '@/types/api';
+import type { Producto, MetodoPago, Moneda, Cliente, Categoria } from '@/types/api';
 import ClientModal from '../../../pos/components/ClientModal';
 import { useMonedaVista } from '@/context/MonedaVistaContext';
 
@@ -41,6 +41,8 @@ export default function PedidoMesaModal({ pedidoId, onClose, onPedidoCerrado }: 
   const pinAuth = usePinAutorizacion();
   const [pedido, setPedido] = useState<PedidoMesa | null>(null);
   const [productos, setProductos] = useState<Producto[]>([]);
+  const [categorias, setCategorias] = useState<Categoria[]>([]);
+  const [categoriaFiltro, setCategoriaFiltro] = useState<number | 'todas'>('todas');
   const [busqueda, setBusqueda] = useState('');
   const [vista, setVista] = useState<'items' | 'cobrar' | 'qr'>('items');
   const [metodosPago, setMetodosPago] = useState<MetodoPago[]>([]);
@@ -81,6 +83,10 @@ export default function PedidoMesaModal({ pedidoId, onClose, onPedidoCerrado }: 
   useEffect(() => {
     cargarPedido();
     getProductos().then(setProductos).catch(() => setProductos([]));
+    // Categorías del menú -- dejan que el mesero navegue por rubro (Entradas,
+    // Bebidas, Postres...) en vez de tener que escribir/buscar cada plato,
+    // que se vuelve tedioso apenas el catálogo crece.
+    getCategorias().then(setCategorias).catch(() => setCategorias([]));
     getTasasCambioActual().then(setTasas).catch(() => setTasas({}));
     // Refresco periódico -- para que el mesero vea si alguien tocó "Llamar
     // al mesero"/"Pedir la cuenta" desde el QR mientras tiene este modal
@@ -158,7 +164,7 @@ export default function PedidoMesaModal({ pedidoId, onClose, onPedidoCerrado }: 
     try {
       setPedido(await quitarItemPedido(pedidoId, itemId, eliminarTodo));
     } catch {
-      notify.error('No se pudo quitar el ítem.');
+      notify.error('No se pudo quitar la comanda.');
       setPedido(anterior);
     } finally {
       mutacionesEnVuelo.current -= 1;
@@ -183,7 +189,7 @@ export default function PedidoMesaModal({ pedidoId, onClose, onPedidoCerrado }: 
 
   const abrirCobrar = async (): Promise<void> => {
     if (!pedido?.items.length) {
-      notify.error('Agrega al menos un ítem antes de cobrar.');
+      notify.error('Agrega al menos una comanda antes de cobrar.');
       return;
     }
     try {
@@ -231,8 +237,13 @@ export default function PedidoMesaModal({ pedidoId, onClose, onPedidoCerrado }: 
   };
 
   const productosFiltrados = productos
-    .filter((p) => !p.es_insumo && p.nombre.toLowerCase().includes(busqueda.toLowerCase()))
-    .slice(0, 20);
+    .filter((p) => !p.es_insumo)
+    .filter((p) => p.nombre.toLowerCase().includes(busqueda.toLowerCase()))
+    .filter((p) => categoriaFiltro === 'todas' || p.categoria === categoriaFiltro)
+    .slice(0, 30);
+  const categoriasConProductos = categorias.filter(
+    (c) => c.activo && productos.some((p) => !p.es_insumo && p.categoria === c.id),
+  );
   const subdominio = getTenantSubdomain();
   const urlCuenta = pedido && subdominio ? tenantUrl(subdominio, `/cuenta/${pedido.token_publico}`) : '';
   const referenciaTotal = pedido ? referenciaEnMonedaBase(parseFloat(pedido.total), tasas) : null;
@@ -447,6 +458,31 @@ export default function PedidoMesaModal({ pedidoId, onClose, onPedidoCerrado }: 
 
           {/* Buscador de productos */}
           <div>
+            {categoriasConProductos.length > 0 && (
+              <div className="flex gap-1.5 flex-wrap mb-2">
+                <button
+                  type="button"
+                  onClick={() => setCategoriaFiltro('todas')}
+                  className={`px-2.5 py-1 rounded-full text-xs font-bold border-2 transition-colors ${
+                    categoriaFiltro === 'todas' ? 'border-primary-600 bg-primary-50 text-primary-700' : 'border-slate-200 text-slate-500'
+                  }`}
+                >
+                  Todas
+                </button>
+                {categoriasConProductos.map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => setCategoriaFiltro(c.id)}
+                    className={`px-2.5 py-1 rounded-full text-xs font-bold border-2 transition-colors ${
+                      categoriaFiltro === c.id ? 'border-primary-600 bg-primary-50 text-primary-700' : 'border-slate-200 text-slate-500'
+                    }`}
+                  >
+                    {c.nombre}
+                  </button>
+                ))}
+              </div>
+            )}
             <div className="relative mb-3">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
               <input

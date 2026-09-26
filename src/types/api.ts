@@ -376,10 +376,17 @@ export interface ConceptoNominaRequest {
 /** Snapshot de un `ConceptoNomina` ya aplicado a una línea de nómina de un período específico. */
 export interface NominaEmpleadoConcepto {
   id: number;
-  concepto: number;
+  /** `null` = concepto puntual agregado a mano a esta línea (ej. una comisión) -- no viene de un `ConceptoNomina` recurrente. */
+  concepto: number | null;
   nombre: string;
   tipo: TipoConceptoNomina;
   monto: string;
+}
+
+export interface AgregarConceptoManualRequest {
+  nombre: string;
+  tipo: TipoConceptoNomina;
+  monto: number;
 }
 
 export interface NominaEmpleado {
@@ -1139,6 +1146,13 @@ export interface PeriodoSuscripcionInfo {
   meses: number;
   dias: number;
   descuento_pct: number;
+}
+
+export interface CotizarSuscripcionResponse {
+  monto: string;
+  credito: string;
+  monto_lista: string;
+  es_upgrade_con_credito: boolean;
 }
 
 export interface MiCliente {

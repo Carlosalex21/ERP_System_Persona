@@ -59,7 +59,7 @@ export default function CocinaPage(): ReactElement {
       await marcarItemPreparado(pedidoId, itemId);
       cargar();
     } catch {
-      notify.error('No se pudo actualizar el ítem.');
+      notify.error('No se pudo actualizar la comanda.');
     } finally {
       setMarcando(null);
     }

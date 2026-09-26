@@ -20,6 +20,8 @@ import {
   PlatformSettings,
   PlatformSettingsRequest,
   PeriodoSuscripcionInfo,
+  CotizarSuscripcionResponse,
+  PeriodoSuscripcion,
 } from '@/types/api';
 
 /**
@@ -81,6 +83,21 @@ export const crearPagoSuscripcionDesdeAdmin = async (
   data: Omit<CrearPagoSuscripcionRequest, 'client_id'>,
 ): Promise<CrearPagoSuscripcionResponse> => {
   const response = await apiPrivada.post<CrearPagoSuscripcionResponse>('/tenants/pagos-suscripcion-admin/', data);
+  return response.data;
+};
+
+/**
+ * Monto real que se le cobrará al tenant actual por `planId`/`periodo`, con
+ * el crédito por upgrade a mitad de período ya aplicado -- la pantalla de
+ * suscripción usa esto para mostrar (y cobrar manualmente vía Pago Móvil/
+ * Zelle) el monto correcto en vez del precio de lista completo.
+ */
+export const cotizarPagoSuscripcion = async (
+  planId: number, periodo: PeriodoSuscripcion,
+): Promise<CotizarSuscripcionResponse> => {
+  const response = await apiPrivada.get<CotizarSuscripcionResponse>('/tenants/cotizar-suscripcion/', {
+    params: { plan_id: planId, periodo },
+  });
   return response.data;
 };
 
