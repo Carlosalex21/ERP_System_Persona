@@ -16,6 +16,8 @@ import type { AlertaItem, TipoAlerta } from '@/services/reportesService';
 import { getPaisInfo } from '@/utils/paises';
 import OnboardingTour from '@/components/tour/OnboardingTour';
 import CommandPalette from '@/components/CommandPalette';
+import FaqChatWidget from '@/components/FaqChatWidget';
+import { FAQ_PANEL } from '@/data/faqPanel';
 import toast from 'react-hot-toast';
 import { cerrarSesion, onLogoutEnOtraPestana } from '@/utils/authSession';
 import { incluidoEnPlan, moduloDeRuta, primerModuloVisible } from '@/utils/modulosPanel';
@@ -510,6 +512,7 @@ export default function AdminLayout({ params, children }: AdminLayoutProps): Rea
         </AdminShell>
         <OnboardingTour />
         <CommandPalette />
+        <FaqChatWidget titulo="Centro de ayuda" faqs={FAQ_PANEL} />
       </MonedaVistaProvider>
     </SessionProvider>
   );

@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import CookieConsent from '@/components/CookieConsent';
 import MarketingNav from '@/components/marketing/MarketingNav';
+import FaqChatWidget from '@/components/FaqChatWidget';
+import { FAQ_LANDING } from '@/data/faqLanding';
 
 export default function MainLayout({
   children,
@@ -51,6 +53,7 @@ export default function MainLayout({
         </div>
       </footer>
       <CookieConsent />
+      <FaqChatWidget titulo="¿En qué te ayudamos?" faqs={FAQ_LANDING} />
     </div>
   );
 }
