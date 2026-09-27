@@ -5,7 +5,8 @@ import { Plus, Wallet, ChevronDown, ChevronRight, CheckCircle2, Loader2, Printer
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 
-import { PageHeader, Card, EmptyState, TableSkeleton, Badge, ActionButton } from '@/components/ui';
+import { PageHeader, Card, EmptyState, TableSkeleton, Badge, ActionButton, ExportButton } from '@/components/ui';
+import type { ColumnaExport } from '@/utils/exportarDatos';
 import { getPeriodosNomina, pagarPeriodoNomina, verReciboNominaPdf, quitarConceptoNominaEmpleado } from '@/services/rrhhService';
 import type { PeriodoNomina, NominaEmpleado } from '@/types/api';
 import GenerarNominaModal from './GenerarNominaModal';
@@ -85,9 +86,28 @@ function PeriodosNominaTab(): ReactElement {
     }
   };
 
+  // Una fila por empleado por período -- lo que un contador/seguro social
+  // pide como reporte de nómina, no solo el total por período.
+  const filasExport = periodos.flatMap((p) => p.empleados.map((e) => ({ periodo: p, empleado: e })));
+  const columnasExport: ColumnaExport<typeof filasExport[number]>[] = [
+    { label: 'Período', value: (f) => `${f.periodo.fecha_desde} al ${f.periodo.fecha_hasta}` },
+    { label: 'Estado', value: (f) => (f.periodo.estado === 'pagada' ? 'Pagada' : 'Borrador') },
+    { label: 'Empleado', value: (f) => f.empleado.usuario_nombre },
+    { label: 'N° Empleado', value: (f) => f.empleado.numero_empleado || '' },
+    { label: 'Sueldo Base', value: (f) => f.empleado.sueldo_base },
+    { label: 'Días Ausencia', value: (f) => f.empleado.dias_ausencia },
+    { label: 'Deducción Ausencias', value: (f) => f.empleado.deduccion_ausencias },
+    { label: 'Horas Extra', value: (f) => f.empleado.horas_extra },
+    { label: 'Pago Horas Extra', value: (f) => f.empleado.pago_horas_extra },
+    { label: 'Bonificaciones', value: (f) => f.empleado.bonificaciones },
+    { label: 'Otras Deducciones', value: (f) => f.empleado.otras_deducciones },
+    { label: 'Total a Pagar', value: (f) => f.empleado.total_pagar },
+  ];
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-end">
+      <div className="flex items-center justify-end gap-2">
+        <ExportButton data={filasExport} columns={columnasExport} filename="reporte-nomina" label="Exportar reporte" />
         <motion.button
           whileTap={{ scale: 0.96 }}
           onClick={() => setModalAbierto(true)}

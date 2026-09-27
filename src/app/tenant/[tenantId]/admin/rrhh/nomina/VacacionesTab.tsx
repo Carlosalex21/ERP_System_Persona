@@ -1,9 +1,10 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, type ReactElement } from 'react';
-import { CalendarDays, ChevronDown, ChevronRight, Loader2, Plus, Calculator, Trash2, Settings2 } from 'lucide-react';
+import { CalendarDays, ChevronDown, ChevronRight, Loader2, Plus, Calculator, Trash2, Settings2, Download } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Card, EmptyState, TableSkeleton, Badge, ActionButton } from '@/components/ui';
+import { exportarCSV } from '@/utils/exportarDatos';
 import {
   getManagedUsers, getVacacionesEmpleado, eliminarVacacionTomada,
   getConfiguracionRRHH, updateConfiguracionRRHH,
@@ -96,6 +97,7 @@ export default function VacacionesTab(): ReactElement {
   const [eliminando, setEliminando] = useState<number | null>(null);
   const [modalVacacionPara, setModalVacacionPara] = useState<UserManaged | null>(null);
   const [modalLiquidacionPara, setModalLiquidacionPara] = useState<UserManaged | null>(null);
+  const [preparandoExport, setPreparandoExport] = useState(false);
 
   const cargar = useCallback(async (): Promise<void> => {
     setCargando(true);
@@ -129,6 +131,42 @@ export default function VacacionesTab(): ReactElement {
     setResumenes((prev) => ({ ...prev, [usuarioId]: resumen }));
   };
 
+  // Trae el resumen de los empleados que todavía no se han expandido -- para
+  // que "Exportar" incluya a todos, no solo a los que el admin ya abrió.
+  const prepararExport = async (): Promise<Record<number, VacacionesResumen>> => {
+    setPreparandoExport(true);
+    try {
+      const faltantes = empleados.filter((e) => !resumenes[e.usuario_id]);
+      const nuevos = await Promise.all(faltantes.map((e) => getVacacionesEmpleado(e.usuario_id)));
+      const combinados = { ...resumenes };
+      faltantes.forEach((e, i) => { combinados[e.usuario_id] = nuevos[i]; });
+      setResumenes(combinados);
+      return combinados;
+    } catch {
+      toast.error('No se pudo preparar el reporte.');
+      return resumenes;
+    } finally {
+      setPreparandoExport(false);
+    }
+  };
+
+  const exportar = async (): Promise<void> => {
+    const combinados = await prepararExport();
+    const filas = empleados.map((e) => ({ empleado: e, resumen: combinados[e.usuario_id] }));
+    exportarCSV(
+      filas,
+      [
+        { label: 'Empleado', value: (f) => `${f.empleado.first_name} ${f.empleado.last_name}` },
+        { label: 'Fecha de Contratación', value: (f) => f.empleado.fecha_contratacion || '' },
+        { label: 'Antigüedad (años)', value: (f) => f.resumen?.antiguedad_anios ?? '' },
+        { label: 'Días Acumulados', value: (f) => f.resumen?.dias_acumulados ?? '' },
+        { label: 'Días Tomados', value: (f) => f.resumen?.dias_tomados ?? '' },
+        { label: 'Días Disponibles', value: (f) => f.resumen?.dias_disponibles ?? '' },
+      ],
+      'reporte-vacaciones',
+    );
+  };
+
   const quitarTomada = async (usuarioId: number, vacacionId: number): Promise<void> => {
     setEliminando(vacacionId);
     try {
@@ -157,6 +195,16 @@ export default function VacacionesTab(): ReactElement {
   return (
     <div className="space-y-6">
       <ConfiguracionVacaciones />
+      <div className="flex items-center justify-end">
+        <button
+          type="button"
+          onClick={exportar}
+          disabled={preparandoExport}
+          className="inline-flex items-center gap-1.5 px-3 py-2 border border-slate-200 rounded-lg text-xs font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-40 transition-colors"
+        >
+          {preparandoExport ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />} Exportar reporte
+        </button>
+      </div>
       <Card padding="none" className="overflow-hidden">
         <table className="w-full text-left text-sm">
           <thead>
