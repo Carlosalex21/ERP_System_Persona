@@ -9,6 +9,7 @@ import AlmacenModal from './AlmacenModal';
 import { getAlmacenes, createAlmacen, updateAlmacen, deleteAlmacen } from '@/services/inventoryService';
 import type { Almacen, AlmacenRequest } from '@/types/api';
 import { PageHeader, Card, EmptyState, CardGridSkeleton, Stagger, StaggerItem, ConfirmDialog } from '@/components/ui';
+import { toastApiError } from '@/utils/errors';
 
 export default function AlmacenesPage(): ReactElement {
   const [almacenes, setAlmacenes] = useState<Almacen[]>([]);
@@ -58,7 +59,11 @@ export default function AlmacenesPage(): ReactElement {
       await cargar();
     } catch (error) {
       console.error('Error guardando almacén:', error);
-      toast.error('No se pudo guardar el almacén. Revisa los datos.');
+      // El motivo más común acá es el límite de sucursales del plan
+      // contratado (`apps.core.plan_limits.verificar_limite`, 403) -- antes
+      // se mostraba un genérico "revisa los datos" que no decía nada sobre
+      // el plan, dejando al dueño pensando que el sistema estaba fallando.
+      toastApiError(error, 'No se pudo guardar el almacén. Revisa los datos.');
     } finally {
       setSaving(false);
     }
