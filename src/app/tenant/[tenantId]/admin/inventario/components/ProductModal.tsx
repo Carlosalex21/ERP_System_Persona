@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
-import { ImagePlus, Package, X } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { ImagePlus, Package, X, Boxes, Layers, Wrench } from 'lucide-react';
 import VariantFields from './VariantFields';
 import PresentacionesFields, { PresentacionForm } from './PresentacionesFields';
 import IvaVisualSelector from './IvaVisualSelector';
@@ -170,34 +171,41 @@ export default function ProductModal({
             pantalla solo edita los campos simples de un producto ya
             existente, no agrega/quita variantes ni cambia entre tipos. */}
         {!editando && (
-        <div className="p-2 bg-slate-100 rounded-lg">
-          <label className="block text-xs font-bold text-slate-500 uppercase mb-2 px-1">Tipo de Producto</label>
-          <div className="grid grid-cols-3 gap-1.5">
-            <button
-              type="button"
-              onClick={() => { setEsProductoConVariantes(false); setEsServicio(false); }}
-              className={`py-2 rounded-lg text-xs font-bold transition-colors ${!esProductoConVariantes && !esServicio ? 'bg-white text-primary-700 shadow-sm' : 'text-slate-500'}`}
-            >
-              Simple
-            </button>
-            <button
-              type="button"
-              onClick={() => { setEsProductoConVariantes(true); setEsServicio(false); }}
-              className={`py-2 rounded-lg text-xs font-bold transition-colors ${esProductoConVariantes ? 'bg-white text-primary-700 shadow-sm' : 'text-slate-500'}`}
-            >
-              Con Variantes
-            </button>
-            <button
-              type="button"
-              onClick={() => { setEsServicio(true); setEsProductoConVariantes(false); }}
-              className={`py-2 rounded-lg text-xs font-bold transition-colors ${esServicio ? 'bg-white text-primary-700 shadow-sm' : 'text-slate-500'}`}
-            >
-              Servicio
-            </button>
+        <div className="p-1.5 bg-slate-100/80 rounded-2xl ring-1 ring-slate-900/[0.04]">
+          <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wide mb-1.5 px-1.5 pt-0.5">Tipo de Producto</label>
+          <div className="relative grid grid-cols-3 gap-1">
+            {[
+              { id: 'simple', label: 'Simple', icon: <Boxes size={14} />, activo: !esProductoConVariantes && !esServicio, onClick: () => { setEsProductoConVariantes(false); setEsServicio(false); } },
+              { id: 'variantes', label: 'Con Variantes', icon: <Layers size={14} />, activo: esProductoConVariantes, onClick: () => { setEsProductoConVariantes(true); setEsServicio(false); } },
+              { id: 'servicio', label: 'Servicio', icon: <Wrench size={14} />, activo: esServicio, onClick: () => { setEsServicio(true); setEsProductoConVariantes(false); } },
+            ].map((tipo) => (
+              <button
+                key={tipo.id}
+                type="button"
+                onClick={tipo.onClick}
+                className="relative py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5"
+              >
+                {tipo.activo && (
+                  <motion.div
+                    layoutId="tipo-producto-pill"
+                    className="absolute inset-0 bg-white rounded-xl shadow-[0_1px_2px_rgba(15,23,42,0.04),0_6px_16px_-4px_rgba(15,23,42,0.14)]"
+                    transition={{ type: 'spring', stiffness: 500, damping: 32 }}
+                  />
+                )}
+                <span className={`relative z-10 flex items-center gap-1.5 transition-colors duration-200 ${tipo.activo ? 'text-primary-700' : 'text-slate-500 hover:text-slate-700'}`}>
+                  {tipo.icon} {tipo.label}
+                </span>
+              </button>
+            ))}
           </div>
           {esServicio && (
-            <p className="text-[11px] text-slate-500 px-1 mt-2">
+            <p className="text-[11px] text-slate-500 px-1.5 pt-2 pb-0.5">
               Algo que se cobra pero no es un ítem físico (ej. &quot;Servicio Técnico&quot;, &quot;Mano de Obra&quot;, &quot;Consulta&quot;) -- sin stock, almacén ni código de barras.
+            </p>
+          )}
+          {esProductoConVariantes && (
+            <p className="text-[11px] text-slate-500 px-1.5 pt-2 pb-0.5">
+              Cada variante trae su propio precio, costo y stock -- el producto padre solo agrupa nombre, categoría e impuesto.
             </p>
           )}
         </div>

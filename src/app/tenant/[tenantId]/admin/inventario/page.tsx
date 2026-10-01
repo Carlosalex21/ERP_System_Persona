@@ -221,10 +221,30 @@ export default function InventarioPage({ params }: { params: Promise<{ tenantId:
 
   const guardarProducto = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
+
+    // Un producto "Con Variantes" no tiene un precio propio (cada variante
+    // trae el suyo) -- validar ESTO antes de crear nada evita el caso feo de
+    // dejar el producto padre creado sin ninguna variante porque una de
+    // ellas falló después, a mitad de camino.
+    if (!editandoId && esProductoConVariantes) {
+      const faltante = variantes.find((v) => !v.nombre.trim() || !v.precio.trim());
+      if (faltante) {
+        toast.error('Cada variante necesita al menos un nombre y un precio antes de guardar.');
+        return;
+      }
+    }
+
     setGuardando(true);
 
     const payload: ProductoRequest = {
       ...formProducto,
+      // El precio de un producto "Con Variantes" (o un servicio sin precio
+      // fijo propio) no vive en el padre -- si se deja pasar el valor crudo
+      // del campo (oculto, nunca tocado, sigue siendo "") un campo numérico
+      // del backend lo rechaza como "no es un número válido". Esto era lo
+      // que obligaba a pasar por los campos de "Producto Simple" para poder
+      // guardar, aunque el usuario estuviera creando uno con variantes.
+      precio: esProductoConVariantes ? null : (formProducto.precio.trim() || null),
       // Código de barras y SKU son únicos pero opcionales -- si se manda ""
       // (en vez de omitir el campo) dos productos sin código chocan contra
       // la restricción de unicidad ("ya existe") aunque ninguno tenga uno
@@ -240,7 +260,13 @@ export default function InventarioPage({ params }: { params: Promise<{ tenantId:
       // `ProductoSerializer.update()`): tocar el costo de un producto que ya
       // tiene stock debe pasar por un Ajuste de Inventario, para que se
       // promedie en vez de pisarse.
-      costo_promedio: esServicio ? null : (formProducto.costo_promedio.trim() || null),
+      //
+      // `Producto.costo_promedio` NO admite nulo (`default=0`, no
+      // `null=True`) -- un servicio o un producto "Con Variantes" (que
+      // nunca muestran este campo) mandaban `null` aquí y el backend lo
+      // rechazaba SIEMPRE con "este campo no puede ser nulo", sin importar
+      // qué tan bien llenado estuviera el resto del formulario.
+      costo_promedio: (esServicio || esProductoConVariantes) ? '0' : (formProducto.costo_promedio.trim() || '0'),
       almacen: esServicio ? null : (Number(formProducto.almacen) || null),
       es_insumo: esServicio ? false : formProducto.es_insumo,
       configuracion_iva: Number(formProducto.configuracion_iva) || null,
@@ -270,6 +296,12 @@ export default function InventarioPage({ params }: { params: Promise<{ tenantId:
             ...variante,
             codigo_barras: variante.codigo_barras.trim() || null,
             sku: variante.sku.trim() || null,
+            // `Variacionproducto.costo_promedio` tampoco admite nulo ni
+            // cadena vacía (mismo motivo que en el producto padre, arriba)
+            // -- el campo "Costo" de cada variante es opcional en la UI, así
+            // que si quedó en blanco se manda '0' en vez de dejarlo pasar
+            // crudo y que el backend rechace la variante entera.
+            costo_promedio: variante.costo_promedio.trim() || '0',
             producto: productoId,
             atributos: [],
           } as VariacionproductoRequest)

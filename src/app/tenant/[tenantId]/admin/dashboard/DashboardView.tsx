@@ -65,7 +65,7 @@ export default function DashboardView({ tenantId }: DashboardViewProps): ReactEl
   // Los montos llegan del backend YA en la moneda de vista (`?moneda=`),
   // convertidos con la tasa del día de cada factura -- aquí solo se formatean.
   const { paramMoneda, moneda, listo: monedaLista, formatearEnVista } = useMonedaVista();
-  const { paramAlmacenes } = useSucursalFiltro();
+  const { paramAlmacenes, todasSeleccionadas: todasLasSucursales } = useSucursalFiltro();
 
   const [cargando, setCargando] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -338,6 +338,25 @@ export default function DashboardView({ tenantId }: DashboardViewProps): ReactEl
         <DashboardSkeleton />
       ) : (
         <>
+          {/* Si se filtró a una sucursal puntual y no hay nada que mostrar,
+              lo más probable es que esa sucursal es nueva y todavía no tiene
+              productos/ventas asignados -- un aviso explícito evita que un
+              dashboard "en cero" se lea como si el filtro estuviera roto. */}
+          {!todasLasSucursales && catalogoProductos === 0 && ventasMes === 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+              className="flex items-center gap-3 bg-amber-50 ring-1 ring-amber-200/70 text-amber-800 rounded-2xl px-4 py-3 text-sm"
+            >
+              <Building2 size={18} className="text-amber-600 shrink-0" />
+              <p>
+                Esta sucursal todavía no tiene productos ni ventas asignados -- asigna el <strong>almacén</strong> de tus
+                productos y la <strong>sucursal operativa</strong> de tus empleados en Inventario/RRHH para que sus datos aparezcan aquí.
+              </p>
+            </motion.div>
+          )}
+
           {/* Métricas -- entran en cascada, no todas de golpe */}
           <Stagger className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {metricCards.map(({ id, ...card }) => (

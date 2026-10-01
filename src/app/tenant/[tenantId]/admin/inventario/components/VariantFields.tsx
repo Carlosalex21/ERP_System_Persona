@@ -5,7 +5,8 @@
 "use client";
 
 import React from 'react';
-import { Trash2, Percent } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { Trash2, Percent, Plus, Layers } from 'lucide-react';
 
 import type { Iva } from '@/types/api';
 import { extraerBaseImponible } from '@/utils/taxCalculator';
@@ -47,6 +48,8 @@ interface VariantFieldsProps {
   configuracionIva: string;
 }
 
+const EASE_OUT = [0.16, 1, 0.3, 1] as const;
+
 /**
  * Componente para gestionar los campos de variantes de un producto.
  * Permite añadir, eliminar y modificar las propiedades de cada variante,
@@ -64,77 +67,122 @@ export default function VariantFields({
 }: VariantFieldsProps): React.ReactElement {
   const ivaSel = ivas.find(i => String(i.id) === configuracionIva);
   const tasaIva = ivaSel ? parseDecimal(ivaSel.porcentaje_iva) : 0;
+  const stockTotal = variantes.reduce((acc, v) => acc + (Number(v.cantidad) || 0), 0);
+  const completas = variantes.filter((v) => v.nombre.trim() && v.precio.trim()).length;
 
   return (
-    <div className="space-y-3 animate-fade-in">
-      <h4 className="text-sm font-bold text-slate-700">Variantes del Producto</h4>
-      {variantes.map((variante, index) => {
-        // `variante.precio` es el precio final YA con IVA incluido (misma
-        // convención que `Producto.precio` -- ver comentario en
-        // `IvaVisualSelector`), así que aquí solo se desglosa, nunca se le
-        // suma impuesto encima.
-        const precioFinal = parseDecimal(variante.precio);
-        const baseImponible = extraerBaseImponible(precioFinal, tasaIva);
-        return (
-          <div key={index} className="bg-slate-50 p-2 rounded-lg border space-y-2">
-            <div className="grid grid-cols-6 gap-2 items-center">
-              <input
-                type="text"
-                placeholder="Nombre (ej. Rojo, Talla M)"
-                value={variante.nombre}
-                onChange={e => onVariantChange(index, 'nombre', e.target.value)}
-                className="col-span-2 px-2 py-1.5 border rounded text-xs"
-              />
-              <input
-                type="number"
-                placeholder="Precio"
-                value={variante.precio}
-                onChange={e => onVariantChange(index, 'precio', e.target.value)}
-                className="px-2 py-1.5 border rounded text-xs"
-              />
-              <input
-                type="number"
-                step="0.000001"
-                placeholder="Costo"
-                title="Costo de compra de esta variante"
-                value={variante.costo_promedio}
-                onChange={e => onVariantChange(index, 'costo_promedio', e.target.value)}
-                className="px-2 py-1.5 border rounded text-xs"
-              />
-              <input
-                type="number"
-                placeholder="Stock"
-                value={variante.cantidad}
-                onChange={e => onVariantChange(index, 'cantidad', parseInt(e.target.value))}
-                className="px-2 py-1.5 border rounded text-xs"
-              />
-              <button
-                type="button"
-                onClick={() => onRemoveVariant(index)}
-                className="text-red-500 hover:bg-red-100 p-1 rounded-full justify-self-center"
-              >
-                <Trash2 size={14} />
-              </button>
-            </div>
+    <div className="space-y-2.5">
+      <div className="flex items-center justify-between px-0.5">
+        <h4 className="text-sm font-bold text-slate-700 flex items-center gap-1.5">
+          <Layers size={15} className="text-primary-600" /> Variantes del Producto
+        </h4>
+        <span className="text-[11px] font-semibold text-slate-400">
+          {completas}/{variantes.length} completas{stockTotal > 0 ? ` · ${stockTotal} unid.` : ''}
+        </span>
+      </div>
 
-            {/* Desglose del precio ya cobrado (el precio de arriba es el final, con IVA incluido) */}
-            <div className="flex items-center justify-between text-xs bg-white border border-slate-200 rounded-md px-2 py-1.5">
-              <span className="text-slate-500 flex items-center gap-1">
-                <Percent size={11} /> Base {tasaIva}% ({ivaSel?.nombre || 'Sin IVA'}) + IVA:
-              </span>
-              <span className="font-black text-primary-700">
-                {baseImponible.toFixed(2)} + {(precioFinal - baseImponible).toFixed(2)}
-              </span>
-            </div>
-          </div>
-        );
-      })}
+      {/* Encabezado de columnas -- una sola vez arriba, no repetido como placeholder en cada fila. */}
+      {variantes.length > 0 && (
+        <div className="hidden sm:grid grid-cols-[1fr_6.5rem_6.5rem_5rem_1.75rem] gap-2 px-3 text-[10px] font-bold text-slate-400 uppercase tracking-wide">
+          <span>Variante</span>
+          <span>Precio</span>
+          <span>Costo</span>
+          <span>Stock</span>
+          <span />
+        </div>
+      )}
+
+      <AnimatePresence initial={false}>
+        {variantes.map((variante, index) => {
+          // `variante.precio` es el precio final YA con IVA incluido (misma
+          // convención que `Producto.precio` -- ver comentario en
+          // `IvaVisualSelector`), así que aquí solo se desglosa, nunca se le
+          // suma impuesto encima.
+          const precioFinal = parseDecimal(variante.precio);
+          const baseImponible = extraerBaseImponible(precioFinal, tasaIva);
+          const sinNombre = !variante.nombre.trim();
+          const sinPrecio = !variante.precio.trim();
+
+          return (
+            <motion.div
+              key={index}
+              layout
+              initial={{ opacity: 0, y: -8, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.97, transition: { duration: 0.15 } }}
+              transition={{ duration: 0.28, ease: EASE_OUT }}
+              className="bg-white rounded-xl ring-1 ring-slate-900/[0.06] shadow-[0_1px_2px_rgba(15,23,42,0.04)] p-2.5 space-y-2"
+            >
+              <div className="grid grid-cols-2 sm:grid-cols-[1fr_6.5rem_6.5rem_5rem_1.75rem] gap-2 items-center">
+                <input
+                  type="text"
+                  placeholder="Nombre (ej. Rojo, Talla M)"
+                  value={variante.nombre}
+                  onChange={e => onVariantChange(index, 'nombre', e.target.value)}
+                  className={`col-span-2 sm:col-span-1 px-2.5 py-1.5 rounded-lg text-xs transition-shadow duration-200 ${
+                    sinNombre ? 'ring-1 ring-amber-300 bg-amber-50/60' : 'ring-1 ring-slate-200 focus:ring-2 focus:ring-primary-400'
+                  } outline-none`}
+                />
+                <input
+                  type="number"
+                  placeholder="Precio"
+                  value={variante.precio}
+                  onChange={e => onVariantChange(index, 'precio', e.target.value)}
+                  className={`px-2.5 py-1.5 rounded-lg text-xs transition-shadow duration-200 ${
+                    sinPrecio ? 'ring-1 ring-amber-300 bg-amber-50/60' : 'ring-1 ring-slate-200 focus:ring-2 focus:ring-primary-400'
+                  } outline-none`}
+                />
+                <input
+                  type="number"
+                  step="0.000001"
+                  placeholder="Costo"
+                  title="Costo de compra de esta variante"
+                  value={variante.costo_promedio}
+                  onChange={e => onVariantChange(index, 'costo_promedio', e.target.value)}
+                  className="px-2.5 py-1.5 rounded-lg text-xs ring-1 ring-slate-200 focus:ring-2 focus:ring-primary-400 outline-none transition-shadow duration-200"
+                />
+                <input
+                  type="number"
+                  placeholder="Stock"
+                  value={variante.cantidad}
+                  onChange={e => onVariantChange(index, 'cantidad', parseInt(e.target.value) || 0)}
+                  className="px-2.5 py-1.5 rounded-lg text-xs ring-1 ring-slate-200 focus:ring-2 focus:ring-primary-400 outline-none transition-shadow duration-200"
+                />
+                <button
+                  type="button"
+                  onClick={() => onRemoveVariant(index)}
+                  aria-label="Quitar variante"
+                  className="w-6 h-6 flex items-center justify-center rounded-full text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors duration-200 justify-self-center"
+                >
+                  <Trash2 size={13} />
+                </button>
+              </div>
+
+              {/* Desglose del precio ya cobrado (el precio de arriba es el final, con IVA incluido) */}
+              {precioFinal > 0 && (
+                <div className="flex items-center justify-between text-[11px] bg-slate-50 rounded-lg px-2.5 py-1.5">
+                  <span className="text-slate-500 flex items-center gap-1">
+                    <Percent size={10} /> Base {tasaIva}% ({ivaSel?.nombre || 'Sin IVA'}) + IVA
+                  </span>
+                  <span className="font-bold text-primary-700">
+                    {baseImponible.toFixed(2)} + {(precioFinal - baseImponible).toFixed(2)}
+                  </span>
+                </div>
+              )}
+            </motion.div>
+          );
+        })}
+      </AnimatePresence>
+
       <button
         type="button"
         onClick={onAddVariant}
-        className="text-xs font-bold text-primary-600 hover:bg-primary-50 px-3 py-1.5 rounded-md border border-dashed"
+        className="group w-full flex items-center justify-center gap-2 text-xs font-bold text-primary-600 hover:text-primary-700 py-2.5 rounded-xl border border-dashed border-primary-200 hover:border-primary-300 hover:bg-primary-50/60 transition-all duration-200"
       >
-        + Añadir Variante
+        <span className="w-5 h-5 rounded-full bg-primary-50 group-hover:bg-primary-100 flex items-center justify-center transition-colors duration-200">
+          <Plus size={12} />
+        </span>
+        Añadir otra variante
       </button>
     </div>
   );
