@@ -2,7 +2,7 @@
 
 import { useState, type ReactElement } from 'react';
 import { UserPlus } from 'lucide-react';
-import { Rol, Sucursal, Departamento, UserManaged, UserManagedRequest } from '@/types/api';
+import { Rol, Sucursal, Almacen, Departamento, UserManaged, UserManagedRequest } from '@/types/api';
 import { createManagedUser, updateManagedUser } from '@/services/rrhhService';
 import { AppModal, ActionButton } from '@/components/ui';
 
@@ -12,12 +12,13 @@ interface UserModalProps {
   onSave: () => void;
   roles: Rol[];
   sucursales: Sucursal[];
+  almacenes: Almacen[];
   departamentos: Departamento[];
   /** Si viene un empleado, el modal edita ese registro en vez de invitar uno nuevo. */
   usuario?: UserManaged | null;
 }
 
-export default function UserModal({ isOpen, onClose, onSave, roles, sucursales, departamentos, usuario = null }: UserModalProps): ReactElement {
+export default function UserModal({ isOpen, onClose, onSave, roles, sucursales, almacenes, departamentos, usuario = null }: UserModalProps): ReactElement {
   const editando = usuario !== null;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -28,6 +29,7 @@ export default function UserModal({ isOpen, onClose, onSave, roles, sucursales, 
     password: '',
     rol: usuario.rol ?? undefined,
     sucursal: usuario.sucursal ?? undefined,
+    almacen_asignado: usuario.almacen_asignado ?? undefined,
     departamento: usuario.departamento ?? undefined,
     sueldo_base: usuario.sueldo_base ?? '',
     fecha_contratacion: usuario.fecha_contratacion ?? '',
@@ -39,6 +41,7 @@ export default function UserModal({ isOpen, onClose, onSave, roles, sucursales, 
     password: '',
     rol: undefined,
     sucursal: undefined,
+    almacen_asignado: undefined,
     departamento: undefined,
     sueldo_base: '',
     fecha_contratacion: '',
@@ -87,6 +90,7 @@ export default function UserModal({ isOpen, onClose, onSave, roles, sucursales, 
           email: formData.email || '',
           rol: formData.rol ? Number(formData.rol) : null,
           sucursal: formData.sucursal ? Number(formData.sucursal) : null,
+          almacen_asignado: formData.almacen_asignado ? Number(formData.almacen_asignado) : null,
           departamento: formData.departamento ? Number(formData.departamento) : null,
           sueldo_base: formData.sueldo_base ? String(formData.sueldo_base) : null,
           fecha_contratacion: formData.fecha_contratacion || null,
@@ -104,6 +108,7 @@ export default function UserModal({ isOpen, onClose, onSave, roles, sucursales, 
           password: formData.password || '',
           rol: formData.rol ? Number(formData.rol) : null,
           sucursal: formData.sucursal ? Number(formData.sucursal) : null,
+          almacen_asignado: formData.almacen_asignado ? Number(formData.almacen_asignado) : null,
           departamento: formData.departamento ? Number(formData.departamento) : null,
           sueldo_base: formData.sueldo_base ? String(formData.sueldo_base) : null,
           fecha_contratacion: formData.fecha_contratacion || null,
@@ -194,6 +199,14 @@ export default function UserModal({ isOpen, onClose, onSave, roles, sucursales, 
                 <option value="">Sin departamento</option>
                 {departamentos.map(d => <option key={d.id} value={d.id}>{d.nombre}</option>)}
               </select>
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Sucursal/Almacén Operativo</label>
+              <select name="almacen_asignado" value={formData.almacen_asignado || ''} onChange={handleChange} className="w-full px-3 py-2 border rounded-lg text-sm bg-white">
+                <option value="">Sin asignar</option>
+                {almacenes.map(a => <option key={a.id} value={a.id}>{a.nombre}</option>)}
+              </select>
+              <p className="text-[11px] text-slate-400 mt-1">A qué sucursal se le atribuyen las ventas que registre (POS). Distinto de &quot;Sucursal&quot; de arriba, que es solo su ficha de contacto.</p>
             </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

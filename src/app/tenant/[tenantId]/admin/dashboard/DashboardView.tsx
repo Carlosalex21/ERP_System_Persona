@@ -33,6 +33,8 @@ import { roundMoney } from '@/utils/taxCalculator';
 import { StatCard, AnimatedNumber, Stagger, StaggerItem } from '@/components/ui';
 import { useTenant } from '@/hooks/useTenant';
 import { useMonedaVista } from '@/context/MonedaVistaContext';
+import { useSucursalFiltro } from '@/context/SucursalFiltroContext';
+import SelectorSucursales from '@/components/SelectorSucursales';
 import { TIPOS_CON_INVENTARIO } from '@/utils/modulosPanel';
 
 import SalesChart from './SalesChart';
@@ -63,6 +65,7 @@ export default function DashboardView({ tenantId }: DashboardViewProps): ReactEl
   // Los montos llegan del backend YA en la moneda de vista (`?moneda=`),
   // convertidos con la tasa del día de cada factura -- aquí solo se formatean.
   const { paramMoneda, moneda, listo: monedaLista, formatearEnVista } = useMonedaVista();
+  const { paramAlmacenes } = useSucursalFiltro();
 
   const [cargando, setCargando] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -98,7 +101,7 @@ export default function DashboardView({ tenantId }: DashboardViewProps): ReactEl
       // eso multiplicaba las peticiones y agotaba el rate limit del backend.
       let reporte: DashboardReporte | null = null;
       try {
-        reporte = await getDashboardReportes(paramMoneda);
+        reporte = await getDashboardReportes(paramMoneda, paramAlmacenes);
       } catch {
         reporte = null; // degrada a métricas vacías si el endpoint no responde
       }
@@ -176,7 +179,7 @@ export default function DashboardView({ tenantId }: DashboardViewProps): ReactEl
       setCargando(false);
       setRefreshing(false);
     }
-  }, [paramMoneda]);
+  }, [paramMoneda, paramAlmacenes]);
 
   // Carga inicial (cuando ya se sabe en qué moneda mostrar) y recarga
   // silenciosa -- sin volver al esqueleto -- al cambiar la moneda de vista.
@@ -187,6 +190,18 @@ export default function DashboardView({ tenantId }: DashboardViewProps): ReactEl
     monedaCargada.current = paramMoneda;
     cargarMetricas(esCambio);
   }, [monedaLista, paramMoneda, cargarMetricas]);
+
+  // Recarga silenciosa al cambiar la sucursal seleccionada (ver
+  // `SucursalFiltroContext`) -- separado del efecto de moneda de arriba
+  // porque son dos preferencias independientes que no deben pisarse ni
+  // disparar una recarga doble cuando cambia solo una de las dos.
+  const almacenesCargados = useRef<string>('');
+  useEffect(() => {
+    const clave = paramAlmacenes ? [...paramAlmacenes].sort((a, b) => a - b).join(',') : '';
+    if (!monedaLista || almacenesCargados.current === clave) return;
+    almacenesCargados.current = clave;
+    cargarMetricas(true);
+  }, [monedaLista, paramAlmacenes, cargarMetricas]);
 
   // useMemo: arreglo de tarjetas de métricas (se recalcula solo al cambiar valores)
   const metricCards = useMemo<MetricCardData[]>(
@@ -305,14 +320,17 @@ export default function DashboardView({ tenantId }: DashboardViewProps): ReactEl
               </p>
             </div>
           </div>
-          <motion.button
-            onClick={() => cargarMetricas(true)}
-            disabled={refreshing}
-            whileTap={{ scale: 0.95 }}
-            className="bg-white/10 border border-white/10 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-white/15 flex items-center gap-2 transition-colors disabled:opacity-60 backdrop-blur-sm"
-          >
-            <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} /> Actualizar
-          </motion.button>
+          <div className="flex items-center gap-2">
+            <SelectorSucursales />
+            <motion.button
+              onClick={() => cargarMetricas(true)}
+              disabled={refreshing}
+              whileTap={{ scale: 0.95 }}
+              className="bg-white/10 border border-white/10 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-white/15 flex items-center gap-2 transition-colors disabled:opacity-60 backdrop-blur-sm shrink-0"
+            >
+              <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} /> Actualizar
+            </motion.button>
+          </div>
         </div>
       </div>
 

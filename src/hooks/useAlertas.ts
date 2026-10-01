@@ -1,8 +1,10 @@
 "use client";
 
+import { useMemo } from 'react';
 import toast from 'react-hot-toast';
 import { getAlertas, type AlertasReporte } from '@/services/reportesService';
 import { crearRecursoEnVivo, useRecursoEnVivo } from '@/utils/recursoEnVivo';
+import { useSucursalFiltro } from '@/context/SucursalFiltroContext';
 
 const POLL_MS = 20000;
 
@@ -27,10 +29,23 @@ const alertas = crearRecursoEnVivo<AlertasReporte>(getAlertas, {
 
 export function useAlertas() {
   const { data, cargando } = useRecursoEnVivo(alertas);
+  // El recurso en vivo es un singleton compartido (una sola consulta para
+  // toda la pestaña, ver `recursoEnVivo.ts`) -- no se puede re-pedir con un
+  // filtro distinto cada vez que el dueño cambia de sucursal seleccionada
+  // sin perder ese ahorro. En vez de eso se filtra acá, del lado del
+  // cliente: las alertas de 'stock' sí tienen `almacen_id`, las demás no
+  // tienen sucursal asociada en el modelo actual y siempre se muestran.
+  const { paramAlmacenes } = useSucursalFiltro();
+  const filtradas = useMemo(() => {
+    const todas = data?.alertas ?? [];
+    if (!paramAlmacenes) return todas;
+    return todas.filter((a) => a.tipo !== 'stock' || (a.almacen_id != null && paramAlmacenes.includes(a.almacen_id)));
+  }, [data, paramAlmacenes]);
+
   return {
-    alertas: data?.alertas ?? [],
-    total: data?.total ?? 0,
-    urgentes: data?.urgentes ?? 0,
+    alertas: filtradas,
+    total: filtradas.length,
+    urgentes: filtradas.filter((a) => a.nivel === 'urgente').length,
     cargando,
     recargar: alertas.recargar,
   };

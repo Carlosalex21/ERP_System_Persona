@@ -70,8 +70,12 @@ export interface DashboardReporte {
  * Obtiene los datos agregados para el dashboard principal del tenant.
  * @returns {Promise<DashboardReporte>} Una promesa que se resuelve con los datos del dashboard.
  */
-export const getDashboardReportes = async (moneda: MonedaParam = 'base'): Promise<DashboardReporte> => {
-  const response = await apiPrivada.get<DashboardReporte>('/reportes/dashboard/', { params: { moneda } });
+export const getDashboardReportes = async (
+  moneda: MonedaParam = 'base', almacenIds?: number[],
+): Promise<DashboardReporte> => {
+  const response = await apiPrivada.get<DashboardReporte>('/reportes/dashboard/', {
+    params: { moneda, ...(almacenIds?.length ? { almacenes: almacenIds.join(',') } : {}) },
+  });
   return response.data;
 };
 
@@ -154,6 +158,8 @@ export interface AlertaItem {
   descripcion: string;
   link: string;
   dias: number | null;
+  /** Solo presente en alertas de tipo 'stock' (ver `Producto.almacen`) -- las demás no tienen sucursal asociada en el modelo actual. */
+  almacen_id?: number | null;
 }
 
 export interface AlertasReporte {
@@ -162,8 +168,10 @@ export interface AlertasReporte {
   urgentes: number;
 }
 
-export const getAlertas = async (): Promise<AlertasReporte> => {
-  const response = await apiPrivada.get<AlertasReporte>('/reportes/alertas/');
+export const getAlertas = async (almacenIds?: number[]): Promise<AlertasReporte> => {
+  const response = await apiPrivada.get<AlertasReporte>('/reportes/alertas/', {
+    params: almacenIds?.length ? { almacenes: almacenIds.join(',') } : undefined,
+  });
   return response.data;
 };
 

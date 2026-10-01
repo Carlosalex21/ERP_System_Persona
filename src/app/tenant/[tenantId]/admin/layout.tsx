@@ -9,6 +9,7 @@ import InstallPwaButton from '@/components/pwa/InstallPwaButton';
 import Sidebar, { EVENTO_ABRIR_GRUPO_SIDEBAR } from '@/components/Sidebar';
 import { SessionProvider, useSession } from '@/context/SessionContext';
 import { MonedaVistaProvider, useMonedaVista } from '@/context/MonedaVistaContext';
+import { SucursalFiltroProvider } from '@/context/SucursalFiltroContext';
 import SelectorMonedaVista from '@/components/SelectorMonedaVista';
 import { usePedidosPendientesDetalle } from '@/hooks/usePedidosPendientes';
 import { useAlertas } from '@/hooks/useAlertas';
@@ -507,12 +508,14 @@ export default function AdminLayout({ params, children }: AdminLayoutProps): Rea
   return (
     <SessionProvider>
       <MonedaVistaProvider>
-        <AdminShell menuMovilAbierto={menuMovilAbierto} setMenuMovilAbierto={setMenuMovilAbierto} ejecutarLogout={ejecutarLogout}>
-          {children}
-        </AdminShell>
-        <OnboardingTour />
-        <CommandPalette />
-        <FaqChatWidget titulo="Centro de ayuda" faqs={FAQ_PANEL} />
+        <SucursalFiltroProvider>
+          <AdminShell menuMovilAbierto={menuMovilAbierto} setMenuMovilAbierto={setMenuMovilAbierto} ejecutarLogout={ejecutarLogout}>
+            {children}
+          </AdminShell>
+          <OnboardingTour />
+          <CommandPalette />
+          <FaqChatWidget titulo="Centro de ayuda" faqs={FAQ_PANEL} />
+        </SucursalFiltroProvider>
       </MonedaVistaProvider>
     </SessionProvider>
   );

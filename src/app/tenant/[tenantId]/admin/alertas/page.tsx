@@ -6,6 +6,7 @@ import { TriangleAlert, Landmark, Truck, PackageX, FlaskConical, PhoneCall, Life
 
 import { PageHeader, Card, EmptyState, TableSkeleton, StatCard, ExportButton } from '@/components/ui';
 import { useAlertas } from '@/hooks/useAlertas';
+import SelectorSucursales from '@/components/SelectorSucursales';
 import type { AlertaItem, TipoAlerta } from '@/services/reportesService';
 
 const ICONO: Record<TipoAlerta, ReactElement> = {
@@ -44,16 +45,19 @@ export default function AlertasPage(): ReactElement {
         title="Centro de Alertas"
         description="Todo lo que necesita atención en un solo lugar: cuentas por cobrar/pagar, stock, lotes, seguimientos, reclamos y garantías por vencer."
         actions={
-          <ExportButton
-            data={alertas}
-            filename="centro-de-alertas"
-            columns={[
-              { label: 'Tipo', value: (a) => ETIQUETA_TIPO[a.tipo] },
-              { label: 'Nivel', value: (a) => (a.nivel === 'urgente' ? 'Urgente' : 'Atención') },
-              { label: 'Título', value: 'titulo' },
-              { label: 'Descripción', value: 'descripcion' },
-            ]}
-          />
+          <div className="flex items-center gap-2">
+            <SelectorSucursales />
+            <ExportButton
+              data={alertas}
+              filename="centro-de-alertas"
+              columns={[
+                { label: 'Tipo', value: (a) => ETIQUETA_TIPO[a.tipo] },
+                { label: 'Nivel', value: (a) => (a.nivel === 'urgente' ? 'Urgente' : 'Atención') },
+                { label: 'Título', value: 'titulo' },
+                { label: 'Descripción', value: 'descripcion' },
+              ]}
+            />
+          </div>
         }
       />
 

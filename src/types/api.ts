@@ -324,6 +324,8 @@ export interface UserManaged {
   is_active: boolean;
   rol: number | null;
   sucursal: number | null;
+  /** Almacén/sucursal operativo asignado -- usado para atribuir ventas a una sucursal en el dashboard (ver `Factura.almacen`). */
+  almacen_asignado: number | null;
   departamento: number | null;
   sueldo_base: string | null;
   fecha_contratacion: string | null;
@@ -336,6 +338,7 @@ export interface UserManagedRequest {
   is_active: boolean;
   rol: number | null;
   sucursal: number | null;
+  almacen_asignado?: number | null;
   departamento?: number | null;
   fecha_contratacion?: string | null;
   sueldo_base?: string | number | null;
