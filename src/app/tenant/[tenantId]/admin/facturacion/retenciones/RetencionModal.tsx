@@ -45,6 +45,7 @@ export default function RetencionModal({
     handleSubmit,
     reset,
     control,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<RetencionFormValues>({
     defaultValues: {
@@ -190,7 +191,17 @@ export default function RetencionModal({
             </label>
             <select
               id="retencion-factura"
-              {...register('factura')}
+              {...register('factura', {
+                // Al elegir la factura, se autocompleta "Base" con su
+                // `base_imponible` real -- antes había que tipearla a mano,
+                // lo que podía quedar distinto del monto real de la factura
+                // (un error humano que el contador recibía ya guardado).
+                // Sigue siendo editable por si hace falta un ajuste puntual.
+                onChange: (e: React.ChangeEvent<HTMLSelectElement>) => {
+                  const factura = facturas.find((f) => String(f.id) === e.target.value);
+                  if (factura) setValue('base', factura.base_imponible);
+                },
+              })}
               className="w-full px-3 py-2 border rounded-lg text-sm bg-white"
             >
               <option value="">Selecciona una factura...</option>

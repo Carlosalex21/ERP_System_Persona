@@ -51,8 +51,8 @@ export default function ImportarProductosPage(): ReactElement {
           <div className="text-xs text-slate-500 mb-4 bg-slate-50 border rounded-lg p-3">
             <p className="font-bold text-slate-600 mb-1">Columnas del archivo:</p>
             <p><span className="font-mono">nombre</span>, <span className="font-mono">precio</span> -- obligatorias.</p>
-            <p><span className="font-mono">codigo_barras</span>, <span className="font-mono">sku</span>, <span className="font-mono">stock_inicial</span>, <span className="font-mono">categoria</span>, <span className="font-mono">iva</span>, <span className="font-mono">descripcion</span> -- opcionales.</p>
-            <p className="mt-1">Si una fila trae <span className="font-mono">codigo_barras</span> o <span className="font-mono">sku</span> de un producto que ya existe, se actualiza en vez de duplicarse.</p>
+            <p><span className="font-mono">codigo_barras</span>, <span className="font-mono">sku</span>, <span className="font-mono">stock_inicial</span>, <span className="font-mono">costo</span>, <span className="font-mono">categoria</span>, <span className="font-mono">iva</span>, <span className="font-mono">descripcion</span> -- opcionales.</p>
+            <p className="mt-1">Si una fila trae <span className="font-mono">codigo_barras</span> o <span className="font-mono">sku</span> de un producto que ya existe, se actualiza en vez de duplicarse -- pero <span className="font-mono">stock_inicial</span>/<span className="font-mono">costo</span> solo se aplican al crearlo; para corregirle el stock o el costo después, usa Ajustes de Inventario.</p>
           </div>
           <Dropzone onUpload={subir} uploadLabel="Procesar Archivo de Productos" />
           {resultado && (

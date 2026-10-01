@@ -12,7 +12,8 @@ import { AppModal, ActionButton } from '@/components/ui';
  * @typedef {Object} ProductForm
  * @property {string} nombre - Nombre del producto.
  * @property {string} descripcion - Descripción del producto.
- * @property {string} precio - Precio del producto.
+ * @property {string} precio - Precio de venta del producto.
+ * @property {string} costo_promedio - Costo de compra (solo editable al crear -- después se corrige vía Ajustes de Inventario, para que se promedie en vez de pisarse).
  * @property {number} cantidad - Cantidad en stock.
  * @property {string} stock_minimo - Umbral de "bajo stock" propio del producto (vacío = usa el general).
  * @property {string} meses_garantia - Meses de garantía al vender este producto (vacío = sin garantía rastreada).
@@ -28,6 +29,7 @@ interface ProductForm {
   nombre: string;
   descripcion: string;
   precio: string;
+  costo_promedio: string;
   cantidad: number;
   stock_minimo: string;
   meses_garantia: string;
@@ -58,6 +60,7 @@ interface Variant {
   precio: string;
   cantidad: number;
   codigo_barras: string;
+  costo_promedio: string;
 }
 
 /**
@@ -274,6 +277,26 @@ export default function ProductModal({
               <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Precio</label>
               <input type="number" step="0.01" value={formProducto.precio} onChange={e => setFormProducto({...formProducto, precio: e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm" required={!esProductoConVariantes} />
             </div>
+            {!esServicio && (
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Costo de Compra</label>
+                <input
+                  type="number"
+                  step="0.000001"
+                  value={formProducto.costo_promedio}
+                  onChange={e => setFormProducto({ ...formProducto, costo_promedio: e.target.value })}
+                  className={`w-full px-3 py-2 border rounded-lg text-sm ${editando ? 'bg-slate-100 text-slate-500' : ''}`}
+                  required={!esProductoConVariantes && !editando}
+                  disabled={editando}
+                  readOnly={editando}
+                />
+                <p className="text-[11px] text-slate-400 mt-1">
+                  {editando
+                    ? 'Para corregirlo, registra una entrada en Ajustes de Inventario (se promedia, no se pisa).'
+                    : 'Lo que te costó a ti comprarlo -- distinto del Precio de venta. Define el valor real de tu inventario.'}
+                </p>
+              </div>
+            )}
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Moneda del precio</label>
               <select value={formProducto.moneda} onChange={e => setFormProducto({...formProducto, moneda: e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm bg-white">
@@ -302,8 +325,21 @@ export default function ProductModal({
             {!esServicio && (
               <>
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Stock Inicial</label>
-                  <input type="number" value={formProducto.cantidad} onChange={e => setFormProducto({...formProducto, cantidad: parseInt(e.target.value) || 0})} className="w-full px-3 py-2 border rounded-lg text-sm" required={!esProductoConVariantes} />
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+                    {editando ? 'Stock Actual' : 'Stock Inicial'}
+                  </label>
+                  <input
+                    type="number"
+                    value={formProducto.cantidad}
+                    onChange={e => setFormProducto({ ...formProducto, cantidad: parseInt(e.target.value) || 0 })}
+                    className={`w-full px-3 py-2 border rounded-lg text-sm ${editando ? 'bg-slate-100 text-slate-500' : ''}`}
+                    required={!esProductoConVariantes}
+                    disabled={editando}
+                    readOnly={editando}
+                  />
+                  {editando && (
+                    <p className="text-[11px] text-slate-400 mt-1">Para corregir el stock, usa Ajustes de Inventario (queda registrado en el kardex).</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Stock Mínimo</label>

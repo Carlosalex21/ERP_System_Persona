@@ -25,6 +25,8 @@ interface Variant {
   precio: string;
   cantidad: number;
   codigo_barras: string;
+  /** Costo de compra de esta variante -- solo se pide al crearla (sin stock previo que promediar); después se corrige vía Ajustes de Inventario. */
+  costo_promedio: string;
 }
 
 /**
@@ -75,7 +77,7 @@ export default function VariantFields({
         const baseImponible = extraerBaseImponible(precioFinal, tasaIva);
         return (
           <div key={index} className="bg-slate-50 p-2 rounded-lg border space-y-2">
-            <div className="grid grid-cols-5 gap-2 items-center">
+            <div className="grid grid-cols-6 gap-2 items-center">
               <input
                 type="text"
                 placeholder="Nombre (ej. Rojo, Talla M)"
@@ -88,6 +90,15 @@ export default function VariantFields({
                 placeholder="Precio"
                 value={variante.precio}
                 onChange={e => onVariantChange(index, 'precio', e.target.value)}
+                className="px-2 py-1.5 border rounded text-xs"
+              />
+              <input
+                type="number"
+                step="0.000001"
+                placeholder="Costo"
+                title="Costo de compra de esta variante"
+                value={variante.costo_promedio}
+                onChange={e => onVariantChange(index, 'costo_promedio', e.target.value)}
                 className="px-2 py-1.5 border rounded text-xs"
               />
               <input

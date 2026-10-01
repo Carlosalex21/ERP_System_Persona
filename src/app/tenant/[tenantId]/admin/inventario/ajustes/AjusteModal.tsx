@@ -187,6 +187,13 @@ export default function AjusteModal({ onClose, onSaved }: AjusteModalProps): Rea
         toast.error(`Ingresa una cantidad válida para "${l.item.nombre}".`);
         return;
       }
+      // El backend ya lo exige (ver `AjusteInventarioSerializer.validate()`)
+      // -- se repite acá para que el error salga antes de enviar, no
+      // después de que el usuario llenó todo el formulario.
+      if (tipo === 'entrada' && !(Number(l.costoUnitario) > 0)) {
+        toast.error(`Ingresa el costo unitario de compra para "${l.item.nombre}".`);
+        return;
+      }
     }
 
     const detalles_para_crear: AjusteInventarioDetalleRequest[] = lineas.map((l) => ({
@@ -363,7 +370,7 @@ export default function AjusteModal({ onClose, onSaved }: AjusteModalProps): Rea
                 <tr className="bg-slate-50 text-slate-500 text-[10px] font-bold uppercase">
                   <th className="p-3 text-left">Producto</th>
                   <th className="p-3 text-center w-28">Cantidad</th>
-                  <th className="p-3 text-center w-32">Costo unit. (opcional)</th>
+                  <th className="p-3 text-center w-32">{tipo === 'entrada' ? 'Costo unit. de compra' : 'Costo unit. (opcional)'}</th>
                   <th className="p-3 w-10"></th>
                 </tr>
               </thead>
@@ -390,8 +397,11 @@ export default function AjusteModal({ onClose, onSaved }: AjusteModalProps): Rea
                         step="0.000001"
                         value={l.costoUnitario}
                         onChange={(e) => actualizarLinea(l.key, 'costoUnitario', e.target.value)}
-                        className="w-full px-2 py-1.5 border rounded-lg text-sm text-center"
-                        placeholder="—"
+                        className={`w-full px-2 py-1.5 border rounded-lg text-sm text-center ${
+                          tipo === 'entrada' && !(Number(l.costoUnitario) > 0) ? 'border-amber-300 bg-amber-50' : ''
+                        }`}
+                        placeholder={tipo === 'entrada' ? '0.00 (obligatorio)' : '—'}
+                        required={tipo === 'entrada'}
                       />
                     </td>
                     <td className="p-3 text-center">

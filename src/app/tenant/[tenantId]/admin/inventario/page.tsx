@@ -55,14 +55,14 @@ export default function InventarioPage({ params }: { params: Promise<{ tenantId:
   // mutuamente excluyente con `esProductoConVariantes` (ver `handleTipoChange`).
   const [esServicio, setEsServicio] = useState(false);
   const [variantes, setVariantes] = useState<any[]>([
-    { nombre: '', sku: '', precio: '', cantidad: 0, codigo_barras: '' }
+    { nombre: '', sku: '', precio: '', cantidad: 0, codigo_barras: '', costo_promedio: '' }
   ]);
   const [presentaciones, setPresentaciones] = useState<PresentacionForm[]>([]);
   // Ids de las presentaciones que ya existían al abrir la edición -- para
   // saber, al guardar, cuáles se quitaron del formulario y hay que borrar.
   const [presentacionesOriginalIds, setPresentacionesOriginalIds] = useState<number[]>([]);
   const [formProducto, setFormProducto] = useState({
-    nombre: '', descripcion: '', precio: '', cantidad: 0, stock_minimo: '', meses_garantia: '', sku: '',
+    nombre: '', descripcion: '', precio: '', costo_promedio: '', cantidad: 0, stock_minimo: '', meses_garantia: '', sku: '',
     codigo_barras: '', disponible_online: true, es_insumo: false, tipo: 'simple' as 'simple' | 'variable' | 'servicio',
     almacen: '', configuracion_iva: '', categoria: '', moneda: '', departamento: '', imagen: null as File | null,
   });
@@ -160,11 +160,11 @@ export default function InventarioPage({ params }: { params: Promise<{ tenantId:
     setModalProducto(false);
     setEditandoId(null);
     setFormProducto({
-      nombre: '', descripcion: '', precio: '', cantidad: 0, stock_minimo: '', meses_garantia: '', sku: '',
+      nombre: '', descripcion: '', precio: '', costo_promedio: '', cantidad: 0, stock_minimo: '', meses_garantia: '', sku: '',
       codigo_barras: '', disponible_online: true, es_insumo: false, tipo: 'simple' as 'simple' | 'variable' | 'servicio',
       almacen: '', configuracion_iva: '', categoria: '', moneda: '', departamento: '', imagen: null,
     });
-    setVariantes([{ nombre: '', sku: '', precio: '', cantidad: 0, codigo_barras: '' }]);
+    setVariantes([{ nombre: '', sku: '', precio: '', cantidad: 0, codigo_barras: '', costo_promedio: '' }]);
     setPresentaciones([]);
     setPresentacionesOriginalIds([]);
     setEsProductoConVariantes(false);
@@ -189,6 +189,7 @@ export default function InventarioPage({ params }: { params: Promise<{ tenantId:
       nombre: producto.nombre,
       descripcion: producto.descripcion || '',
       precio: producto.precio || '',
+      costo_promedio: producto.costo_promedio || '',
       cantidad: producto.cantidad || 0,
       stock_minimo: producto.stock_minimo != null ? String(producto.stock_minimo) : '',
       meses_garantia: producto.meses_garantia != null ? String(producto.meses_garantia) : '',
@@ -235,6 +236,11 @@ export default function InventarioPage({ params }: { params: Promise<{ tenantId:
       stock_minimo: esServicio ? null : (formProducto.stock_minimo.trim() !== '' ? Number(formProducto.stock_minimo) : null),
       meses_garantia: esServicio ? null : (formProducto.meses_garantia.trim() !== '' ? Number(formProducto.meses_garantia) : null),
       cantidad: esServicio ? 0 : formProducto.cantidad,
+      // Solo se aplica al CREAR (el backend lo ignora al editar -- ver
+      // `ProductoSerializer.update()`): tocar el costo de un producto que ya
+      // tiene stock debe pasar por un Ajuste de Inventario, para que se
+      // promedie en vez de pisarse.
+      costo_promedio: esServicio ? null : (formProducto.costo_promedio.trim() || null),
       almacen: esServicio ? null : (Number(formProducto.almacen) || null),
       es_insumo: esServicio ? false : formProducto.es_insumo,
       configuracion_iva: Number(formProducto.configuracion_iva) || null,
@@ -311,7 +317,7 @@ export default function InventarioPage({ params }: { params: Promise<{ tenantId:
   };
 
   const handleAñadirVariante = (): void => {
-    setVariantes([...variantes, { nombre: '', sku: '', precio: '', cantidad: 0, codigo_barras: '' }]);
+    setVariantes([...variantes, { nombre: '', sku: '', precio: '', cantidad: 0, codigo_barras: '', costo_promedio: '' }]);
   };
 
   const handleEliminarVariante = (index: number): void => {

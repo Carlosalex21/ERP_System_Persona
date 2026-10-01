@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
+import { createContext, useContext, useState, useCallback, useRef, ReactNode, useEffect } from 'react';
 import { apiPrivada } from '@/services/api';
 import { getUsuarioActual, type UsuarioActual } from '@/services/authService';
 import type { TipoNegocio } from '@/utils/modulosPanel';
@@ -102,6 +102,27 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     fetchTenantProfile();
+  }, [fetchTenantProfile]);
+
+  // Pestaña dejada abierta varias horas (ej. el dueño la minimiza y vuelve
+  // al otro día): si la página no hace ninguna llamada mientras está en
+  // segundo plano (vistas que solo reciben datos por WebSocket, sin
+  // polling), nadie se entera de que el token ya venció hasta que algo
+  // dispare una petición -- lo que puede tardar o no pasar nunca. Al volver
+  // a poner la pestaña en foco se vuelve a pedir el perfil del tenant: si el
+  // refresh token también venció, el interceptor de `apiPrivada` (ver
+  // `services/api.ts`) ya se encarga de limpiar la sesión y mandar al login.
+  const ultimaRevalidacion = useRef(Date.now());
+  useEffect(() => {
+    const REVALIDAR_TRAS_MS = 60_000;
+    const alCambiarVisibilidad = () => {
+      if (document.visibilityState !== 'visible') return;
+      if (Date.now() - ultimaRevalidacion.current < REVALIDAR_TRAS_MS) return;
+      ultimaRevalidacion.current = Date.now();
+      fetchTenantProfile();
+    };
+    document.addEventListener('visibilitychange', alCambiarVisibilidad);
+    return () => document.removeEventListener('visibilitychange', alCambiarVisibilidad);
   }, [fetchTenantProfile]);
 
   return (
