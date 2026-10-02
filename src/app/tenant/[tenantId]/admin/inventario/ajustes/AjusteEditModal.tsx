@@ -7,17 +7,25 @@ import toast from 'react-hot-toast';
 import { AppModal, ActionButton } from '@/components/ui';
 import { editarAjusteInventario } from '@/services/inventoryService';
 import { getProveedores } from '@/services/proveedoresService';
-import { getApiErrorMessages } from '@/utils/helpers';
+import { toastApiError } from '@/utils/errors';
 import type { AjusteInventario, AjusteInventarioEditRequest, Proveedor, MotivoAjusteInventario } from '@/types/api';
 
-const MOTIVOS: { value: MotivoAjusteInventario; label: string }[] = [
-  { value: 'compra_con_factura', label: 'Compra con factura fiscal' },
-  { value: 'compra_sin_factura', label: 'Compra con nota de entrega (sin factura)' },
-  { value: 'conteo_fisico', label: 'Corrección por conteo físico' },
-  { value: 'devolucion_proveedor', label: 'Devolución a proveedor' },
-  { value: 'merma', label: 'Merma / producto dañado' },
-  { value: 'otro', label: 'Otro' },
-];
+const MOTIVOS_INTERNOS: Record<'entrada' | 'salida', { value: MotivoAjusteInventario; label: string }[]> = {
+  entrada: [
+    { value: 'conteo_fisico', label: 'Corrección por conteo físico' },
+    { value: 'inventario_inicial', label: 'Inventario inicial' },
+    { value: 'otro', label: 'Otro' },
+  ],
+  salida: [
+    { value: 'conteo_fisico', label: 'Corrección por conteo físico' },
+    { value: 'merma', label: 'Merma / producto dañado o vencido' },
+    { value: 'consumo_interno', label: 'Consumo interno / uso propio' },
+    { value: 'devolucion_proveedor', label: 'Devolución a proveedor' },
+    { value: 'otro', label: 'Otro' },
+  ],
+};
+
+const ES_COMPRA = (m: MotivoAjusteInventario) => m === 'compra_con_factura' || m === 'compra_sin_factura';
 
 interface AjusteEditModalProps {
   ajuste: AjusteInventario;
@@ -28,11 +36,11 @@ interface AjusteEditModalProps {
 /**
  * Corrige la metadata de un ajuste ya aplicado -- nunca el movimiento de
  * stock (tipo/almacén/líneas), que ya se aplicó de verdad y no debe
- * desincronizarse del kardex. El campo que más importa corregir es la
- * fecha del documento: si se cargó al sistema después de recibida la
- * mercancía, es la que toma Cuentas por Pagar para vencimiento y antigüedad.
+ * desincronizarse del kardex. Los ajustes históricos de compra (de antes del
+ * módulo de Facturas de compra) conservan su motivo y sus datos de factura.
  */
 export default function AjusteEditModal({ ajuste, onClose, onSaved }: AjusteEditModalProps): ReactElement {
+  const esCompra = ES_COMPRA(ajuste.motivo);
   const [proveedores, setProveedores] = useState<Proveedor[]>([]);
   const [motivo, setMotivo] = useState<MotivoAjusteInventario>(ajuste.motivo);
   const [proveedorId, setProveedorId] = useState<string>(ajuste.proveedor ? String(ajuste.proveedor) : '');
@@ -41,6 +49,7 @@ export default function AjusteEditModal({ ajuste, onClose, onSaved }: AjusteEdit
   const [fechaDocumento, setFechaDocumento] = useState(ajuste.fecha_documento || '');
   const [observaciones, setObservaciones] = useState(ajuste.observaciones || '');
   const [guardando, setGuardando] = useState(false);
+  const usaProveedor = esCompra || motivo === 'devolucion_proveedor';
 
   useEffect(() => {
     getProveedores().then(setProveedores).catch(() => setProveedores([]));
@@ -51,9 +60,9 @@ export default function AjusteEditModal({ ajuste, onClose, onSaved }: AjusteEdit
     try {
       const payload: AjusteInventarioEditRequest = {
         motivo,
-        proveedor: proveedorId ? Number(proveedorId) : null,
+        proveedor: usaProveedor && proveedorId ? Number(proveedorId) : null,
         numero_documento: numeroDocumento,
-        numero_control: numeroControl,
+        ...(esCompra ? { numero_control: numeroControl } : {}),
         fecha_documento: fechaDocumento || null,
         observaciones,
       };
@@ -61,13 +70,13 @@ export default function AjusteEditModal({ ajuste, onClose, onSaved }: AjusteEdit
       toast.success('Ajuste corregido.');
       onSaved(actualizado);
     } catch (error) {
-      const messages = getApiErrorMessages(error);
-      messages.forEach((m) => toast.error(m));
-      if (messages.length === 0) toast.error('No se pudo corregir el ajuste.');
+      toastApiError(error, 'No se pudo corregir el ajuste.');
     } finally {
       setGuardando(false);
     }
   };
+
+  const campo = 'w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent';
 
   return (
     <AppModal
@@ -89,40 +98,45 @@ export default function AjusteEditModal({ ajuste, onClose, onSaved }: AjusteEdit
         </p>
         <div>
           <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Motivo</label>
-          <select value={motivo} onChange={(e) => setMotivo(e.target.value as MotivoAjusteInventario)} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
-            {MOTIVOS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
-          </select>
+          {esCompra ? (
+            <input value={ajuste.motivo_display} disabled className={`${campo} bg-slate-50 text-slate-500`} />
+          ) : (
+            <select value={motivo} onChange={(e) => setMotivo(e.target.value as MotivoAjusteInventario)} className={campo}>
+              {MOTIVOS_INTERNOS[ajuste.tipo].map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
+            </select>
+          )}
         </div>
-        <div>
-          <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Proveedor</label>
-          <select value={proveedorId} onChange={(e) => setProveedorId(e.target.value)} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
-            <option value="">Sin proveedor</option>
-            {proveedores.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
-          </select>
-        </div>
-        <div className="grid grid-cols-2 gap-3">
+        {usaProveedor && (
           <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">N° Documento</label>
-            <input value={numeroDocumento} onChange={(e) => setNumeroDocumento(e.target.value)} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent" />
+            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Proveedor</label>
+            <select value={proveedorId} onChange={(e) => setProveedorId(e.target.value)} className={campo}>
+              <option value="">Sin proveedor</option>
+              {proveedores.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+            </select>
           </div>
+        )}
+        <div className={esCompra ? 'grid grid-cols-2 gap-3' : ''}>
           <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">N° Control</label>
-            <input value={numeroControl} onChange={(e) => setNumeroControl(e.target.value)} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent" />
+            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">{esCompra ? 'N° Documento' : 'Referencia'}</label>
+            <input value={numeroDocumento} onChange={(e) => setNumeroDocumento(e.target.value)} className={campo} />
           </div>
+          {esCompra && (
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">N° Control</label>
+              <input value={numeroControl} onChange={(e) => setNumeroControl(e.target.value)} className={campo} />
+            </div>
+          )}
         </div>
         <div>
           <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Fecha del documento</label>
-          <input
-            type="date"
-            value={fechaDocumento}
-            onChange={(e) => setFechaDocumento(e.target.value)}
-            className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-          />
-          <p className="text-[11px] text-slate-400 mt-1">Es la que toma Cuentas por Pagar para calcular vencimiento y antigüedad -- vacía = se usa la fecha en que se cargó el ajuste.</p>
+          <input type="date" value={fechaDocumento} onChange={(e) => setFechaDocumento(e.target.value)} className={campo} />
+          {esCompra && (
+            <p className="text-[11px] text-slate-400 mt-1">Es la que toma Cuentas por Pagar para calcular vencimiento y antigüedad -- vacía = se usa la fecha en que se cargó el ajuste.</p>
+          )}
         </div>
         <div>
           <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Observaciones</label>
-          <textarea value={observaciones} onChange={(e) => setObservaciones(e.target.value)} rows={2} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent" />
+          <textarea value={observaciones} onChange={(e) => setObservaciones(e.target.value)} rows={2} className={campo} />
         </div>
       </div>
     </AppModal>

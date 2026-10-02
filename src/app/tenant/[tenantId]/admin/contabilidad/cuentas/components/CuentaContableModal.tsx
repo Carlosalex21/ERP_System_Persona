@@ -26,6 +26,9 @@ const ROLES: { valor: RolCuenta; etiqueta: string }[] = [
   { valor: 'ventas', etiqueta: 'Ingresos por Ventas' },
   { valor: 'costo_venta', etiqueta: 'Costo de Ventas' },
   { valor: 'otros_ingresos', etiqueta: 'Otros Ingresos' },
+  { valor: 'gasto_sueldos', etiqueta: 'Gasto de Sueldos y Salarios' },
+  { valor: 'retenciones_pagar', etiqueta: 'Retenciones por Pagar' },
+  { valor: 'capital', etiqueta: 'Capital Social' },
 ];
 
 interface CuentaContableModalProps {

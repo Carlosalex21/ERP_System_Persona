@@ -11,7 +11,7 @@ import { getOrdenesCompra, enviarOrdenCompra, cancelarOrdenCompra } from '@/serv
 import { toastApiError } from '@/utils/errors';
 import type { OrdenCompra, EstadoOrdenCompra } from '@/types/api';
 import NuevaOrdenCompraModal from './NuevaOrdenCompraModal';
-import RecepcionModal from './RecepcionModal';
+import FacturaCompraModal from '../facturas-compra/FacturaCompraModal';
 
 type ToneBadge = 'green' | 'orange' | 'red' | 'slate' | 'amber' | 'primary';
 
@@ -141,7 +141,7 @@ export default function OrdenesCompraPage(): ReactElement {
       <PageHeader
         icon={<ClipboardList size={20} />}
         title="Órdenes de Compra"
-        description="Pide formalmente a tu proveedor, recibe la mercancía cuando llegue (total o por partes) y compara lo pedido contra lo recibido -- cada recepción real mueve el inventario y genera su cuenta por pagar sola."
+        description="Pide formalmente a tu proveedor, recíbela con la factura del proveedor cuando llegue (total o por partes) y compara lo pedido contra lo recibido -- cada factura mueve el inventario, crea la cuenta por pagar y va al Libro de Compras."
         actions={<motion.button whileTap={{ scale: 0.96 }} onClick={() => setModalNueva(true)} className="bg-primary-600 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-primary-700 flex items-center justify-center gap-2 shadow-md"><Plus size={18} /> Nueva Orden</motion.button>}
       />
 
@@ -161,7 +161,7 @@ export default function OrdenesCompraPage(): ReactElement {
         <NuevaOrdenCompraModal onClose={() => setModalNueva(false)} onCreated={() => { setModalNueva(false); cargar(); }} />
       )}
       {ordenARecibir && (
-        <RecepcionModal orden={ordenARecibir} onClose={() => setOrdenARecibir(null)} onSaved={() => { setOrdenARecibir(null); cargar(); }} />
+        <FacturaCompraModal orden={ordenARecibir} onClose={() => setOrdenARecibir(null)} onSaved={() => { setOrdenARecibir(null); cargar(); }} />
       )}
     </div>
   );

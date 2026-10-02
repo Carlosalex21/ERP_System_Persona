@@ -30,7 +30,8 @@ export type NaturalezaCuenta = 'deudora' | 'acreedora';
 
 export type RolCuenta =
   | 'caja' | 'banco' | 'cuentas_por_cobrar' | 'inventario' | 'iva_por_cobrar'
-  | 'iva_por_pagar' | 'cuentas_por_pagar' | 'ventas' | 'costo_venta' | 'otros_ingresos';
+  | 'iva_por_pagar' | 'cuentas_por_pagar' | 'ventas' | 'costo_venta' | 'otros_ingresos'
+  | 'gasto_sueldos' | 'retenciones_pagar' | 'capital';
 
 export interface CuentaContable {
   id: number;
@@ -67,7 +68,8 @@ export interface AsientoContableDetalle {
 }
 
 export type EstadoAsiento = 'borrador' | 'contabilizado' | 'anulado';
-export type OrigenAsiento = 'manual' | 'honorarios' | 'venta' | 'ajuste_inventario' | 'cierre';
+export type OrigenAsiento =
+  | 'manual' | 'honorarios' | 'venta' | 'ajuste_inventario' | 'pago_proveedor' | 'compra' | 'retencion' | 'nomina' | 'cierre';
 
 export interface AsientoContable {
   id: number;

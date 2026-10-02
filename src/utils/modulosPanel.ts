@@ -12,7 +12,7 @@
  */
 
 import {
-  ArrowLeftRight, BarChart3, BookOpen, Building2, Calculator, ChefHat, ClipboardList, Coins, FileBarChart, FileText,
+  ArrowLeftRight, BarChart3, BookOpen, Building2, Calculator, ChefHat, ClipboardList, Coins, FileBarChart, FileInput, FileText,
   FlaskConical, Gift, Globe2, HandCoins, Hash, Landmark, LayoutDashboard, LifeBuoy, Package, ReceiptText, Repeat, Scale,
   Settings, ShieldCheck, ShoppingBag, ShoppingCart, Shuffle, SlidersHorizontal, Smartphone, Sparkles, Tags, Target,
   TriangleAlert, Truck, UploadCloud, UserPlus, UserRound, Users, Utensils, Wallet, Warehouse, Wrench,
@@ -111,6 +111,7 @@ export const GRUPOS_MODULOS_PANEL: GrupoModulosPanel[] = [
     icono: Truck,
     modulos: [
       { codigo: 'proveedores', etiqueta: 'Proveedores', path: '/admin/proveedores', icono: Truck, tiposNegocio: TIPOS_CON_INVENTARIO },
+      { codigo: 'facturas_compra', etiqueta: 'Facturas de Compra', path: '/admin/proveedores/facturas-compra', icono: FileInput, tiposNegocio: TIPOS_CON_INVENTARIO },
       { codigo: 'ordenes_compra', etiqueta: 'Órdenes de Compra', path: '/admin/proveedores/ordenes-compra', icono: ClipboardList, tiposNegocio: TIPOS_CON_INVENTARIO },
       { codigo: 'cuentas_por_pagar', etiqueta: 'Cuentas por Pagar', path: '/admin/proveedores/cuentas-por-pagar', icono: HandCoins, tiposNegocio: TIPOS_CON_INVENTARIO },
     ],

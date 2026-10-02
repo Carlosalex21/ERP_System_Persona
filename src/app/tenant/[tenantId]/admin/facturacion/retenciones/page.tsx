@@ -88,8 +88,25 @@ export default function RetencionesPage(): ReactElement {
   );
 
   const columns = useMemo<ColumnDef<Retencion>[]>(() => [
-    { id: 'factura', header: 'Factura', enableSorting: false, cell: ({ row }) => <span className="text-slate-600">{row.original.factura ? `#${row.original.factura}` : '—'}</span> },
-    { id: 'proveedor', header: 'Proveedor', enableSorting: false, cell: ({ row }) => <span className="text-slate-600">{row.original.proveedor ? `#${row.original.proveedor}` : '—'}</span> },
+    {
+      id: 'documento',
+      header: 'Documento',
+      enableSorting: false,
+      cell: ({ row }) => {
+        const r = row.original;
+        if (r.factura_compra) return <div><p className="font-mono text-slate-800">Compra {r.factura_compra_numero}</p><p className="text-[11px] text-slate-400">Emitida</p></div>;
+        if (r.factura) return <div><p className="font-mono text-slate-800">Venta #{r.factura_correlativo || r.factura}</p><p className="text-[11px] text-slate-400">Recibida de cliente</p></div>;
+        return <span className="text-slate-400">Sin factura</span>;
+      },
+    },
+    {
+      id: 'proveedor',
+      header: 'Proveedor',
+      enableSorting: false,
+      cell: ({ row }) => row.original.proveedor_nombre
+        ? <div><p className="text-slate-700">{row.original.proveedor_nombre}</p><p className="text-[11px] text-slate-400 font-mono">{row.original.proveedor_rif}</p></div>
+        : <span className="text-slate-400">—</span>,
+    },
     {
       accessorKey: 'tipo_retencion',
       header: 'Tipo',
@@ -128,7 +145,7 @@ export default function RetencionesPage(): ReactElement {
       <PageHeader
         icon={<ReceiptText size={20} />}
         title="Retenciones"
-        description="Gestiona comprobantes de retención (el backend calcula el monto y genera el N° de comprobante)."
+        description="Comprobantes de retención de IVA/ISLR: los que emites a tus proveedores (numeración SENIAT propia) y los que te entregan tus clientes."
         actions={
           <motion.button
             whileTap={{ scale: 0.96 }}
@@ -167,7 +184,7 @@ export default function RetencionesPage(): ReactElement {
       <ConfirmDialog
         isOpen={!!retencionAEliminar}
         title="Eliminar Retención"
-        message={`¿Eliminar la retención #${retencionAEliminar?.id}? Esta acción no se puede deshacer.`}
+        message={`¿Anular la retención ${retencionAEliminar?.numero_comprobante || `#${retencionAEliminar?.id}`}? Si era sobre una factura de compra, la deuda con el proveedor vuelve a su monto completo.`}
         confirmLabel="Eliminar"
         loading={eliminandoRetencion}
         onConfirm={confirmarEliminarRetencion}

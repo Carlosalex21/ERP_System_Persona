@@ -69,7 +69,7 @@ export default function CuentasPorPagarPage(): ReactElement {
       <PageHeader
         icon={<Truck size={20} />}
         title="Cuentas por Pagar"
-        description="Compras con proveedor pendientes de pagar -- se crean solas al registrar una compra con proveedor en Ajustes de Inventario."
+        description="Compras con proveedor pendientes de pagar -- se crean solas al registrar una factura de compra (por el total menos lo retenido, que se le paga al fisco)."
         actions={
           <ExportButton
             data={filasExport}

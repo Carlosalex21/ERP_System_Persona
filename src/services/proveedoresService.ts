@@ -4,7 +4,7 @@
 import { apiPrivada } from '@/services/api';
 import {
   Proveedor, ProveedorRequest, CuentaPorPagar, RegistrarPagoProveedorRequest, FilaReporteCuentasPorPagar,
-  OrdenCompra, CrearOrdenCompraRequest, RegistrarRecepcionRequest,
+  OrdenCompra, CrearOrdenCompraRequest, FacturaCompra, CrearFacturaCompraRequest,
 } from '@/types/api';
 
 /**
@@ -47,7 +47,7 @@ export const deleteProveedor = async (id: number): Promise<void> => {
 
 // --- Cuentas por Pagar ---
 
-/** Cuentas por pagar -- se crean solas desde una compra con proveedor (Ajustes de Inventario). */
+/** Cuentas por pagar -- se crean solas al registrar una factura de compra. */
 export const getCuentasPorPagar = async (estado?: string): Promise<CuentaPorPagar[]> => {
   const response = await apiPrivada.get<CuentaPorPagar[]>('/proveedores/cuentas-por-pagar/', {
     params: estado ? { estado } : undefined,
@@ -90,8 +90,32 @@ export const cancelarOrdenCompra = async (ordenId: number): Promise<OrdenCompra>
   return response.data;
 };
 
-/** Recibe (total o parcialmente) una orden -- cada línea recibida aplica una entrada real de inventario y genera su cuenta por pagar sola. */
-export const recibirOrdenCompra = async (ordenId: number, data: RegistrarRecepcionRequest): Promise<OrdenCompra> => {
-  const response = await apiPrivada.post<OrdenCompra>(`/proveedores/ordenes-compra/${ordenId}/recibir/`, data);
+// --- Facturas de Compra ---
+
+export interface FiltrosFacturasCompra {
+  proveedor?: number;
+  estado?: string;
+  tipo_documento?: string;
+  fecha_desde?: string;
+  fecha_hasta?: string;
+}
+
+export const getFacturasCompra = async (filtros: FiltrosFacturasCompra = {}): Promise<FacturaCompra[]> => {
+  const response = await apiPrivada.get<FacturaCompra[]>('/proveedores/facturas-compra/', { params: filtros });
+  return response.data;
+};
+
+/**
+ * Registra una compra: mueve el inventario, crea la cuenta por pagar, la
+ * asienta, la anota en el Libro de Compras y emite la retención de IVA si se
+ * indicó. Con `orden_compra_id`, además recibe esas líneas de la orden.
+ */
+export const crearFacturaCompra = async (data: CrearFacturaCompraRequest): Promise<FacturaCompra> => {
+  const response = await apiPrivada.post<FacturaCompra>('/proveedores/facturas-compra/', data);
+  return response.data;
+};
+
+export const anularFacturaCompra = async (id: number): Promise<FacturaCompra> => {
+  const response = await apiPrivada.post<FacturaCompra>(`/proveedores/facturas-compra/${id}/anular/`);
   return response.data;
 };

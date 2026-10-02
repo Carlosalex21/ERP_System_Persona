@@ -174,15 +174,75 @@ export interface CrearOrdenCompraRequest {
   detalles: OrdenCompraDetalleRequest[];
 }
 
-export interface LineaRecepcionRequest {
-  detalle_id: number;
+// --- Facturas de Compra ---
+
+export type TipoDocumentoCompra = 'factura' | 'nota_entrega';
+
+export interface FacturaCompraDetalle {
+  id: number;
+  producto: number;
+  producto_nombre: string;
+  variante: number | null;
+  variante_nombre: string | null;
+  orden_detalle: number | null;
   cantidad: number;
-  costo_unitario?: string | null;
+  costo_unitario: string;
+  subtotal: string;
 }
 
-export interface RegistrarRecepcionRequest {
-  numero_documento?: string;
-  lineas: LineaRecepcionRequest[];
+export interface FacturaCompra {
+  id: number;
+  proveedor: number;
+  proveedor_nombre: string;
+  proveedor_rif: string;
+  tipo_documento: TipoDocumentoCompra;
+  tipo_documento_display: string;
+  numero_factura: string;
+  numero_control: string;
+  fecha_emision: string;
+  orden_compra: number | null;
+  orden_compra_numero: string | null;
+  almacen: number | null;
+  almacen_nombre: string | null;
+  monto_exento: string;
+  base_imponible: string;
+  porcentaje_iva: string;
+  iva: string;
+  total: string;
+  retencion_iva: string;
+  retencion_islr: string;
+  neto_a_pagar: string;
+  saldo_pendiente: string;
+  estado: 'registrada' | 'anulada';
+  observaciones: string;
+  usuario_nombre: string | null;
+  fecha_creacion: string;
+  fecha_anulacion: string | null;
+  detalles: FacturaCompraDetalle[];
+}
+
+export interface FacturaCompraLineaRequest {
+  producto_id: number;
+  variante_id?: number | null;
+  orden_detalle_id?: number | null;
+  cantidad: number;
+  costo_unitario: string;
+}
+
+export interface CrearFacturaCompraRequest {
+  proveedor_id: number;
+  tipo_documento: TipoDocumentoCompra;
+  numero_factura: string;
+  numero_control?: string;
+  fecha_emision: string;
+  almacen_id?: number | null;
+  orden_compra_id?: number | null;
+  monto_exento?: string;
+  base_imponible?: string;
+  porcentaje_iva?: string;
+  porcentaje_retencion_iva?: string;
+  observaciones?: string;
+  detalles: FacturaCompraLineaRequest[];
 }
 
 // --- Cuentas por Pagar (AP) ---
@@ -212,6 +272,11 @@ export interface CuentaPorPagar {
   saldo_pendiente: string;
   estado: EstadoCuentaPorPagar;
   ajuste_origen: number | null;
+  /** Factura de compra que originó la deuda (null en cuentas históricas creadas desde Ajustes). */
+  factura_compra: number | null;
+  factura_compra_total: string | null;
+  /** Lo retenido (IVA/ISLR) sobre esa factura -- se le paga al fisco, por eso `monto` ya viene rebajado. */
+  factura_compra_retenido: string | null;
   observaciones: string;
   fecha_creacion: string;
   pagos: PagoProveedor[];
@@ -569,8 +634,10 @@ export type MotivoAjusteInventario =
   | 'compra_con_factura'
   | 'compra_sin_factura'
   | 'conteo_fisico'
-  | 'devolucion_proveedor'
+  | 'inventario_inicial'
   | 'merma'
+  | 'consumo_interno'
+  | 'devolucion_proveedor'
   | 'otro';
 
 export interface AjusteInventarioDetalle {
@@ -953,10 +1020,17 @@ export type PatchedLibroCompraVentaRequest = Partial<LibroCompraVentaRequest>;
 
 export interface Retencion {
   id: number;
+  /** Factura de VENTA: retención que un cliente le hizo al negocio (número cargado a mano). */
   factura: number | null;
+  factura_correlativo?: string | null;
   /** Moneda en la que están expresados base/monto (la de la factura asociada, si hay una). */
   factura_moneda_codigo?: string | null;
+  /** Factura de COMPRA: retención que el negocio le hace a un proveedor (número generado por el sistema). */
+  factura_compra: number | null;
+  factura_compra_numero?: string | null;
   proveedor: number | null;
+  proveedor_nombre?: string | null;
+  proveedor_rif?: string | null;
   tipo_retencion: 'islr' | 'iva' | 'otros';
   numero_comprobante?: string | null;
   porcentaje: string;
@@ -970,6 +1044,8 @@ export interface Retencion {
 
 export interface RetencionRequest {
   factura?: number | null;
+  factura_compra?: number | null;
+  numero_comprobante?: string | null;
   proveedor?: number | null;
   tipo_retencion: 'islr' | 'iva' | 'otros';
   porcentaje: string;
