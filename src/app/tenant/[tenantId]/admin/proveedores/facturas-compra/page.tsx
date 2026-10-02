@@ -4,10 +4,11 @@ import { useCallback, useEffect, useMemo, useState, type ReactElement } from 're
 import type { ColumnDef } from '@tanstack/react-table';
 import { Eye, FileInput, Plus } from 'lucide-react';
 import { motion } from 'framer-motion';
-import toast from 'react-hot-toast';
 
 import { Badge, Card, DataTable, PageHeader, TableSkeleton } from '@/components/ui';
-import { getFacturasCompra } from '@/services/proveedoresService';
+import { getPaginaFacturasCompra, getResumenFacturasCompra, type ResumenFacturasCompra } from '@/services/proveedoresService';
+import { useListaPaginada } from '@/hooks/useListaPaginada';
+import { toastApiError } from '@/utils/errors';
 import type { FacturaCompra } from '@/types/api';
 import FacturaCompraModal from './FacturaCompraModal';
 import FacturaCompraDetalleModal from './FacturaCompraDetalleModal';
@@ -18,33 +19,31 @@ const fmt = (v: string | number): string =>
 const fecha = (iso: string): string => new Date(`${iso}T00:00:00`).toLocaleDateString('es-VE');
 
 export default function FacturasCompraPage(): ReactElement {
-  const [facturas, setFacturas] = useState<FacturaCompra[]>([]);
-  const [cargando, setCargando] = useState(true);
   const [estado, setEstado] = useState<'registrada' | 'anulada' | ''>('registrada');
   const [modalNueva, setModalNueva] = useState(false);
   const [viendo, setViendo] = useState<FacturaCompra | null>(null);
+  const [resumen, setResumen] = useState<ResumenFacturasCompra | null>(null);
 
-  const cargar = useCallback(async (): Promise<void> => {
-    setCargando(true);
-    try {
-      setFacturas(await getFacturasCompra(estado ? { estado } : {}));
-    } catch {
-      toast.error('No se pudieron cargar las compras.');
-    } finally {
-      setCargando(false);
-    }
-  }, [estado]);
+  const filtros = useMemo(() => (estado ? { estado } : {}), [estado]);
+  const cargarPagina = useCallback((pagina: number) => getPaginaFacturasCompra(filtros, pagina), [filtros]);
+  const lista = useListaPaginada(cargarPagina);
+  const { cargando, error: errorLista } = lista;
+  const facturas = lista.items;
 
-  useEffect(() => { cargar(); }, [cargar]);
+  useEffect(() => {
+    if (errorLista) toastApiError(errorLista, 'No se pudieron cargar las compras.');
+  }, [errorLista]);
 
-  const totales = useMemo(() => facturas.reduce(
-    (acc, f) => ({
-      total: acc.total + Number(f.total),
-      iva: acc.iva + (f.tipo_documento === 'factura' ? Number(f.iva) : 0),
-      saldo: acc.saldo + Number(f.saldo_pendiente),
-    }),
-    { total: 0, iva: 0, saldo: 0 },
-  ), [facturas]);
+  // Los totales salen del servidor: con paginación, sumar lo que hay en pantalla daría una cifra falsa.
+  const cargarResumen = useCallback(() => {
+    getResumenFacturasCompra(filtros).then(setResumen).catch(() => setResumen(null));
+  }, [filtros]);
+  useEffect(() => { cargarResumen(); }, [cargarResumen]);
+
+  const alCambiarDatos = (): void => {
+    void lista.recargar();
+    cargarResumen();
+  };
 
   const columns = useMemo<ColumnDef<FacturaCompra>[]>(() => [
     {
@@ -146,9 +145,9 @@ export default function FacturasCompraPage(): ReactElement {
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <Resumen etiqueta="Total comprado" valor={totales.total} />
-        <Resumen etiqueta="IVA crédito fiscal" valor={totales.iva} />
-        <Resumen etiqueta="Por pagar a proveedores" valor={totales.saldo} destacado />
+        <Resumen etiqueta="Total comprado" valor={Number(resumen?.total ?? 0)} />
+        <Resumen etiqueta="IVA crédito fiscal" valor={Number(resumen?.iva ?? 0)} />
+        <Resumen etiqueta="Por pagar a proveedores" valor={Number(resumen?.saldo ?? 0)} destacado />
       </div>
 
       <div className="flex gap-1 p-1 bg-slate-100 rounded-xl w-fit">
@@ -163,13 +162,20 @@ export default function FacturasCompraPage(): ReactElement {
         ))}
       </div>
 
-      {cargando ? (
+      {cargando && facturas.length === 0 ? (
         <TableSkeleton rows={6} />
       ) : (
         <Card padding="none" className="overflow-hidden">
           <DataTable
             columns={columns}
             data={facturas}
+            paginacionServidor={{
+              pagina: lista.pagina,
+              totalPaginas: lista.totalPaginas,
+              total: lista.total,
+              onCambiarPagina: lista.irAPagina,
+              cargando,
+            }}
             resultLabel="compras"
             emptyState={<div className="p-8 text-center text-slate-400 text-sm">No hay compras registradas.</div>}
           />
@@ -179,14 +185,14 @@ export default function FacturasCompraPage(): ReactElement {
       {modalNueva && (
         <FacturaCompraModal
           onClose={() => setModalNueva(false)}
-          onSaved={() => { setModalNueva(false); cargar(); }}
+          onSaved={() => { setModalNueva(false); alCambiarDatos(); }}
         />
       )}
       {viendo && (
         <FacturaCompraDetalleModal
           factura={viendo}
           onClose={() => setViendo(null)}
-          onAnulada={() => { setViendo(null); cargar(); }}
+          onAnulada={() => { setViendo(null); alCambiarDatos(); }}
         />
       )}
     </div>

@@ -11,6 +11,7 @@ import {
   type B2BProducto, type B2BVariante, type B2BOrderItemRequest, type B2BPerfil, type B2BSugerenciaReposicion,
 } from '@/services/b2bPortalService';
 
+import { mensajeDeErrorUnico } from '@/utils/mensajesError';
 interface ItemCarrito {
   producto: B2BProducto;
   variante: B2BVariante | null;
@@ -128,8 +129,7 @@ export default function B2BPortalCatalogo(): ReactElement {
       cargarCatalogo();
       getB2BPerfil().then(setPerfil).catch(() => undefined);
     } catch (err: any) {
-      const mensaje = err?.response?.data?.data?.error || err?.response?.data?.error || 'No se pudo registrar el pedido. Intenta de nuevo.';
-      toast.error(mensaje);
+      toast.error(mensajeDeErrorUnico(err, 'No se pudo registrar el pedido. Intenta de nuevo.'));
     } finally {
       setEnviando(false);
     }

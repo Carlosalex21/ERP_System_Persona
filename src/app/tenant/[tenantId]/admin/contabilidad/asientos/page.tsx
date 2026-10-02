@@ -14,6 +14,7 @@ import NuevoAsientoModal from './components/NuevoAsientoModal';
 import GuardarPlantillaModal from './components/GuardarPlantillaModal';
 import { useMonedaVista } from '@/context/MonedaVistaContext';
 
+import { mensajeDeErrorUnico } from '@/utils/mensajesError';
 const ESTADO_ESTILOS: Record<string, string> = {
   anulado: 'bg-red-50 text-red-600 border-red-200',
   borrador: 'bg-amber-50 text-amber-700 border-amber-200',
@@ -176,7 +177,7 @@ export default function AsientosContablesPage(): ReactElement {
       notify.success('Asiento contabilizado.');
       cargar(empresaId);
     } catch (error: any) {
-      notify.error(error?.response?.data?.error || 'No se pudo contabilizar el asiento.');
+      notify.error(mensajeDeErrorUnico(error, 'No se pudo contabilizar el asiento.'));
     }
   };
 

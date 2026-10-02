@@ -6,6 +6,7 @@ import { AppModal, ActionButton } from '@/components/ui';
 import { getCuentasContables, cerrarEjercicio, type CuentaContable } from '@/services/contabilidadService';
 import { useNotify } from '@/hooks/useNotify';
 
+import { mensajeDeErrorUnico } from '@/utils/mensajesError';
 interface CerrarEjercicioModalProps {
   empresaId: number;
   onClose: () => void;
@@ -46,7 +47,7 @@ export default function CerrarEjercicioModal({ empresaId, onClose, onCerrado }: 
       notify.success('Ejercicio cerrado -- Ingresos/Costos/Gastos quedaron en cero y la utilidad se trasladó a Patrimonio.');
       onCerrado();
     } catch (error: any) {
-      notify.error(error?.response?.data?.error || 'No se pudo cerrar el ejercicio.');
+      notify.error(mensajeDeErrorUnico(error, 'No se pudo cerrar el ejercicio.'));
     } finally {
       setGuardando(false);
     }

@@ -4,6 +4,7 @@
  * Las lecturas usan caché en memoria (TTL) para evitar refetch en cada navegación.
  */
 import { apiPrivada, apiRequest } from './api';
+import { getPagina, type Pagina } from './paginacion';
 import {
   Factura,
   FacturaRequest,
@@ -481,6 +482,10 @@ export const getFacturas = async (): Promise<Factura[]> => {
     return response.data;
   });
 };
+
+/** Una página del historial de facturas (más recientes primero), opcionalmente filtrada por estado. */
+export const getPaginaFacturas = (filtros: { estado?: string }, pagina: number): Promise<Pagina<Factura>> =>
+  getPagina<Factura>('/facturacion/lista/', { ...filtros }, pagina);
 
 /**
  * Historial de facturas de un cliente puntual (ej. las facturas de

@@ -6,6 +6,7 @@ import { AppModal, ActionButton } from '@/components/ui';
 import { createCuentaContable, updateCuentaContable, type CuentaContable, type TipoCuenta, type RolCuenta } from '@/services/contabilidadService';
 import { useNotify } from '@/hooks/useNotify';
 
+import { mensajeDeErrorUnico } from '@/utils/mensajesError';
 const TIPOS: { valor: TipoCuenta; etiqueta: string }[] = [
   { valor: 'activo', etiqueta: 'Activo' },
   { valor: 'pasivo', etiqueta: 'Pasivo' },
@@ -75,8 +76,7 @@ export default function CuentaContableModal({ empresaId, cuentas, cuenta, onClos
       }
       onSaved();
     } catch (error: any) {
-      const msg = error?.response?.data?.codigo?.[0] || error?.response?.data?.non_field_errors?.[0];
-      notify.error(msg || 'No se pudo guardar la cuenta (¿el código ya existe en esta empresa?).');
+      notify.error(mensajeDeErrorUnico(error, 'No se pudo guardar la cuenta (¿el código ya existe en esta empresa?).'));
     } finally {
       setGuardando(false);
     }

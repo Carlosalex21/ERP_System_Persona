@@ -5,9 +5,10 @@ import type { ColumnDef } from '@tanstack/react-table';
 import { ShieldCheck, Search, Eye } from 'lucide-react';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
-import { getRegistrosAuditoria, type FiltrosAuditoria } from '@/services/auditoriaService';
+import { getPaginaAuditoria, type FiltrosAuditoria } from '@/services/auditoriaService';
+import { useListaPaginada } from '@/hooks/useListaPaginada';
+import { toastApiError } from '@/utils/errors';
 import { getHistorialAccesos, type IntentoLogin } from '@/services/authService';
-import { getApiErrorMessages } from '@/utils/helpers';
 import { DataTable, PageHeader, Card, Badge, TableSkeleton } from '@/components/ui';
 import type { RegistroAuditoria } from '@/types/api';
 import CambiosModal from './CambiosModal';
@@ -51,8 +52,6 @@ function accionLabel(accion: string): string {
  */
 export default function AuditoriaPage(): ReactElement {
   const [tab, setTab] = useState<'cambios' | 'accesos'>('cambios');
-  const [registros, setRegistros] = useState<RegistroAuditoria[]>([]);
-  const [cargando, setCargando] = useState(true);
   const [modelo, setModelo] = useState('');
   const [accion, setAccion] = useState('');
   const [fechaDesde, setFechaDesde] = useState('');
@@ -60,33 +59,29 @@ export default function AuditoriaPage(): ReactElement {
   const [q, setQ] = useState('');
   const [seleccionado, setSeleccionado] = useState<RegistroAuditoria | null>(null);
 
-  const cargar = useCallback(async () => {
-    setCargando(true);
-    const filtros: FiltrosAuditoria = {};
-    if (modelo) filtros.modelo = modelo;
-    if (accion) filtros.accion = accion;
-    if (fechaDesde) filtros.fecha_desde = fechaDesde;
-    if (fechaHasta) filtros.fecha_hasta = fechaHasta;
-    if (q) filtros.q = q;
-    try {
-      const data = await getRegistrosAuditoria(filtros);
-      setRegistros(data);
-    } catch (error) {
-      const messages = getApiErrorMessages(error);
-      if (messages.length > 0) {
-        messages.forEach((msg) => toast.error(msg));
-      } else {
-        toast.error('No se pudo cargar el registro de auditoría.');
-      }
-    } finally {
-      setCargando(false);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // Los selects y las fechas filtran al cambiar; el texto libre, con Enter o la
+  // lupa (`qAplicado`), para no consultar en cada tecla. Los filtros se derivan
+  // (no se guardan aparte): mismo contenido = mismo objeto = sin consulta extra.
+  const [qAplicado, setQAplicado] = useState('');
+  const filtros = useMemo<FiltrosAuditoria>(() => {
+    const f: FiltrosAuditoria = {};
+    if (modelo) f.modelo = modelo;
+    if (accion) f.accion = accion;
+    if (fechaDesde) f.fecha_desde = fechaDesde;
+    if (fechaHasta) f.fecha_hasta = fechaHasta;
+    if (qAplicado.trim()) f.q = qAplicado.trim();
+    return f;
+  }, [modelo, accion, fechaDesde, fechaHasta, qAplicado]);
+  const aplicar = useCallback(() => setQAplicado(q), [q]);
+
+  const cargarPagina = useCallback((pagina: number) => getPaginaAuditoria(filtros, pagina), [filtros]);
+  const lista = useListaPaginada(cargarPagina);
+  const registros = lista.items;
+  const cargando = lista.cargando;
 
   useEffect(() => {
-    cargar();
-  }, [cargar]);
+    if (lista.error) toastApiError(lista.error, 'No se pudo cargar el registro de auditoría.');
+  }, [lista.error]);
 
   const [accesos, setAccesos] = useState<IntentoLogin[]>([]);
   const [cargandoAccesos, setCargandoAccesos] = useState(false);
@@ -234,11 +229,11 @@ export default function AuditoriaPage(): ReactElement {
               onChange={(e) => setQ(e.target.value)}
               placeholder="Buscar objeto o usuario..."
               className="w-full px-3 py-2 border rounded-lg text-sm"
-              onKeyDown={(e) => e.key === 'Enter' && cargar()}
+              onKeyDown={(e) => e.key === 'Enter' && aplicar()}
             />
             <motion.button
               whileTap={{ scale: 0.96 }}
-              onClick={cargar}
+              onClick={aplicar}
               disabled={cargando}
               className="shrink-0 px-3 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 flex items-center justify-center"
               aria-label="Buscar"
@@ -251,7 +246,7 @@ export default function AuditoriaPage(): ReactElement {
       )}
 
       {tab === 'cambios' && (
-        cargando ? (
+        cargando && registros.length === 0 ? (
           <TableSkeleton rows={8} />
         ) : (
           <Card padding="none" className="overflow-hidden">
@@ -259,6 +254,13 @@ export default function AuditoriaPage(): ReactElement {
               columns={columns}
               data={registros}
               pageSize={20}
+              paginacionServidor={{
+                pagina: lista.pagina,
+                totalPaginas: lista.totalPaginas,
+                total: lista.total,
+                onCambiarPagina: lista.irAPagina,
+                cargando,
+              }}
               resultLabel="registros"
               emptyState={
                 <div className="p-12 text-center text-slate-400 text-sm">

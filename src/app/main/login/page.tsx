@@ -10,6 +10,7 @@ import Reveal from '@/components/marketing/Reveal';
 import FloatingChip from '@/components/marketing/FloatingChip';
 import { guardarSesion } from '@/utils/authSession';
 
+import { mensajeDeErrorUnico } from '@/utils/mensajesError';
 type View = 'select_type' | 'register' | 'owner_login';
 type BusinessType = 'retail' | 'b2b' | 'restaurante' | 'farmacia' | 'servicios' | 'contador';
 
@@ -45,28 +46,8 @@ type PaisCodigo = 'VE' | 'CO' | 'PE';
  * envolviendo como `{data: {username: [msg]}, errors: null, meta: {}}` en
  * vez de poblar `errors` -- por eso hay que mirar ambos lugares.
  */
-function extraerMensajeError(error: any): string {
-  const body = error?.response?.data;
-  if (!body) return 'Ocurrió un error al conectar con el servidor.';
-
-  if (Array.isArray(body.errors) && body.errors.length > 0) {
-    const primero = body.errors[0];
-    if (typeof primero === 'string') return primero;
-    return primero?.detail || primero?.message || 'Ocurrió un error al procesar la solicitud.';
-  }
-
-  const camposError = body.data && typeof body.data === 'object' && !Array.isArray(body.data) ? body.data : body;
-  if (camposError && typeof camposError === 'object') {
-    const primeraClave = Object.keys(camposError)[0];
-    if (primeraClave) {
-      const valor = camposError[primeraClave];
-      const msg = Array.isArray(valor) ? valor[0] : valor;
-      if (typeof msg === 'string') return msg;
-    }
-  }
-
-  if (typeof body === 'string') return body;
-  return 'Ocurrió un error al procesar la solicitud.';
+function extraerMensajeError(error: unknown): string {
+  return mensajeDeErrorUnico(error, 'Ocurrió un error al procesar la solicitud.');
 }
 
 const PAISES: { codigo: PaisCodigo; nombre: string; moneda: string }[] = [

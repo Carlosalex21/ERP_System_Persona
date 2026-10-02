@@ -2,6 +2,7 @@
  * @file Servicio para encapsular la lógica de API del módulo de Proveedores.
  */
 import { apiPrivada } from '@/services/api';
+import { getPagina, type Pagina } from '@/services/paginacion';
 import {
   Proveedor, ProveedorRequest, CuentaPorPagar, RegistrarPagoProveedorRequest, FilaReporteCuentasPorPagar,
   OrdenCompra, CrearOrdenCompraRequest, FacturaCompra, CrearFacturaCompraRequest,
@@ -102,6 +103,22 @@ export interface FiltrosFacturasCompra {
 
 export const getFacturasCompra = async (filtros: FiltrosFacturasCompra = {}): Promise<FacturaCompra[]> => {
   const response = await apiPrivada.get<FacturaCompra[]>('/proveedores/facturas-compra/', { params: filtros });
+  return response.data;
+};
+
+/** Una página de compras (con los mismos filtros) -- el historial crece sin límite. */
+export const getPaginaFacturasCompra = (filtros: FiltrosFacturasCompra, pagina: number): Promise<Pagina<FacturaCompra>> =>
+  getPagina<FacturaCompra>('/proveedores/facturas-compra/', { ...filtros }, pagina);
+
+export interface ResumenFacturasCompra {
+  total: string;
+  iva: string;
+  saldo: string;
+}
+
+/** Totales de TODO lo que cumple los filtros (no solo de la página visible). */
+export const getResumenFacturasCompra = async (filtros: FiltrosFacturasCompra = {}): Promise<ResumenFacturasCompra> => {
+  const response = await apiPrivada.get<ResumenFacturasCompra>('/proveedores/facturas-compra/resumen/', { params: filtros });
   return response.data;
 };
 

@@ -5,6 +5,7 @@ import { useDropzone, type FileRejection, type DropzoneOptions, type FileError }
 import { UploadCloud, File as FileIcon, X, Loader2 } from 'lucide-react';
 import { useNotify } from '@/hooks/useNotify';
 
+import { mensajeDeErrorUnico } from '@/utils/mensajesError';
 interface DropzoneProps {
   onUpload: (file: File) => Promise<any>;
   uploadLabel?: string;
@@ -54,9 +55,7 @@ export default function Dropzone({
       notify.success(response.message || "Archivo recibido. El procesamiento ha comenzado en segundo plano.");
       setFile(null); // Limpiar al subir con éxito
     } catch (error: unknown) {
-      const err = error as any;
-      const apiError = err.response?.data?.detail || "Error al subir el archivo.";
-      notify.error(apiError);
+      notify.error(mensajeDeErrorUnico(error, 'Error al subir el archivo.'));
     } finally {
       setCargando(false);
     }

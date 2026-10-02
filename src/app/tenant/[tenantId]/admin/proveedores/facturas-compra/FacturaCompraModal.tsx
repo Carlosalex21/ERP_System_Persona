@@ -62,7 +62,7 @@ export default function FacturaCompraModal({ orden = null, onClose, onSaved }: F
   const [numeroFactura, setNumeroFactura] = useState('');
   const [numeroControl, setNumeroControl] = useState('');
   const [fechaEmision, setFechaEmision] = useState(hoy());
-  const [almacenId, setAlmacenId] = useState(orden?.almacen ? String(orden.almacen) : '');
+  const [almacenElegido, setAlmacenElegido] = useState(orden?.almacen ? String(orden.almacen) : '');
   const [esGasto, setEsGasto] = useState(false);
   const [baseManual, setBaseManual] = useState('');
   const [exento, setExento] = useState('');
@@ -101,11 +101,12 @@ export default function FacturaCompraModal({ orden = null, onClose, onSaved }: F
     })();
   }, []);
 
-  useEffect(() => {
-    if (almacenId || almacenes.length === 0) return;
-    if (almacenPropioId !== null) setAlmacenId(String(almacenPropioId));
-    else if (almacenes.length === 1) setAlmacenId(String(almacenes[0].id));
-  }, [almacenes, almacenPropioId, almacenId]);
+  // Almacén por defecto (derivado, sin efecto): el del empleado, o el único que existe.
+  const almacenPorDefecto = almacenPropioId !== null
+    ? String(almacenPropioId)
+    : almacenes.length === 1 ? String(almacenes[0].id) : '';
+  const almacenId = almacenElegido || almacenPorDefecto;
+  const setAlmacenId = setAlmacenElegido;
 
   const agregarLinea = (item: ItemBuscable): void => {
     setLineas((prev) => {

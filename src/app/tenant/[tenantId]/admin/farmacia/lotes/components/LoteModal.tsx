@@ -8,6 +8,7 @@ import { getProductos } from '@/services/inventoryService';
 import { useNotify } from '@/hooks/useNotify';
 import type { Producto } from '@/types/api';
 
+import { mensajeDeErrorUnico } from '@/utils/mensajesError';
 interface LoteModalProps {
   /** Lotes ya registrados -- para calcular cuánto stock de cada producto ya está loteado. */
   lotesExistentes: LoteProducto[];
@@ -15,11 +16,8 @@ interface LoteModalProps {
   onCreated: () => void;
 }
 
-function extraerMensajeError(error: any): string {
-  const data = error?.response?.data;
-  if (data?.cantidad) return Array.isArray(data.cantidad) ? data.cantidad[0] : data.cantidad;
-  if (typeof data === 'string') return data;
-  return 'No se pudo registrar el lote.';
+function extraerMensajeError(error: unknown): string {
+  return mensajeDeErrorUnico(error, 'No se pudo registrar el lote.');
 }
 
 export default function LoteModal({ lotesExistentes, onClose, onCreated }: LoteModalProps): ReactElement {

@@ -56,7 +56,7 @@ export default function AjusteModal({ onClose, onSaved }: AjusteModalProps): Rea
 
   const [tipo, setTipo] = useState<TipoAjusteInventario>('entrada');
   const [motivo, setMotivo] = useState<MotivoAjusteInventario>('conteo_fisico');
-  const [almacenId, setAlmacenId] = useState<string>('');
+  const [almacenElegido, setAlmacenElegido] = useState<string>('');
   const [proveedorId, setProveedorId] = useState<string>('');
   const [referencia, setReferencia] = useState('');
   const [observaciones, setObservaciones] = useState('');
@@ -90,11 +90,12 @@ export default function AjusteModal({ onClose, onSaved }: AjusteModalProps): Rea
   const esAdmin = usuario?.rol_codigo === 'admin';
   const almacenPropioId = usuario?.almacen_asignado_id ?? null;
   const almacenBloqueado = !esAdmin && almacenPropioId !== null;
-  useEffect(() => {
-    if (almacenId || almacenes.length === 0) return;
-    if (almacenPropioId !== null) setAlmacenId(String(almacenPropioId));
-    else if (almacenes.length === 1) setAlmacenId(String(almacenes[0].id));
-  }, [almacenes, almacenPropioId, almacenId]);
+  // Almacén por defecto (derivado, sin efecto): el del empleado, o el único que existe.
+  const almacenPorDefecto = almacenPropioId !== null
+    ? String(almacenPropioId)
+    : almacenes.length === 1 ? String(almacenes[0].id) : '';
+  const almacenId = almacenElegido || almacenPorDefecto;
+  const setAlmacenId = setAlmacenElegido;
 
   const cambiarTipo = (nuevo: TipoAjusteInventario): void => {
     setTipo(nuevo);

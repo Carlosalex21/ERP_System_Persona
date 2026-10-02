@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo, type ReactElement } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef, type ReactElement } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { ShoppingBag, Loader2, CheckCircle2, XCircle, Package, Globe2, Smartphone, Mail, Eye, HandCoins, PackageCheck } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { getFacturas, actualizarEstadoFactura, anularFactura, getMetodosDePago, getTransaccionesPago, marcarPedidoPreparado } from '@/services/facturacionService';
+import { getPaginaFacturas, contarFacturasPorEstado, actualizarEstadoFactura, anularFactura, getMetodosDePago, getTransaccionesPago, marcarPedidoPreparado } from '@/services/facturacionService';
 import { getClientes } from '@/services/clientesService';
+import { useListaPaginada } from '@/hooks/useListaPaginada';
 import { getTransaccionesPasarela, confirmarTransaccionPasarela } from '@/services/pagosOnlineService';
 import { getMonedas } from '@/services/configuracionService';
 import { getApiErrorMessages, parseDecimal, getNombreById } from '@/utils/helpers';
@@ -31,13 +32,29 @@ function EstadoBadge({ estado }: { estado?: string | null }): ReactElement {
 }
 
 export default function PedidosPage(): ReactElement {
-  const [facturas, setFacturas] = useState<Factura[]>([]);
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [transacciones, setTransacciones] = useState<TransaccionPasarela[]>([]);
   const [transaccionesPago, setTransaccionesPago] = useState<Transaccionpago[]>([]);
   const [metodosPago, setMetodosPago] = useState<MetodoPago[]>([]);
   const [cargando, setCargando] = useState(true);
   const [filtro, setFiltro] = useState<'pendientes' | 'todos'>('pendientes');
+  const [pendientesCount, setPendientesCount] = useState(0);
+
+  // Facturas paginadas en el servidor: antes se descargaba TODO el historial
+  // (y se reordenaba) cada 20 segundos. La pestaña "Pendientes" filtra en el
+  // servidor; ya vienen ordenadas de más reciente a más antigua.
+  const cargarPagina = useCallback(
+    (pagina: number) => getPaginaFacturas(filtro === 'pendientes' ? { estado: 'pendiente' } : {}, pagina),
+    [filtro],
+  );
+  const lista = useListaPaginada<Factura>(cargarPagina);
+  const facturasFiltradas = lista.items;
+  // `cargar` (más abajo) vive en un useCallback sin dependencias: lee SIEMPRE
+  // la versión vigente de `recargar` (página y filtro actuales) por esta ref.
+  const recargarListaRef = useRef(lista.recargar);
+  useEffect(() => {
+    recargarListaRef.current = lista.recargar;
+  }, [lista.recargar]);
   const [procesandoId, setProcesandoId] = useState<number | null>(null);
   const [pedidoSeleccionado, setPedidoSeleccionado] = useState<Factura | null>(null);
   const [pedidoAAbonar, setPedidoAAbonar] = useState<Factura | null>(null);
@@ -49,23 +66,17 @@ export default function PedidosPage(): ReactElement {
   // emitirse (nunca la tasa de hoy).
   const [vistaMoneda, setVistaMoneda] = useState<string>('');
 
-  const cargar = useCallback(async (silencioso = false) => {
+  const cargar = useCallback(async (silencioso = false, recargarLista = true) => {
     if (!silencioso) setCargando(true);
-    const [facturasRes, clientesRes, transaccionesRes, transaccionesPagoRes, metodosRes, monedasRes] = await Promise.allSettled([
-      getFacturas(),
+    const [clientesRes, transaccionesRes, transaccionesPagoRes, metodosRes, monedasRes, listaRes] = await Promise.allSettled([
       getClientes(),
       getTransaccionesPasarela(),
       getTransaccionesPago(),
       getMetodosDePago(),
       getMonedas(),
+      recargarLista ? recargarListaRef.current(true) : Promise.resolve(),
     ]);
-    if (facturasRes.status === 'fulfilled') {
-      // Pedidos del catálogo público primero: son los que requieren acción.
-      const ordenadas = [...facturasRes.value].sort(
-        (a, b) => new Date(b.fecha_operacion).getTime() - new Date(a.fecha_operacion).getTime(),
-      );
-      setFacturas(ordenadas);
-    }
+    contarFacturasPorEstado('pendiente').then(setPendientesCount).catch(() => undefined);
     if (clientesRes.status === 'fulfilled') setClientes(clientesRes.value);
     if (transaccionesRes.status === 'fulfilled') setTransacciones(transaccionesRes.value);
     if (transaccionesPagoRes.status === 'fulfilled') setTransaccionesPago(transaccionesPagoRes.value);
@@ -74,29 +85,20 @@ export default function PedidosPage(): ReactElement {
       setMonedas(monedasRes.value);
       setVistaMoneda((actual) => actual || monedasRes.value.find((m) => m.es_predeterminada)?.codigo || monedasRes.value[0]?.codigo || '');
     }
-    if (facturasRes.status === 'rejected') {
+    if (listaRes.status === 'rejected') {
       toast.error('No se pudieron cargar los pedidos.');
     }
     if (!silencioso) setCargando(false);
   }, []);
 
   useEffect(() => {
-    cargar();
+    // La primera página la pide el propio hook; aquí solo lo auxiliar.
+    cargar(false, false);
     // Refresco silencioso cada 20s: nuevos pedidos del catálogo público
     // aparecen sin que el admin tenga que recargar la página a mano.
     const interval = setInterval(() => cargar(true), 20000);
     return () => clearInterval(interval);
   }, [cargar]);
-
-  const facturasFiltradas = useMemo(
-    () => (filtro === 'pendientes' ? facturas.filter((f) => (f.estado || '').toLowerCase().includes('pendient')) : facturas),
-    [facturas, filtro],
-  );
-
-  const pendientesCount = useMemo(
-    () => facturas.filter((f) => (f.estado || '').toLowerCase().includes('pendient')).length,
-    [facturas],
-  );
 
   const confirmarPago = async (factura: Factura) => {
     setProcesandoId(factura.id);
@@ -428,13 +430,20 @@ export default function PedidosPage(): ReactElement {
         )}
       </div>
 
-      {cargando ? (
+      {(cargando || lista.cargando) && facturasFiltradas.length === 0 ? (
         <TableSkeleton rows={6} />
       ) : (
         <Card padding="none" className="overflow-hidden">
           <DataTable
             columns={columns}
             data={facturasFiltradas}
+            paginacionServidor={{
+              pagina: lista.pagina,
+              totalPaginas: lista.totalPaginas,
+              total: lista.total,
+              onCambiarPagina: lista.irAPagina,
+              cargando: lista.cargando,
+            }}
             resultLabel="pedidos"
             emptyState={
               <div className="p-12 text-center text-slate-400">

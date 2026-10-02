@@ -9,6 +9,7 @@ import {
 } from '@/services/contabilidadService';
 import { useNotify } from '@/hooks/useNotify';
 
+import { mensajeDeErrorUnico } from '@/utils/mensajesError';
 interface NuevoAsientoModalProps {
   empresaId: number;
   onClose: () => void;
@@ -109,7 +110,7 @@ export default function NuevoAsientoModal({ empresaId, onClose, onCreado }: Nuev
       notify.success(estadoFinal === 'borrador' ? 'Asiento guardado como borrador.' : 'Asiento contabilizado.');
       onCreado();
     } catch (error: any) {
-      notify.error(error?.response?.data?.error || 'No se pudo crear el asiento.');
+      notify.error(mensajeDeErrorUnico(error, 'No se pudo crear el asiento.'));
     } finally {
       setGuardando(false);
     }

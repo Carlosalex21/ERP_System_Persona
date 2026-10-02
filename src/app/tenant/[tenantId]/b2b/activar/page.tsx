@@ -7,6 +7,7 @@ import { Loader2, KeyRound, ShieldCheck } from 'lucide-react';
 import { useNotify } from '@/hooks/useNotify';
 import { tenantUrl } from '@/utils/tenantUrl';
 
+import { mensajeDeErrorUnico } from '@/utils/mensajesError';
 function ActivationForm(): ReactElement {
   const router = useRouter();
   const params = useParams();
@@ -41,8 +42,7 @@ function ActivationForm(): ReactElement {
       const loginUrl = tenantUrl(tenantId, '/login');
       router.push(loginUrl);
     } catch (err: any) {
-      const apiError = err.response?.data?.detail || "No se pudo activar la cuenta. El token puede ser inválido o haber expirado.";
-      setError(apiError);
+      setError(mensajeDeErrorUnico(err, 'No se pudo activar la cuenta. El enlace puede ser inválido o haber expirado.'));
     } finally {
       setCargando(false);
     }

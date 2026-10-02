@@ -6,6 +6,7 @@ import { Rol, Sucursal, Almacen, Departamento, UserManaged, UserManagedRequest }
 import { createManagedUser, updateManagedUser } from '@/services/rrhhService';
 import { AppModal, ActionButton } from '@/components/ui';
 
+import { mensajeDeErrorUnico } from '@/utils/mensajesError';
 interface UserModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -120,14 +121,7 @@ export default function UserModal({ isOpen, onClose, onSave, roles, sucursales, 
     } catch (err: any) {
       console.error("Error al guardar usuario:", err);
       let errorMessage = editando ? "Ocurrió un error al actualizar el empleado." : "Ocurrió un error al invitar al empleado.";
-      if (err.response?.data) {
-        // Intenta encontrar el primer mensaje de error del backend, sea cual sea el campo.
-        const fieldErrors = Object.values(err.response.data).flat();
-        if (fieldErrors.length > 0 && typeof fieldErrors[0] === 'string') {
-          errorMessage = fieldErrors[0];
-        }
-      }
-      setError(errorMessage);
+      setError(mensajeDeErrorUnico(err, errorMessage));
     } finally {
       setLoading(false);
     }

@@ -8,6 +8,7 @@ import { calcularLiquidacion } from '@/services/rrhhService';
 import { useMonedaVista } from '@/context/MonedaVistaContext';
 import type { UserManaged, Liquidacion } from '@/types/api';
 
+import { mensajeDeErrorUnico } from '@/utils/mensajesError';
 interface LiquidacionModalProps {
   empleado: UserManaged;
   onClose: () => void;
@@ -33,7 +34,7 @@ export default function LiquidacionModal({ empleado, onClose }: LiquidacionModal
     try {
       setResultado(await calcularLiquidacion(empleado.usuario_id, fechaEgreso));
     } catch (err: any) {
-      setError(err?.response?.data?.error || 'No se pudo calcular la liquidación.');
+      setError(mensajeDeErrorUnico(err, 'No se pudo calcular la liquidación.'));
     } finally {
       setCargando(false);
     }

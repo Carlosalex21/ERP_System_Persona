@@ -4,6 +4,7 @@
  * las mutaciones invalidan la caché para forzar datos frescos.
  */
 import { apiPrivada, enviarMultipart } from '@/services/api';
+import { getPagina, type Pagina } from './paginacion';
 import {
   Producto, ProductoRequest, Almacen, Categoria, CategoriaRequest, Variacionproducto, AlmacenRequest, VariacionproductoRequest,
   AjusteInventario, AjusteInventarioRequest, AjusteInventarioEditRequest, PresentacionProducto, PresentacionProductoRequest, ProductoBulkUploadResult,
@@ -238,11 +239,15 @@ export const descargarPlantillaProductos = async (): Promise<Blob> => {
 // Ajustes de inventario (entrada/salida manual de stock)
 // ---------------------------------------------------------------------------
 
-/** Lista los ajustes de inventario (más recientes primero). */
+/** Lista TODOS los ajustes de inventario (más recientes primero, hasta 5000). */
 export const getAjustesInventario = async (): Promise<AjusteInventario[]> => {
   const response = await apiPrivada.get<AjusteInventario[]>('/inventario/ajustes/');
   return response.data;
 };
+
+/** Una página de ajustes (el historial crece sin límite: se pagina en el servidor). */
+export const getPaginaAjustesInventario = (pagina: number): Promise<Pagina<AjusteInventario>> =>
+  getPagina<AjusteInventario>('/inventario/ajustes/', {}, pagina);
 
 /**
  * Crea un ajuste de inventario (cabecera + líneas) y aplica de inmediato el

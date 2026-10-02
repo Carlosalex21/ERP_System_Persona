@@ -6,6 +6,7 @@
  */
 import { apiPrivada } from './api';
 import { RegistroAuditoria } from '@/types/api';
+import { getPagina, type Pagina } from './paginacion';
 
 export interface FiltrosAuditoria {
   modelo?: string;
@@ -24,3 +25,7 @@ export const getRegistrosAuditoria = async (filtros: FiltrosAuditoria = {}): Pro
   const response = await apiPrivada.get<RegistroAuditoria[]>('/auditoria/registros/', { params: filtros });
   return response.data;
 };
+
+/** Una página del registro de auditoría (la tabla crece con cada cambio del sistema: se pagina en el servidor). */
+export const getPaginaAuditoria = async (filtros: FiltrosAuditoria, pagina: number): Promise<Pagina<RegistroAuditoria>> =>
+  getPagina<RegistroAuditoria>('/auditoria/registros/', { ...filtros }, pagina);

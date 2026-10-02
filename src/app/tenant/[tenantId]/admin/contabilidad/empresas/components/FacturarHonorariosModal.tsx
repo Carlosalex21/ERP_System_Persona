@@ -13,6 +13,7 @@ import { getMonedas } from '@/services/configuracionService';
 import { useNotify } from '@/hooks/useNotify';
 import type { Producto, MetodoPago, Moneda } from '@/types/api';
 
+import { mensajeDeErrorUnico } from '@/utils/mensajesError';
 interface FacturarHonorariosModalProps {
   empresa: EmpresaContable;
   onClose: () => void;
@@ -115,7 +116,7 @@ export default function FacturarHonorariosModal({ empresa, onClose, onFacturado 
       // factura recién emitida era el toast, que desaparece solo.
       setResultado(resultado);
     } catch (error: any) {
-      notify.error(error?.response?.data?.error || 'No se pudo facturar.');
+      notify.error(mensajeDeErrorUnico(error, 'No se pudo facturar.'));
     } finally {
       setGuardando(false);
     }

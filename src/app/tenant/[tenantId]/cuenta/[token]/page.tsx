@@ -15,6 +15,7 @@ import { getTasasPublico, type PublicTasaMoneda } from '@/services/publicCatalog
 import { referenciaEnMonedaBase } from '@/utils/currencyReference';
 import { useLiveSocket } from '@/hooks/useLiveSocket';
 
+import { mensajeDeErrorUnico } from '@/utils/mensajesError';
 const PROPINAS_SUGERIDAS = [0, 10, 15, 20];
 /** Cada cuánto se refresca la cuenta pública -- balance entre "se siente en vivo" y no saturar el backend con un poll agresivo. */
 const INTERVALO_REFRESCO_MS = 3000;
@@ -136,8 +137,7 @@ export default function CuentaPublica({ params }: { params: Promise<{ tenantId: 
       if (actualizado.pin_anfitrion_nuevo) setPinNuevo(actualizado.pin_anfitrion_nuevo);
       setEditandoDatosPago(false);
     } catch (err: unknown) {
-      const mensaje = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
-      setErrorPin(mensaje || 'PIN incorrecto o no se pudo guardar -- intenta de nuevo.');
+      setErrorPin(mensajeDeErrorUnico(err, 'PIN incorrecto o no se pudo guardar -- intenta de nuevo.'));
     } finally {
       setGuardandoDatosPago(false);
     }

@@ -1,3 +1,4 @@
+import { mensajesDeError } from '@/utils/mensajesError';
 /**
  * @file Funciones de utilidad genéricas para el frontend.
  */
@@ -20,23 +21,7 @@ export const getNombreById = (lista: any[], id: any): string => {
  * @param {unknown} error - El error capturado (normalmente un AxiosError).
  * @returns {string[]} - Lista de detalles legibles para mostrar con toast.
  */
-export const getApiErrorMessages = (error: unknown): string[] => {
-  if (typeof error !== 'object' || error === null) return [];
-  const err = error as {
-    response?: {
-      data?: {
-        errors?: Array<{ detail?: string }>;
-      };
-    };
-  };
-  const errors = err.response?.data?.errors;
-  if (Array.isArray(errors)) {
-    return errors
-      .map(e => e.detail)
-      .filter((detail): detail is string => Boolean(detail));
-  }
-  return [];
-};
+export const getApiErrorMessages = (error: unknown): string[] => mensajesDeError(error);
 
 /**
  * Formatea un monto Decimal (string) a un número flotante seguro.

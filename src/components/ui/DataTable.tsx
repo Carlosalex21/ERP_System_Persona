@@ -30,6 +30,19 @@ interface DataTableProps<T> {
   emptyState?: ReactNode;
   /** Etiqueta para el conteo de resultados (ej. "productos", "facturas"). */
   resultLabel?: string;
+  /**
+   * Paginación del lado del servidor: `data` ya es SOLO la página actual y la
+   * tabla no recorta ni ordena por su cuenta (ordenar una sola página
+   * engañaría: parecería el orden de todo el listado).
+   */
+  paginacionServidor?: {
+    pagina: number;
+    totalPaginas: number;
+    total: number;
+    onCambiarPagina: (pagina: number) => void;
+    /** Mientras llega la nueva página: atenúa la tabla y bloquea los botones. */
+    cargando?: boolean;
+  };
 }
 
 export function DataTable<T>({
@@ -38,17 +51,21 @@ export function DataTable<T>({
   pageSize = 10,
   emptyState,
   resultLabel = 'resultados',
+  paginacionServidor,
 }: DataTableProps<T>): ReactElement {
   const [sorting, setSorting] = useState<SortingState>([]);
+  const enServidor = paginacionServidor !== undefined;
 
   const table = useReactTable({
     data,
     columns,
     state: { sorting },
     onSortingChange: setSorting,
+    enableSorting: !enServidor,
     getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
+    ...(enServidor
+      ? { manualPagination: true }
+      : { getSortedRowModel: getSortedRowModel(), getPaginationRowModel: getPaginationRowModel() }),
     initialState: { pagination: { pageSize } },
   });
 
@@ -60,7 +77,7 @@ export function DataTable<T>({
 
   return (
     <div>
-      <div className="overflow-x-auto">
+      <div className={`overflow-x-auto transition-opacity ${paginacionServidor?.cargando ? 'opacity-50 pointer-events-none' : ''}`}>
         <table className="w-full text-left text-sm">
           <thead>
             {table.getHeaderGroups().map(headerGroup => (
@@ -114,7 +131,35 @@ export function DataTable<T>({
         </table>
       </div>
 
-      {table.getPageCount() > 1 && (
+      {enServidor && paginacionServidor.totalPaginas > 1 && (
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-t border-slate-100 text-xs text-slate-500">
+          <span>
+            Página {paginacionServidor.pagina} de {paginacionServidor.totalPaginas} · {paginacionServidor.total} {resultLabel}
+          </span>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => paginacionServidor.onCambiarPagina(paginacionServidor.pagina - 1)}
+              disabled={paginacionServidor.pagina <= 1 || paginacionServidor.cargando}
+              className="p-1.5 rounded-lg border border-slate-200 disabled:opacity-40 hover:bg-slate-50 transition-colors"
+              aria-label="Página anterior"
+            >
+              <ChevronLeft size={16} />
+            </button>
+            <button
+              type="button"
+              onClick={() => paginacionServidor.onCambiarPagina(paginacionServidor.pagina + 1)}
+              disabled={paginacionServidor.pagina >= paginacionServidor.totalPaginas || paginacionServidor.cargando}
+              className="p-1.5 rounded-lg border border-slate-200 disabled:opacity-40 hover:bg-slate-50 transition-colors"
+              aria-label="Página siguiente"
+            >
+              <ChevronRight size={16} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {!enServidor && table.getPageCount() > 1 && (
         <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-t border-slate-100 text-xs text-slate-500">
           <span>
             Página {table.getState().pagination.pageIndex + 1} de {table.getPageCount()} · {data.length} {resultLabel}

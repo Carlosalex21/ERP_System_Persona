@@ -1,38 +1,28 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo, type ReactElement } from 'react';
+import { useState, useEffect, useMemo, type ReactElement } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { Plus, ArrowLeftRight, PackagePlus, PackageMinus, Pencil } from 'lucide-react';
 import { motion } from 'framer-motion';
-import toast from 'react-hot-toast';
 
 import { DataTable, Badge, PageHeader, Card, TableSkeleton } from '@/components/ui';
-import { getAjustesInventario } from '@/services/inventoryService';
+import { getPaginaAjustesInventario } from '@/services/inventoryService';
+import { useListaPaginada } from '@/hooks/useListaPaginada';
+import { toastApiError } from '@/utils/errors';
 import type { AjusteInventario } from '@/types/api';
 import AjusteModal from './AjusteModal';
 import AjusteEditModal from './AjusteEditModal';
 
 export default function AjustesInventarioPage(): ReactElement {
-  const [ajustes, setAjustes] = useState<AjusteInventario[]>([]);
-  const [cargando, setCargando] = useState(true);
   const [modalAbierto, setModalAbierto] = useState(false);
   const [ajusteEditando, setAjusteEditando] = useState<AjusteInventario | null>(null);
 
-  const cargar = useCallback(async (): Promise<void> => {
-    setCargando(true);
-    try {
-      const data = await getAjustesInventario();
-      setAjustes(data);
-    } catch {
-      toast.error('No se pudieron cargar los ajustes de inventario.');
-    } finally {
-      setCargando(false);
-    }
-  }, []);
+  const lista = useListaPaginada<AjusteInventario>(getPaginaAjustesInventario);
+  const { cargando, error: errorLista } = lista;
 
   useEffect(() => {
-    cargar();
-  }, [cargar]);
+    if (errorLista) toastApiError(errorLista, 'No se pudieron cargar los ajustes de inventario.');
+  }, [errorLista]);
 
   const columns = useMemo<ColumnDef<AjusteInventario>[]>(() => [
     {
@@ -128,7 +118,7 @@ export default function AjustesInventarioPage(): ReactElement {
       <PageHeader
         icon={<ArrowLeftRight size={20} />}
         title="Ajustes de Inventario"
-        description="Registra entradas o salidas manuales de stock -- ej. mercancía recibida con nota de entrega (sin factura) o correcciones tras un conteo físico. Los productos que agregues en un mismo ajuste se aplican todos juntos, de una sola vez."
+        description="Movimientos internos de stock: conteos físicos, mermas, consumo propio e inventario inicial. Las compras a proveedores se registran en Compras > Facturas de compra. Los productos de un mismo ajuste se aplican todos juntos, de una sola vez."
         actions={
           <motion.button
             whileTap={{ scale: 0.96 }}
@@ -140,13 +130,20 @@ export default function AjustesInventarioPage(): ReactElement {
         }
       />
 
-      {cargando ? (
+      {cargando && lista.items.length === 0 ? (
         <TableSkeleton rows={6} />
       ) : (
         <Card padding="none" className="overflow-hidden">
           <DataTable
             columns={columns}
-            data={ajustes}
+            data={lista.items}
+            paginacionServidor={{
+              pagina: lista.pagina,
+              totalPaginas: lista.totalPaginas,
+              total: lista.total,
+              onCambiarPagina: lista.irAPagina,
+              cargando,
+            }}
             resultLabel="ajustes"
             emptyState={
               <div className="p-12 text-center text-slate-400 text-sm">
@@ -162,7 +159,7 @@ export default function AjustesInventarioPage(): ReactElement {
           onClose={() => setModalAbierto(false)}
           onSaved={() => {
             setModalAbierto(false);
-            cargar();
+            void lista.recargar();
           }}
         />
       )}
@@ -171,9 +168,9 @@ export default function AjustesInventarioPage(): ReactElement {
         <AjusteEditModal
           ajuste={ajusteEditando}
           onClose={() => setAjusteEditando(null)}
-          onSaved={(actualizado) => {
-            setAjustes((prev) => prev.map((a) => (a.id === actualizado.id ? actualizado : a)));
+          onSaved={() => {
             setAjusteEditando(null);
+            void lista.recargar(true);
           }}
         />
       )}

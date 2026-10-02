@@ -12,6 +12,7 @@ import { useNotify } from '@/hooks/useNotify';
 import type { Cliente } from '@/types/api';
 import ClientModal from '../../../pos/components/ClientModal';
 
+import { mensajeDeErrorUnico } from '@/utils/mensajesError';
 interface EmpresaContableModalProps {
   empresa?: EmpresaContable | null;
   onClose: () => void;
@@ -71,8 +72,7 @@ export default function EmpresaContableModal({ empresa, onClose, onSaved }: Empr
       }
       onSaved();
     } catch (error: any) {
-      const detalle = error?.response?.data?.es_negocio_propio?.[0];
-      notify.error(detalle || 'No se pudo guardar la empresa.');
+      notify.error(mensajeDeErrorUnico(error, 'No se pudo guardar la empresa.'));
     } finally {
       setGuardando(false);
     }

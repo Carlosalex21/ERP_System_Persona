@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Lock, Loader2, Store, ArrowLeft, CheckCircle2, Eye, EyeOff } from 'lucide-react';
 import { confirmarResetPassword } from '@/services/authService';
 
+import { mensajeDeErrorUnico } from '@/utils/mensajesError';
 function ResetPasswordContent({ tenantId }: { tenantId: string }): ReactElement {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -37,10 +38,7 @@ function ResetPasswordContent({ tenantId }: { tenantId: string }): ReactElement 
       await confirmarResetPassword(uid, token, password);
       setExito(true);
     } catch (err: any) {
-      const mensaje = err?.response?.data?.data?.errors?.[0]?.detail
-        || err?.response?.data?.errors?.[0]?.detail
-        || 'El enlace expiró o ya fue usado. Solicita uno nuevo.';
-      setError(mensaje);
+      setError(mensajeDeErrorUnico(err, 'El enlace expiró o ya fue usado. Solicita uno nuevo.'));
     } finally {
       setEnviando(false);
     }

@@ -7,6 +7,7 @@ import { apiPublica } from '@/services/api';
 import { getB2BPerfil } from '@/services/b2bPortalService';
 import { borrarTokens, guardarSesion } from '@/utils/authSession';
 
+import { mensajeDeErrorUnico } from '@/utils/mensajesError';
 export default function TenantLogin({ params }: { params: Promise<{ tenantId: string }> }) {
   const { tenantId } = use(params);
   const router = useRouter();
@@ -51,7 +52,7 @@ export default function TenantLogin({ params }: { params: Promise<{ tenantId: st
   if (error.response?.status === 401) {
     setErrorLogin('Usuario o contraseña incorrectos.');
   } else {
-    setErrorLogin(`Error: ${error.message || 'Desconocido'}`);
+    setErrorLogin(mensajeDeErrorUnico(error, 'No pudimos iniciar sesión. Inténtalo de nuevo.'));
   }
   setCargando(false);
 }
