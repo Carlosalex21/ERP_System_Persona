@@ -115,6 +115,21 @@ export default function RetencionModal({
   const vinculo = useWatch({ control, name: 'vinculo' });
   const porcentaje = useWatch({ control, name: 'porcentaje' });
   const base = useWatch({ control, name: 'base' });
+  const facturaId = useWatch({ control, name: 'factura' });
+  const tipoRetencion = useWatch({ control, name: 'tipo_retencion' });
+
+  // Con factura, la base la define el documento (y el backend la vuelve a
+  // fijar igual al guardar -- ver `retencion_service.resolver_base_retencion`):
+  // IVA se retiene sobre el IVA de la factura, ISLR sobre su base imponible.
+  const facturaSeleccionada = vinculo === 'factura'
+    ? facturas.find((f) => String(f.id) === String(facturaId)) ?? null
+    : null;
+  const baseFijadaPorFactura = facturaSeleccionada !== null;
+
+  useEffect(() => {
+    if (!facturaSeleccionada) return;
+    setValue('base', tipoRetencion === 'iva' ? facturaSeleccionada.iva_total : facturaSeleccionada.base_imponible);
+  }, [facturaSeleccionada, tipoRetencion, setValue]);
 
   const previewMonto = (parseDecimal(base) * parseDecimal(porcentaje)) / 100;
 
@@ -191,17 +206,7 @@ export default function RetencionModal({
             </label>
             <select
               id="retencion-factura"
-              {...register('factura', {
-                // Al elegir la factura, se autocompleta "Base" con su
-                // `base_imponible` real -- antes había que tipearla a mano,
-                // lo que podía quedar distinto del monto real de la factura
-                // (un error humano que el contador recibía ya guardado).
-                // Sigue siendo editable por si hace falta un ajuste puntual.
-                onChange: (e: React.ChangeEvent<HTMLSelectElement>) => {
-                  const factura = facturas.find((f) => String(f.id) === e.target.value);
-                  if (factura) setValue('base', factura.base_imponible);
-                },
-              })}
+              {...register('factura')}
               className="w-full px-3 py-2 border rounded-lg text-sm bg-white"
             >
               <option value="">Selecciona una factura...</option>
@@ -276,7 +281,7 @@ export default function RetencionModal({
           </div>
           <div>
             <label className="block text-xs font-bold text-slate-500 uppercase mb-1" htmlFor="retencion-base">
-              Base
+              {tipoRetencion === 'iva' ? 'IVA de la factura' : 'Base imponible'}
             </label>
             <input
               id="retencion-base"
@@ -287,9 +292,17 @@ export default function RetencionModal({
                 required: 'La base es obligatoria',
                 min: { value: 0.01, message: 'Debe ser mayor que 0' },
               })}
-              className="w-full px-3 py-2 border rounded-lg text-sm"
+              readOnly={baseFijadaPorFactura}
+              className={`w-full px-3 py-2 border rounded-lg text-sm ${baseFijadaPorFactura ? 'bg-slate-50 text-slate-600' : ''}`}
               placeholder="0.00"
             />
+            {baseFijadaPorFactura && (
+              <p className="text-[11px] text-slate-400 mt-1">
+                {tipoRetencion === 'iva'
+                  ? 'La retención de IVA se aplica sobre el impuesto de la factura, no sobre su base.'
+                  : 'Tomada de la factura seleccionada.'}
+              </p>
+            )}
             {errors.base && <p className="text-xs text-red-500 mt-1">{errors.base.message}</p>}
           </div>
         </div>

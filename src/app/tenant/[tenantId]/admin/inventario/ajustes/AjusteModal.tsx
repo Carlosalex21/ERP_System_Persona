@@ -8,6 +8,7 @@ import { AppModal, ActionButton } from '@/components/ui';
 import { getProductos, getAlmacenes, crearAjusteInventario } from '@/services/inventoryService';
 import { getProveedores } from '@/services/proveedoresService';
 import { toastApiError } from '@/utils/errors';
+import { useSession } from '@/context/SessionContext';
 import type {
   Producto, Almacen, Proveedor, TipoAjusteInventario, MotivoAjusteInventario,
   AjusteInventarioRequest, AjusteInventarioDetalleRequest,
@@ -111,6 +112,19 @@ export default function AjusteModal({ onClose, onSaved }: AjusteModalProps): Rea
     })();
   }, []);
 
+  // Almacén: un admin elige cualquiera; cualquier otro rol queda fijo en su
+  // almacén operativo (el backend lo impone igual, ver
+  // `AjusteInventarioViewSet.perform_create`). Con un solo almacén no hay nada que elegir.
+  const { usuario } = useSession();
+  const esAdmin = usuario?.rol_codigo === 'admin';
+  const almacenPropioId = usuario?.almacen_asignado_id ?? null;
+  const almacenBloqueado = !esAdmin && almacenPropioId !== null;
+  useEffect(() => {
+    if (almacenId || almacenes.length === 0) return;
+    if (almacenPropioId !== null) setAlmacenId(String(almacenPropioId));
+    else if (almacenes.length === 1) setAlmacenId(String(almacenes[0].id));
+  }, [almacenes, almacenPropioId, almacenId]);
+
   const itemsBuscables = useMemo(() => buildItemsBuscables(productos), [productos]);
 
   const resultados = useMemo(() => {
@@ -179,6 +193,10 @@ export default function AjusteModal({ onClose, onSaved }: AjusteModalProps): Rea
   const guardar = async (): Promise<void> => {
     if (lineas.length === 0) {
       toast.error('Agrega al menos un producto al ajuste.');
+      return;
+    }
+    if (!almacenId && almacenes.length > 1) {
+      toast.error('Indica en qué almacén entra o sale esta mercancía.');
       return;
     }
     for (const l of lineas) {
@@ -300,15 +318,19 @@ export default function AjusteModal({ onClose, onSaved }: AjusteModalProps): Rea
             </div>
           )}
           <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Almacén (opcional)</label>
+            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Almacén</label>
             <select
               value={almacenId}
               onChange={(e) => setAlmacenId(e.target.value)}
-              className="w-full px-3 py-2 border rounded-lg text-sm"
+              disabled={almacenBloqueado}
+              className={`w-full px-3 py-2 border rounded-lg text-sm ${almacenBloqueado ? 'bg-slate-50 text-slate-500' : ''}`}
             >
-              <option value="">Sin especificar</option>
+              {!almacenId && <option value="">Selecciona un almacén...</option>}
               {almacenes.map((a) => <option key={a.id} value={a.id}>{a.nombre}</option>)}
             </select>
+            {almacenBloqueado && (
+              <p className="text-[11px] text-slate-400 mt-1">Tu almacén asignado -- solo un administrador puede registrar en otro.</p>
+            )}
           </div>
           <div>
             <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Proveedor (opcional)</label>

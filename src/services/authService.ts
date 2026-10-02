@@ -19,6 +19,9 @@ export interface UsuarioActual {
   /** Código estable del rol (ver `apps.core.permissions.codigo_rol`), no el nombre editable. */
   rol_codigo: string | null;
   sucursal: string | null;
+  /** Almacén operativo del empleado (ver `UserMetadata.almacen_asignado`) -- null si no tiene uno. */
+  almacen_asignado_id: number | null;
+  almacen_asignado: string | null;
   /** Códigos de módulo del panel que el rol de este usuario NO debe ver (ver `utils/modulosPanel.ts`). */
   modulos_ocultos: string[];
 }
