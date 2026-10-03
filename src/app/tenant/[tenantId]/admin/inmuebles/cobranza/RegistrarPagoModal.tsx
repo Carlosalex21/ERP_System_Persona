@@ -162,7 +162,9 @@ export default function RegistrarPagoModal({ unidadInicial = null, cargoInicial 
           <div className={`col-span-2 ${enUsd ? 'sm:col-span-4' : 'sm:col-span-2'} flex items-end`}>
             <div className="w-full px-3 py-2 rounded-lg bg-primary-50 border border-primary-100 text-sm flex items-center justify-between">
               <span className="text-primary-700 font-semibold">Equivale a</span>
-              <span className="font-mono font-black text-primary-800 tabular-nums">{usd(equivalenteUsd)}</span>
+              <span className="font-mono font-black text-primary-800 tabular-nums">
+                {enUsd ? (monedaBase && Number(tasa) > 0 ? `${numero(Number(monto || 0) * Number(tasa))} ${monedaBase}` : usd(Number(monto || 0))) : usd(equivalenteUsd)}
+              </span>
             </div>
           </div>
         </div>

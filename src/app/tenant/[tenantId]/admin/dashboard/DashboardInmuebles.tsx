@@ -2,7 +2,6 @@
 
 import { useEffect, useState, type ReactElement } from 'react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
 import { AlertTriangle, CalendarClock, Home, Inbox, MessageSquare, TrendingUp, Wallet } from 'lucide-react';
 
 import { Card, EmptyState, PageHeader, StatCard, TableSkeleton } from '@/components/ui';
@@ -11,8 +10,8 @@ import { getTableroInmuebles, type TableroInmuebles } from '@/services/inmuebles
 import { toastApiError } from '@/utils/errors';
 
 export default function DashboardInmuebles({ tipo }: { tipo: 'condominios' | 'inmobiliaria' }): ReactElement {
-  const { tenantId } = useParams<{ tenantId: string }>();
-  const base = `/tenant/${tenantId}/admin/inmuebles`;
+  // El middleware antepone el tenant según el dominio: las rutas del panel son relativas a él.
+  const base = '/admin/inmuebles';
   const [t, setT] = useState<TableroInmuebles | null>(null);
 
   useEffect(() => {
