@@ -90,7 +90,7 @@ export default function LandingPage() {
 
       {/* 2. BARRA DE CONFIANZA -- marquesina infinita */}
       <section className="bg-accent-400 text-ink-950 py-5 border-y-2 border-ink-950/5 overflow-hidden">
-        <MarqueeBar items={['Retail', 'Ferretería', 'Restaurante', 'Mayorista', 'Boutique', 'Farmacia', 'Panadería', 'Distribuidora']} />
+        <MarqueeBar items={['Retail', 'Ferretería', 'Restaurante', 'Mayorista', 'Boutique', 'Farmacia', 'Panadería', 'Distribuidora', 'Condominios', 'Inmobiliaria']} />
       </section>
 
       {/* 2.5 PRUEBA SOCIAL -- números reales/verificables, sin testimonios inventados */}

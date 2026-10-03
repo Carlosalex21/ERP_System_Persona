@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, Suspense, useEffect } from 'react';
-import { Mail, Lock, User, Building, Eye, EyeOff, ArrowRight, CheckCircle2, Loader2, UserPlus, Check, X, Globe, Store, ExternalLink, ArrowLeft, Sparkles, UtensilsCrossed, FlaskConical, Wrench, Calculator } from 'lucide-react';
+import { Mail, Lock, User, Building, Eye, EyeOff, ArrowRight, CheckCircle2, Loader2, UserPlus, Check, X, Globe, Store, ExternalLink, ArrowLeft, Sparkles, UtensilsCrossed, FlaskConical, Wrench, Calculator, Home, KeyRound } from 'lucide-react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { apiPublica } from '@/services/api';
 import { getPlanesPublicos, getMiCliente } from '@/services/platformBillingService';
@@ -12,7 +12,7 @@ import { guardarSesion } from '@/utils/authSession';
 
 import { mensajeDeErrorUnico } from '@/utils/mensajesError';
 type View = 'select_type' | 'register' | 'owner_login';
-type BusinessType = 'retail' | 'b2b' | 'restaurante' | 'farmacia' | 'servicios' | 'contador';
+type BusinessType = 'retail' | 'b2b' | 'restaurante' | 'farmacia' | 'servicios' | 'contador' | 'condominios' | 'inmobiliaria';
 
 const TIPOS_NEGOCIO: {
   tipo: BusinessType;
@@ -26,6 +26,8 @@ const TIPOS_NEGOCIO: {
   { tipo: 'farmacia', icon: FlaskConical, color: 'emerald', titulo: 'Farmacia', descripcion: 'Control de lotes y alertas de vencimiento.' },
   { tipo: 'servicios', icon: Wrench, color: 'amber', titulo: 'Taller / Servicios', descripcion: 'Órdenes de servicio, técnicos y entregas.' },
   { tipo: 'contador', icon: Calculator, color: 'violet', titulo: 'Contador / Firma Contable', descripcion: 'Plan de cuentas, asientos, libros y estados financieros por cliente.' },
+  { tipo: 'condominios', icon: Building, color: 'cyan', titulo: 'Administradora de Condominios', descripcion: 'Recibos de condominio, cobranza, morosidad y portal para propietarios.' },
+  { tipo: 'inmobiliaria', icon: KeyRound, color: 'rose', titulo: 'Inmobiliaria', descripcion: 'Catálogo de propiedades, contratos de alquiler y liquidación a propietarios.' },
   { tipo: 'b2b', icon: Building, color: 'indigo', titulo: 'Fabricante / Mayorista', descripcion: 'Red de clientes mayoristas con precios especiales.' },
 ];
 
@@ -36,6 +38,8 @@ const COLOR_CLASSES: Record<string, { activo: string; icono: string }> = {
   amber: { activo: 'border-amber-500 bg-amber-50', icono: 'text-amber-600' },
   indigo: { activo: 'border-indigo-500 bg-indigo-50', icono: 'text-indigo-600' },
   violet: { activo: 'border-violet-500 bg-violet-50', icono: 'text-violet-600' },
+  cyan: { activo: 'border-cyan-500 bg-cyan-50', icono: 'text-cyan-600' },
+  rose: { activo: 'border-rose-500 bg-rose-50', icono: 'text-rose-600' },
 };
 type PaisCodigo = 'VE' | 'CO' | 'PE';
 

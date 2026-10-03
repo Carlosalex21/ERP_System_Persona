@@ -46,8 +46,12 @@ export function resumenModulosPlan(plan: Pick<Plan, 'modulos'>, tipoNegocio?: Ti
 export function beneficiosDePlan(plan: Plan, tipoNegocio?: TipoNegocio | string | null): string[] {
   const escritas = (plan.descripcion || '').split('\n').map((l) => l.trim()).filter(Boolean);
   const caracteristicas = escritas.length > 0 ? escritas : (plan.slug ? BENEFICIOS_POR_SLUG[plan.slug] ?? [] : []);
+  const esInmuebles = tipoNegocio === 'condominios' || tipoNegocio === 'inmobiliaria';
+  const limiteCatalogo = esInmuebles
+    ? (plan.limite_unidades ? `Hasta ${plan.limite_unidades} unidades` : 'Unidades ilimitadas')
+    : (plan.limite_productos ? `Hasta ${plan.limite_productos} productos` : 'Productos ilimitados');
   const limites = [
-    plan.limite_productos ? `Hasta ${plan.limite_productos} productos` : 'Productos ilimitados',
+    limiteCatalogo,
     `Hasta ${plan.limite_usuarios} usuario${plan.limite_usuarios === 1 ? '' : 's'}`,
     `Hasta ${plan.limite_sucursales} sucursal${plan.limite_sucursales === 1 ? '' : 'es'}`,
   ];

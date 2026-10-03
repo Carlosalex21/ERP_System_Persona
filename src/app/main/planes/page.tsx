@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, Suspense, type ReactElement } from 'react';
-import { Check, HelpCircle, Loader2, Sparkles, ArrowRight, Store, Building, UtensilsCrossed, FlaskConical, Wrench, Calculator } from 'lucide-react';
+import { Check, HelpCircle, Loader2, Sparkles, ArrowRight, Store, Building, UtensilsCrossed, FlaskConical, Wrench, Calculator, KeyRound } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { getPlanesPublicos } from '@/services/platformBillingService';
@@ -12,7 +12,7 @@ import { resumenModulosPlan } from '@/utils/planes';
 /** Descuento anual mostrado en la UI (no hay un precio anual real en el backend todavía). */
 const DESCUENTO_ANUAL = 0.2;
 
-type TipoNegocio = 'retail' | 'b2b' | 'restaurante' | 'farmacia' | 'servicios' | 'contador';
+type TipoNegocio = 'retail' | 'b2b' | 'restaurante' | 'farmacia' | 'servicios' | 'contador' | 'condominios' | 'inmobiliaria';
 
 const TIPOS_NEGOCIO: { valor: TipoNegocio; etiqueta: string; icon: typeof Store }[] = [
   { valor: 'retail', etiqueta: 'Tienda al Detal', icon: Store },
@@ -20,6 +20,8 @@ const TIPOS_NEGOCIO: { valor: TipoNegocio; etiqueta: string; icon: typeof Store 
   { valor: 'farmacia', etiqueta: 'Farmacia', icon: FlaskConical },
   { valor: 'servicios', etiqueta: 'Taller/Servicios', icon: Wrench },
   { valor: 'contador', etiqueta: 'Contador', icon: Calculator },
+  { valor: 'condominios', etiqueta: 'Condominios', icon: Building },
+  { valor: 'inmobiliaria', etiqueta: 'Inmobiliaria', icon: KeyRound },
   { valor: 'b2b', etiqueta: 'Mayorista', icon: Building },
 ];
 
@@ -174,7 +176,7 @@ function PlanesContent(): ReactElement {
                         )) : (
                           <li className={destacado ? 'text-slate-400 text-sm' : 'text-slate-400 text-sm'}>
                             Hasta {plan.limite_usuarios} usuarios · {plan.limite_sucursales} sucursal(es)
-                            {plan.limite_productos ? ` · ${plan.limite_productos} productos` : ' · productos ilimitados'}
+                            {plan.limite_unidades ? ` · hasta ${plan.limite_unidades} unidades` : plan.limite_productos ? ` · ${plan.limite_productos} productos` : ' · productos ilimitados'}
                           </li>
                         )}
                       </ul>

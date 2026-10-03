@@ -223,7 +223,7 @@ export default function Sidebar({ menuMovilAbierto, setMenuMovilAbierto, ejecuta
           >
             <span className="flex items-center gap-2 truncate">
               <Globe2 size={14} className="text-primary-400 shrink-0" />
-              {tenant?.tipo_negocio === "restaurante" ? "Ver menú público" : "Ver tienda pública"}
+              {tenant?.tipo_negocio === "restaurante" ? "Ver menú público" : tenant?.tipo_negocio === "inmobiliaria" ? "Ver mi catálogo de propiedades" : tenant?.tipo_negocio === "condominios" ? "Ver portal de residentes" : "Ver tienda pública"}
             </span>
             <ExternalLink size={12} className="text-slate-500 shrink-0" />
           </a>

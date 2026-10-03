@@ -58,7 +58,7 @@ export default function SuperAdminPanel() {
   const [editandoPlanId, setEditandoPlanId] = useState<number | null>(null);
   const [formPlan, setFormPlan] = useState<{
     nombre: string; slug: string; descripcion: string; precio: string;
-    limite_usuarios: number; limite_sucursales: number; limite_productos: number | null; activo: boolean;
+    limite_usuarios: number; limite_sucursales: number; limite_productos: number | null; limite_unidades: number | null; activo: boolean;
     tipos_negocio: string[];
     modulos: string[];
   }>({
@@ -69,6 +69,7 @@ export default function SuperAdminPanel() {
     limite_usuarios: 100,
     limite_sucursales: 10,
     limite_productos: null,
+    limite_unidades: null,
     activo: true,
     tipos_negocio: [],
     modulos: [],
@@ -244,6 +245,7 @@ export default function SuperAdminPanel() {
       limite_usuarios: plan.limite_usuarios,
       limite_sucursales: plan.limite_sucursales,
       limite_productos: plan.limite_productos ?? null,
+      limite_unidades: plan.limite_unidades ?? null,
       activo: plan.activo,
       tipos_negocio: plan.tipos_negocio || [],
       modulos: plan.modulos || [],
@@ -455,7 +457,7 @@ export default function SuperAdminPanel() {
             <div className="flex justify-between items-center">
               <h1 className="text-3xl font-black text-slate-900 tracking-tight">Planes de Suscripción</h1>
               <button 
-                onClick={() => { setEditandoPlanId(null); setFormPlan({ nombre: '', slug: '', descripcion: '', precio: '', limite_usuarios: 100, limite_sucursales: 10, limite_productos: null, activo: true, tipos_negocio: [], modulos: [] }); setModalPlanAbierto(true); }}
+                onClick={() => { setEditandoPlanId(null); setFormPlan({ nombre: '', slug: '', descripcion: '', precio: '', limite_usuarios: 100, limite_sucursales: 10, limite_productos: null, limite_unidades: null, activo: true, tipos_negocio: [], modulos: [] }); setModalPlanAbierto(true); }}
                 className="bg-accent-500 text-white px-5 py-2.5 rounded-xl font-bold hover:bg-accent-600 flex items-center gap-2 shadow-lg"
               >
                 <Plus size={18} /> Nuevo Plan
@@ -717,6 +719,18 @@ export default function SuperAdminPanel() {
                   <p className="text-[11px] text-slate-400 mt-1">Deja vacío para no limitar la cantidad de productos.</p>
                 </div>
                 <div className="col-span-2">
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Límite de Unidades (condominios / inmobiliaria)</label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={formPlan.limite_unidades ?? ''}
+                    placeholder="Sin límite"
+                    onChange={e => setFormPlan({...formPlan, limite_unidades: e.target.value === '' ? null : parseInt(e.target.value)})}
+                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none"
+                  />
+                  <p className="text-[11px] text-slate-400 mt-1">Máximo de unidades o propiedades administradas. Es el que se cobra por tamaño de cartera.</p>
+                </div>
+                <div className="col-span-2">
                   <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Tipos de Negocio</label>
                   <div className="flex flex-wrap gap-2">
                     {[
@@ -726,6 +740,8 @@ export default function SuperAdminPanel() {
                       { valor: 'farmacia', etiqueta: 'Farmacia' },
                       { valor: 'servicios', etiqueta: 'Taller/Servicios' },
                       { valor: 'contador', etiqueta: 'Contador' },
+                      { valor: 'condominios', etiqueta: 'Condominios' },
+                      { valor: 'inmobiliaria', etiqueta: 'Inmobiliaria' },
                     ].map((t) => {
                       const marcado = formPlan.tipos_negocio.includes(t.valor);
                       return (

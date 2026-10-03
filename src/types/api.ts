@@ -1238,6 +1238,8 @@ export interface Plan {
   limite_usuarios: number;
   limite_sucursales: number;
   limite_productos: number | null;
+  /** Solo condominios/inmobiliaria: máximo de unidades/propiedades administradas (null = sin límite). */
+  limite_unidades?: number | null;
   descripcion: string;
   activo: boolean;
   /** Tipos de negocio a los que aplica (ver TipoNegocio en utils/modulosPanel). Vacío = aplica a todos. */
@@ -1255,6 +1257,7 @@ export interface PlanResumen {
   limite_usuarios: number;
   limite_sucursales: number;
   limite_productos: number | null;
+  limite_unidades?: number | null;
 }
 
 export interface MiSubscripcion {
