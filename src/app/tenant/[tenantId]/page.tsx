@@ -1,6 +1,9 @@
 import type { ReactElement } from 'react';
-import { getCatalogoPublico, type PublicProducto } from '@/services/publicCatalogService';
+import { getCatalogoPublico, getEmpresaInfoPublico, type PublicEmpresaInfo, type PublicProducto } from '@/services/publicCatalogService';
+import { getFiltrosPublicos, getPropiedadesPublicas, type OpcionesFiltros, type PaginaPropiedades } from '@/services/inmueblesPublicService';
 import StorefrontClient from './StorefrontClient';
+import CatalogoInmobiliaria from './inmobiliaria/CatalogoInmobiliaria';
+import LandingCondominio from './inmobiliaria/LandingCondominio';
 
 // NO usar ISR (`revalidate`) acá: la revalidación en segundo plano de
 // Next.js pierde el Host/dominio original de la petición que generó cada
@@ -22,6 +25,31 @@ export default async function TiendaPublica({
 }): Promise<ReactElement> {
   const { tenantId } = await params;
   const subdominio = tenantId ?? '';
+
+  // El tipo de negocio decide qué es la portada pública: tienda, catálogo de
+  // propiedades (inmobiliaria) o portal de residentes (condominios).
+  let empresa: PublicEmpresaInfo | null = null;
+  try {
+    empresa = await getEmpresaInfoPublico(subdominio);
+  } catch (err) {
+    console.error('Error cargando la info pública del negocio:', err);
+  }
+
+  if (empresa?.tipo_negocio === 'condominios') return <LandingCondominio empresa={empresa} />;
+
+  if (empresa?.tipo_negocio === 'inmobiliaria') {
+    let inicial: PaginaPropiedades | null = null;
+    let opciones: OpcionesFiltros | null = null;
+    try {
+      [inicial, opciones] = await Promise.all([getPropiedadesPublicas(subdominio), getFiltrosPublicos(subdominio)]);
+    } catch (err) {
+      console.error('Error precargando propiedades públicas en el servidor:', err);
+    }
+    if (!opciones) {
+      try { opciones = await getFiltrosPublicos(subdominio); } catch { /* el cliente reintenta */ }
+    }
+    return <CatalogoInmobiliaria subdominio={subdominio} empresa={empresa} inicial={inicial} opciones={opciones} />;
+  }
 
   let productosIniciales: PublicProducto[] = [];
   try {

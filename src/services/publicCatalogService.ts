@@ -110,7 +110,7 @@ const TENANT_BASE_DOMAIN = process.env.NEXT_PUBLIC_TENANT_DOMAIN || `localhost:$
  * le diga a django-tenants qué tenant es, igual que ya hace cualquier
  * request que SÍ llega por el subdominio real.
  */
-function baseUrl(subdominio: string): string {
+export function baseUrl(subdominio: string): string {
   if (typeof window === 'undefined') {
     return `${API_ORIGIN}/api/v1`;
   }
@@ -123,7 +123,7 @@ function baseUrl(subdominio: string): string {
 }
 
 /** Headers extra necesarios solo en el servidor (ver `baseUrl`). */
-function tenantHeaders(subdominio: string): Record<string, string> | undefined {
+export function tenantHeaders(subdominio: string): Record<string, string> | undefined {
   if (typeof window === 'undefined') {
     return { Host: `${subdominio}.${TENANT_BASE_DOMAIN}` };
   }
@@ -200,7 +200,7 @@ export interface PublicEmpresaInfo {
   telefono: string | null;
   logo_url: string | null;
   /** Para adaptar el copy del storefront (ej. "Menú" en vez de "Catálogo" para un restaurante). */
-  tipo_negocio?: 'retail' | 'b2b' | 'restaurante' | 'farmacia' | 'servicios' | null;
+  tipo_negocio?: 'retail' | 'b2b' | 'restaurante' | 'farmacia' | 'servicios' | 'condominios' | 'inmobiliaria' | null;
 }
 
 export const getEmpresaInfoPublico = async (subdominio: string): Promise<PublicEmpresaInfo> => {
