@@ -142,7 +142,17 @@ export const reportarPagoPortal = async (token: string, d: ReportePagoPortal): P
   Object.entries(resto).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== '') fd.append(k, String(v)); });
   cargos.forEach((c) => fd.append('cargos', String(c)));
   if (comprobante) fd.append('comprobante', comprobante);
-  return (await apiPublica.post<{ mensaje: string }>(`/inmuebles/portal/${token}/reportar-pago/`, fd)).data;
+  // `fetch` y no axios: la instancia pública fuerza `application/json` y rompería el multipart.
+  const url = `${baseUrl(window.location.hostname.split('.')[0])}/inmuebles/portal/${token}/reportar-pago/`;
+  const res = await fetch(url, { method: 'POST', body: fd });
+  const envelope = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const error = new Error('No se pudo enviar el aviso de pago.') as Error & { response?: unknown; apiErrors?: unknown };
+    error.response = { status: res.status, data: envelope };
+    if (Array.isArray(envelope?.errors)) error.apiErrors = envelope.errors;
+    throw error;
+  }
+  return envelope.data as { mensaje: string };
 };
 
 /** Abre un PDF del portal (recibo, cuota o estado de cuenta) en otra pestaña. */
@@ -152,3 +162,5 @@ export async function abrirPdfPortal(token: string, ruta: string): Promise<void>
   window.open(url, '_blank', 'noopener');
   setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
+
+
