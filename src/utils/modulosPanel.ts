@@ -16,14 +16,18 @@ import {
   FlaskConical, Gift, Globe2, HandCoins, Hash, Landmark, LayoutDashboard, LifeBuoy, Package, ReceiptText, Repeat, Scale,
   Settings, ShieldCheck, ShoppingBag, ShoppingCart, Shuffle, SlidersHorizontal, Smartphone, Sparkles, Tags, Target,
   TriangleAlert, Truck, UploadCloud, UserPlus, UserRound, Users, Utensils, Wallet, Warehouse, Wrench,
+  BadgeCheck, Banknote, FileSignature, House, MessageSquare, OctagonAlert,
   type LucideIcon,
 } from 'lucide-react';
 
 /** Debe calzar con `Client.TIPO_NEGOCIO_CHOICES` del backend (`apps.tenants.models`). */
-export type TipoNegocio = 'retail' | 'b2b' | 'restaurante' | 'farmacia' | 'servicios' | 'contador';
+export type TipoNegocio = 'retail' | 'b2b' | 'restaurante' | 'farmacia' | 'servicios' | 'contador' | 'condominios' | 'inmobiliaria';
 
 /** Todo lo que NO es un contador -- para módulos de "bienes físicos" que a un contador no le aplican. */
 export const TIPOS_CON_INVENTARIO: TipoNegocio[] = ['retail', 'b2b', 'restaurante', 'farmacia', 'servicios'];
+
+/** Administradoras de condominios e inmobiliarias: no venden mercancía ni facturan en un POS. */
+export const TIPOS_INMUEBLES: TipoNegocio[] = ['condominios', 'inmobiliaria'];
 
 export interface ModuloPanel {
   codigo: string;
@@ -32,6 +36,10 @@ export interface ModuloPanel {
   icono: LucideIcon;
   /** Si se define, el módulo solo aplica a tenants de alguno de estos tipos de negocio. */
   tiposNegocio?: TipoNegocio[];
+  /** Tipos de negocio a los que NO se les muestra (el resto sí). */
+  excluirTipos?: TipoNegocio[];
+  /** Nombre alternativo según el tipo de negocio (ej. "Clientes" -> "Propietarios y vecinos"). */
+  etiquetas?: Partial<Record<TipoNegocio, string>>;
   /** Solo visible para el rol administrador (independiente de `modulos_ocultos`). */
   soloAdmin?: boolean;
   /**
@@ -50,6 +58,8 @@ export interface GrupoModulosPanel {
   modulos: ModuloPanel[];
   /** Grupos fijos (siempre expandidos, sin cabecera colapsable) -- el "inicio" del panel. */
   fijo?: boolean;
+  /** Nombre alternativo según el tipo de negocio (ej. "Ventas" -> "Personas" en condominios). */
+  etiquetas?: Partial<Record<TipoNegocio, string>>;
 }
 
 /**
@@ -68,12 +78,46 @@ export const GRUPOS_MODULOS_PANEL: GrupoModulosPanel[] = [
     modulos: [
       { codigo: 'dashboard', etiqueta: 'Dashboard', path: '/admin', icono: LayoutDashboard, basico: true },
       { codigo: 'alertas', etiqueta: 'Centro de Alertas', path: '/admin/alertas', icono: TriangleAlert, basico: true },
-      { codigo: 'reportes', etiqueta: 'Reportes y Analítica', path: '/admin/reportes', icono: BarChart3 },
+      { codigo: 'reportes', etiqueta: 'Reportes y Analítica', path: '/admin/reportes', icono: BarChart3, excluirTipos: TIPOS_INMUEBLES },
+    ],
+  },
+  {
+    id: 'condominios',
+    etiqueta: 'Condominios',
+    icono: Building2,
+    modulos: [
+      { codigo: 'edificios', etiqueta: 'Edificios', path: '/admin/inmuebles/edificios', icono: Building2, tiposNegocio: ['condominios'] },
+      { codigo: 'unidades', etiqueta: 'Unidades y propietarios', path: '/admin/inmuebles/unidades', icono: House, tiposNegocio: ['condominios'] },
+      { codigo: 'gastos_comunes', etiqueta: 'Gastos comunes', path: '/admin/inmuebles/gastos', icono: ReceiptText, tiposNegocio: ['condominios'] },
+      { codigo: 'periodos_condominio', etiqueta: 'Recibos de condominio', path: '/admin/inmuebles/periodos', icono: FileText, tiposNegocio: ['condominios'] },
+    ],
+  },
+  {
+    id: 'inmobiliaria',
+    etiqueta: 'Inmobiliaria',
+    icono: House,
+    modulos: [
+      { codigo: 'propiedades', etiqueta: 'Propiedades', path: '/admin/inmuebles/propiedades', icono: House, tiposNegocio: ['inmobiliaria'] },
+      { codigo: 'contratos', etiqueta: 'Contratos de alquiler', path: '/admin/inmuebles/contratos', icono: FileSignature, tiposNegocio: ['inmobiliaria'] },
+      { codigo: 'liquidaciones', etiqueta: 'Liquidaciones a propietarios', path: '/admin/inmuebles/liquidaciones', icono: Banknote, tiposNegocio: ['inmobiliaria'] },
+      { codigo: 'consultas_inmuebles', etiqueta: 'Interesados', path: '/admin/inmuebles/consultas', icono: MessageSquare, tiposNegocio: ['inmobiliaria'] },
+    ],
+  },
+  {
+    id: 'cobranza',
+    etiqueta: 'Cobranza',
+    icono: HandCoins,
+    modulos: [
+      { codigo: 'cobranza', etiqueta: 'Cobranza y recibos', path: '/admin/inmuebles/cobranza', icono: HandCoins, tiposNegocio: TIPOS_INMUEBLES },
+      { codigo: 'pagos_reportados', etiqueta: 'Pagos por revisar', path: '/admin/inmuebles/pagos-reportados', icono: BadgeCheck, tiposNegocio: TIPOS_INMUEBLES },
+      { codigo: 'morosidad', etiqueta: 'Morosidad', path: '/admin/inmuebles/morosidad', icono: OctagonAlert, tiposNegocio: TIPOS_INMUEBLES },
+      { codigo: 'medios_cobro', etiqueta: 'Datos para pagar', path: '/admin/inmuebles/medios-cobro', icono: Landmark, tiposNegocio: TIPOS_INMUEBLES },
     ],
   },
   {
     id: 'ventas',
     etiqueta: 'Ventas',
+    etiquetas: { condominios: 'Personas', inmobiliaria: 'Personas' },
     icono: ShoppingCart,
     modulos: [
       { codigo: 'pos', etiqueta: 'Punto de Venta (POS)', path: '/admin/pos', icono: ShoppingCart, tiposNegocio: ['retail', 'farmacia', 'servicios', 'restaurante'] },
@@ -81,11 +125,11 @@ export const GRUPOS_MODULOS_PANEL: GrupoModulosPanel[] = [
       { codigo: 'cocina', etiqueta: 'Cocina', path: '/admin/restaurante/cocina', icono: ChefHat, tiposNegocio: ['restaurante'] },
       { codigo: 'ordenes_servicio', etiqueta: 'Órdenes de Servicio', path: '/admin/servicios/ordenes', icono: Wrench, tiposNegocio: ['servicios'] },
       { codigo: 'pedidos', etiqueta: 'Pedidos', path: '/admin/pedidos', icono: ShoppingBag, tiposNegocio: TIPOS_CON_INVENTARIO },
-      { codigo: 'clientes', etiqueta: 'Clientes', path: '/admin/clientes', icono: UserRound },
+      { codigo: 'clientes', etiqueta: 'Clientes', path: '/admin/clientes', icono: UserRound, etiquetas: { condominios: 'Propietarios y vecinos', inmobiliaria: 'Propietarios e inquilinos' } },
       { codigo: 'clientes_b2b', etiqueta: 'Red de Clientes B2B', path: '/admin/clientes/b2b', icono: Users, tiposNegocio: ['b2b'] },
       { codigo: 'notas_entrega', etiqueta: 'Notas de Entrega', path: '/admin/facturacion/notas-entrega', icono: ReceiptText, tiposNegocio: TIPOS_CON_INVENTARIO },
-      { codigo: 'cotizaciones', etiqueta: 'Cotizaciones', path: '/admin/crm/cotizaciones', icono: FileText },
-      { codigo: 'oportunidades', etiqueta: 'Oportunidades (CRM)', path: '/admin/crm/oportunidades', icono: Target },
+      { codigo: 'cotizaciones', etiqueta: 'Cotizaciones', path: '/admin/crm/cotizaciones', icono: FileText, excluirTipos: TIPOS_INMUEBLES },
+      { codigo: 'oportunidades', etiqueta: 'Oportunidades (CRM)', path: '/admin/crm/oportunidades', icono: Target, excluirTipos: TIPOS_INMUEBLES },
     ],
   },
   {
@@ -121,9 +165,9 @@ export const GRUPOS_MODULOS_PANEL: GrupoModulosPanel[] = [
     etiqueta: 'Finanzas',
     icono: Wallet,
     modulos: [
-      { codigo: 'cobros', etiqueta: 'Cobros', path: '/admin/facturacion/cobros', icono: Landmark },
-      { codigo: 'cuentas_por_cobrar', etiqueta: 'Cuentas por Cobrar', path: '/admin/facturacion/cuentas-por-cobrar', icono: HandCoins },
-      { codigo: 'caja_bancos', etiqueta: 'Caja y Bancos', path: '/admin/facturacion/caja-bancos', icono: Wallet },
+      { codigo: 'cobros', etiqueta: 'Cobros', path: '/admin/facturacion/cobros', icono: Landmark, excluirTipos: TIPOS_INMUEBLES },
+      { codigo: 'cuentas_por_cobrar', etiqueta: 'Cuentas por Cobrar', path: '/admin/facturacion/cuentas-por-cobrar', icono: HandCoins, excluirTipos: TIPOS_INMUEBLES },
+      { codigo: 'caja_bancos', etiqueta: 'Caja y Bancos', path: '/admin/facturacion/caja-bancos', icono: Wallet, excluirTipos: TIPOS_INMUEBLES },
     ],
   },
   {
@@ -148,10 +192,10 @@ export const GRUPOS_MODULOS_PANEL: GrupoModulosPanel[] = [
     etiqueta: 'Fiscal',
     icono: ReceiptText,
     modulos: [
-      { codigo: 'libros_fiscales', etiqueta: 'Libros Fiscales', path: '/admin/facturacion/libros', icono: Landmark },
-      { codigo: 'notas_credito', etiqueta: 'Notas de Crédito', path: '/admin/facturacion/notas-credito', icono: FileText },
-      { codigo: 'notas_debito', etiqueta: 'Notas de Débito', path: '/admin/facturacion/notas-debito', icono: FileText },
-      { codigo: 'retenciones', etiqueta: 'Retenciones', path: '/admin/facturacion/retenciones', icono: ReceiptText },
+      { codigo: 'libros_fiscales', etiqueta: 'Libros Fiscales', path: '/admin/facturacion/libros', icono: Landmark, excluirTipos: TIPOS_INMUEBLES },
+      { codigo: 'notas_credito', etiqueta: 'Notas de Crédito', path: '/admin/facturacion/notas-credito', icono: FileText, excluirTipos: TIPOS_INMUEBLES },
+      { codigo: 'notas_debito', etiqueta: 'Notas de Débito', path: '/admin/facturacion/notas-debito', icono: FileText, excluirTipos: TIPOS_INMUEBLES },
+      { codigo: 'retenciones', etiqueta: 'Retenciones', path: '/admin/facturacion/retenciones', icono: ReceiptText, excluirTipos: TIPOS_INMUEBLES },
     ],
   },
   {
@@ -169,8 +213,8 @@ export const GRUPOS_MODULOS_PANEL: GrupoModulosPanel[] = [
     etiqueta: 'Postventa',
     icono: LifeBuoy,
     modulos: [
-      { codigo: 'garantias', etiqueta: 'Garantías', path: '/admin/postventa/garantias', icono: ShieldCheck, tiposNegocio: TIPOS_CON_INVENTARIO },
-      { codigo: 'reclamos_postventa', etiqueta: 'Reclamos', path: '/admin/postventa/reclamos', icono: LifeBuoy },
+      { codigo: 'garantias', etiqueta: 'Garantías', path: '/admin/postventa/garantias', icono: ShieldCheck, tiposNegocio: TIPOS_CON_INVENTARIO, excluirTipos: TIPOS_INMUEBLES },
+      { codigo: 'reclamos_postventa', etiqueta: 'Reclamos', path: '/admin/postventa/reclamos', icono: LifeBuoy, excluirTipos: TIPOS_INMUEBLES },
     ],
   },
   {
@@ -182,13 +226,13 @@ export const GRUPOS_MODULOS_PANEL: GrupoModulosPanel[] = [
       { codigo: 'suscripcion', etiqueta: 'Mi Suscripción', path: '/admin/suscripcion', icono: Sparkles, basico: true },
       { codigo: 'monedas', etiqueta: 'Monedas', path: '/admin/configuracion/monedas', icono: Coins, basico: true },
       { codigo: 'tasas_cambio', etiqueta: 'Tasas de Cambio', path: '/admin/configuracion/tasas-cambio', icono: Repeat, basico: true },
-      { codigo: 'impuestos', etiqueta: 'Impuestos', path: '/admin/configuracion/iva', icono: ReceiptText, basico: true },
-      { codigo: 'metodos_pago', etiqueta: 'Métodos de Pago', path: '/admin/configuracion/metodos-pago', icono: Wallet, basico: true },
-      { codigo: 'bancos', etiqueta: 'Bancos', path: '/admin/configuracion/bancos', icono: Landmark, basico: true },
-      { codigo: 'pagos_online', etiqueta: 'Pagos en Línea', path: '/admin/configuracion/pagos-online', icono: Smartphone, tiposNegocio: TIPOS_CON_INVENTARIO },
+      { codigo: 'impuestos', etiqueta: 'Impuestos', path: '/admin/configuracion/iva', icono: ReceiptText, basico: true, excluirTipos: TIPOS_INMUEBLES },
+      { codigo: 'metodos_pago', etiqueta: 'Métodos de Pago', path: '/admin/configuracion/metodos-pago', icono: Wallet, basico: true, excluirTipos: TIPOS_INMUEBLES },
+      { codigo: 'bancos', etiqueta: 'Bancos', path: '/admin/configuracion/bancos', icono: Landmark, basico: true, excluirTipos: TIPOS_INMUEBLES },
+      { codigo: 'pagos_online', etiqueta: 'Pagos en Línea', path: '/admin/configuracion/pagos-online', icono: Smartphone, tiposNegocio: TIPOS_CON_INVENTARIO, excluirTipos: TIPOS_INMUEBLES },
       { codigo: 'fiscal', etiqueta: 'País y Fiscalidad', path: '/admin/configuracion/fiscal', icono: Globe2, basico: true },
-      { codigo: 'correlativo', etiqueta: 'Numeración de Facturas', path: '/admin/configuracion/correlativo', icono: Hash, basico: true },
-      { codigo: 'importar_clientes', etiqueta: 'Importar Clientes', path: '/admin/clientes/importar', icono: UserPlus, tiposNegocio: ['retail', 'restaurante', 'farmacia', 'servicios', 'contador'] },
+      { codigo: 'correlativo', etiqueta: 'Numeración de Facturas', path: '/admin/configuracion/correlativo', icono: Hash, basico: true, excluirTipos: TIPOS_INMUEBLES },
+      { codigo: 'importar_clientes', etiqueta: 'Importar Clientes', path: '/admin/clientes/importar', icono: UserPlus, tiposNegocio: ['retail', 'restaurante', 'farmacia', 'servicios', 'contador', 'condominios', 'inmobiliaria'] },
       { codigo: 'importar_clientes_b2b', etiqueta: 'Importar Clientes', path: '/admin/clientes/b2b/importar', icono: UserPlus, tiposNegocio: ['b2b'] },
       { codigo: 'auditoria', etiqueta: 'Auditoría', path: '/admin/auditoria', icono: ShieldCheck },
       { codigo: 'referidos', etiqueta: 'Programa de Referidos', path: '/admin/referidos', icono: Gift, basico: true },
@@ -206,9 +250,12 @@ const ORDEN_GRUPOS_POR_TIPO: Partial<Record<TipoNegocio, string[]>> = {
   contador: ['inicio', 'contabilidad', 'finanzas', 'fiscal', 'ventas'],
   b2b: ['inicio', 'ventas', 'inventario', 'compras', 'finanzas'],
   servicios: ['inicio', 'ventas', 'finanzas', 'inventario'],
+  condominios: ['inicio', 'condominios', 'cobranza', 'ventas', 'contabilidad', 'rrhh'],
+  inmobiliaria: ['inicio', 'inmobiliaria', 'cobranza', 'ventas', 'contabilidad', 'rrhh'],
 };
 
 function aplicaAlTipo(modulo: ModuloPanel, tipoNegocio?: TipoNegocio): boolean {
+  if (tipoNegocio && modulo.excluirTipos?.includes(tipoNegocio)) return false;
   return !modulo.tiposNegocio || (!!tipoNegocio && modulo.tiposNegocio.includes(tipoNegocio));
 }
 
@@ -246,9 +293,10 @@ export function gruposVisibles(
   return GRUPOS_MODULOS_PANEL
     .map((grupo) => ({
       ...grupo,
-      modulos: grupo.modulos.filter(
-        (m) => aplicaAlTipo(m, tipoNegocio) && incluidoEnPlan(m, modulosPlan) && !modulosOcultos.has(m.codigo) && (!m.soloAdmin || esAdmin),
-      ),
+      etiqueta: (tipoNegocio && grupo.etiquetas?.[tipoNegocio]) || grupo.etiqueta,
+      modulos: grupo.modulos
+        .filter((m) => aplicaAlTipo(m, tipoNegocio) && incluidoEnPlan(m, modulosPlan) && !modulosOcultos.has(m.codigo) && (!m.soloAdmin || esAdmin))
+        .map((m) => ((tipoNegocio && m.etiquetas?.[tipoNegocio]) ? { ...m, etiqueta: m.etiquetas[tipoNegocio] as string } : m)),
     }))
     .filter((grupo) => grupo.modulos.length > 0)
     .sort((a, b) => posicion(a.id) - posicion(b.id));

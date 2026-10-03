@@ -5,6 +5,7 @@ import { GRUPOS_MODULOS_VENDIBLES, type TipoNegocio } from '@/utils/modulosPanel
 
 const ETIQUETA_TIPO: Record<TipoNegocio, string> = {
   retail: 'Retail', b2b: 'B2B', restaurante: 'Restaurante', farmacia: 'Farmacia', servicios: 'Servicios', contador: 'Contador',
+  condominios: 'Condominios', inmobiliaria: 'Inmobiliaria',
 };
 
 interface SelectorModulosPlanProps {

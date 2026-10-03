@@ -140,6 +140,36 @@ const GUIONES: Record<TipoNegocio, GuionTour> = {
     ],
     cierre: 'Crea tu primera empresa cliente y registra su primer asiento. ¡Mucho éxito!',
   },
+  condominios: {
+    bienvenida: 'Tu administradora ya está lista. Te mostramos cómo cargar tus edificios, emitir los recibos del mes y cobrar a los vecinos.',
+    pasos: [
+      { modulo: 'dashboard', title: 'Tu panel principal', emoji: '📊', description: 'Lo cobrado del mes, la deuda vencida y los vecinos morosos de un vistazo.' },
+      { modulo: 'edificios', title: 'Tus edificios', emoji: '🏢', description: 'Crea cada condominio con su día de vencimiento, % de mora y fondo de reserva.' },
+      { modulo: 'unidades', title: 'Unidades y propietarios', emoji: '🏠', description: 'Carga las unidades con su alícuota y su propietario. Si ya las tienes en Excel, súbelas todas de una vez con “Importar”.' },
+      { modulo: 'gastos_comunes', title: 'Gastos del mes', emoji: '🧾', description: 'Registra la vigilancia, el aseo, el agua... con su comprobante. Con esto se calcula la cuota de cada unidad.' },
+      { modulo: 'periodos_condominio', title: 'Emite los recibos', emoji: '📄', description: 'Ves cuánto le toca a cada unidad según su alícuota y, con un clic, se generan todas las cuotas del mes.' },
+      { modulo: 'cobranza', title: 'Cobranza', emoji: '💵', description: 'Registra los pagos (en bolívares o dólares, con la tasa del día) y el sistema los aplica a las deudas más antiguas.' },
+      { modulo: 'pagos_reportados', title: 'Pagos que avisan tus vecinos', emoji: '✅', description: 'Cada vecino ve su deuda en su portal y avisa su pago con el comprobante. Tú lo revisas y apruebas aquí.' },
+      { modulo: 'morosidad', title: 'Morosidad', emoji: '🚨', description: 'Quién debe, cuánto y desde cuándo, con recordatorios listos para enviar por WhatsApp.' },
+      { modulo: 'medios_cobro', title: 'Datos para pagar', emoji: '🏦', description: 'Carga la cuenta o el pago móvil de cada edificio: es lo que verán tus vecinos en su portal.' },
+      PASO_EMPRESA,
+    ],
+    cierre: 'Crea tu primer edificio, carga sus unidades y emite el primer mes. ¡Mucho éxito!',
+  },
+  inmobiliaria: {
+    bienvenida: 'Tu inmobiliaria ya está lista. Te mostramos cómo publicar propiedades, firmar contratos y rendir cuentas a los propietarios.',
+    pasos: [
+      { modulo: 'dashboard', title: 'Tu panel principal', emoji: '📊', description: 'Cobros del mes, contratos por vencer y morosos de un vistazo.' },
+      { modulo: 'propiedades', title: 'Tus propiedades', emoji: '🏡', description: 'Carga cada inmueble con fotos, precio y características. Al publicarlo, aparece en tu portal para que los interesados lo vean.' },
+      { modulo: 'contratos', title: 'Contratos de alquiler', emoji: '✍️', description: 'Crea el contrato con canon, depósito y honorario. Al activarlo, el sistema genera el canon de cada mes automáticamente.' },
+      { modulo: 'cobranza', title: 'Cobranza', emoji: '💵', description: 'Registra los pagos de tus inquilinos en bolívares o dólares, con la tasa del día, y emite su recibo.' },
+      { modulo: 'liquidaciones', title: 'Liquidaciones a propietarios', emoji: '🧮', description: 'Con un clic: lo cobrado, menos tu honorario y los gastos de la propiedad = lo que le transfieres al dueño.' },
+      { modulo: 'consultas_inmuebles', title: 'Interesados', emoji: '💬', description: 'Las consultas que llegan desde tu portal quedan aquí para que les des seguimiento.' },
+      { ...PASO_TIENDA, title: 'Tu portal de propiedades', description: 'Este es el link de tu portal. Compártelo en Instagram, WhatsApp y tus avisos: cada propiedad publicada tiene su propia página.' },
+      PASO_EMPRESA,
+    ],
+    cierre: 'Publica tu primera propiedad y compártela con tus clientes. ¡Mucho éxito!',
+  },
 };
 
 function esPasoModulo(paso: PasoGuion): paso is PasoModulo {
